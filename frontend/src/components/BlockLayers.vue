@@ -14,6 +14,9 @@
 					class="min-w-24 cursor-pointer select-none rounded border border-transparent bg-surface-white bg-opacity-50 text-base text-ink-gray-7"
 					@click.stop="selectBlock(element, $event)"
 					@pointerdown.stop="handlePointerDown(element, $event)"
+					@pointermove.stop="handlePointerMove($event)"
+					@pointerup.stop="handlePointerUp($event)"
+					@pointercancel.stop="handlePointerCancel($event)"
 					@mouseover.stop="canvasStore.activeCanvas?.setHoveredBlock(element.blockId)"
 					@mouseleave.stop="canvasStore.activeCanvas?.setHoveredBlock(null)">
 					<span
@@ -97,7 +100,9 @@
 </template>
 <script setup lang="ts">
 import type Block from "@/block";
+import useBuilderStore from "@/stores/builderStore";
 import useCanvasStore from "@/stores/canvasStore";
+import blockController from "@/utils/blockController";
 import { FeatherIcon } from "frappe-ui";
 import { ref, watch } from "vue";
 import draggable from "vuedraggable";
@@ -107,12 +112,25 @@ import BlocksIcon from "./Icons/Blocks.vue";
 type LayerInstance = InstanceType<typeof BlockLayers>;
 
 const canvasStore = useCanvasStore();
+const builderStore = useBuilderStore();
 
-const childLayers = ref<LayerInstance[]>([]);
-const childLayer = (el: LayerInstance) => {
-	if (el) {
-		childLayers.value.push(el);
+// Long press state
+const LONG_PRESS_DURATION = 500;
+const LONG_PRESS_MOVE_THRESHOLD = 8;
+let pressTimer: ReturnType<typeof setTimeout> | null = null;
+let longPressPointerId: number | null = null;
+let longPressStartX = 0;
+let longPressStartY = 0;
+let longPressBlock: Block | null = null;
+let longPressTriggered = false;
+
+const clearPressTimer = () => {
+	if (pressTimer) {
+		clearTimeout(pressTimer);
+		pressTimer = null;
 	}
+	longPressPointerId = null;
+	longPressBlock = null;
 };
 
 const props = withDefaults(
@@ -240,22 +258,75 @@ const handlePointerDown = (block: Block, event: PointerEvent) => {
 	if (event.pointerType === "pen") {
 		event.preventDefault();
 		selectBlock(block, event);
+		return;
+	}
+
+	// Handle long press for touch
+	if (event.pointerType === "touch" && event.isPrimary) {
+		if (longPressPointerId !== null) return;
+
+		longPressPointerId = event.pointerId;
+		longPressStartX = event.clientX;
+		longPressStartY = event.clientY;
+		longPressBlock = block;
+		longPressTriggered = false;
+
+		pressTimer = setTimeout(() => {
+			if (longPressBlock) {
+				longPressTriggered = true;
+				canvasStore.activeCanvas?.selectBlock(longPressBlock, blockController.multipleBlocksSelected());
+				builderStore.blockContextMenu?.showContextMenu(event, longPressBlock);
+			}
+			pressTimer = null;
+			longPressPointerId = null;
+			longPressBlock = null;
+		}, LONG_PRESS_DURATION);
+	}
+};
+
+const handlePointerMove = (event: PointerEvent) => {
+	if (longPressPointerId === null || event.pointerId !== longPressPointerId) return;
+	const dx = event.clientX - longPressStartX;
+	const dy = event.clientY - longPressStartY;
+	if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_THRESHOLD) {
+		clearPressTimer();
+	}
+};
+
+const handlePointerUp = (event: PointerEvent) => {
+	if (longPressPointerId === event.pointerId) {
+		const block = longPressBlock;
+		const wasLongPress = longPressTriggered;
+		clearPressTimer();
+		
+		// If it was a simple tap (not a long press), select the block
+		if (!wasLongPress && block && event.pointerType === "touch") {
+			selectBlock(block, event);
+		}
+	}
+};
+
+const handlePointerCancel = (event: PointerEvent) => {
+	if (longPressPointerId === event.pointerId) {
+		clearPressTimer();
 	}
 };
 
 const handleExpandPointerDown = (block: Block, event: PointerEvent) => {
-	// Handle Apple Pencil / stylus for expand/collapse
-	if (event.pointerType === "pen") {
+	// Handle touch and pencil for expand/collapse icon
+	if (event.pointerType === "touch" || event.pointerType === "pen") {
 		event.preventDefault();
+		event.stopPropagation();
 		toggleExpanded(block);
 	}
 };
 
-const handleVisibilityPointerDown = (element: Block, event: PointerEvent) => {
-	// Handle Apple Pencil / stylus for visibility toggle
-	if (event.pointerType === "pen") {
+const handleVisibilityPointerDown = (block: Block, event: PointerEvent) => {
+	// Handle touch and pencil for visibility icon
+	if (event.pointerType === "touch" || event.pointerType === "pen") {
 		event.preventDefault();
-		element.toggleVisibility();
+		event.stopPropagation();
+		block.toggleVisibility();
 	}
 };
 
