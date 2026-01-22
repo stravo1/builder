@@ -15,6 +15,24 @@ function setPanAndZoom(
 	let pinchPointSet = false;
 	let wheeling: undefined | NodeJS.Timeout;
 
+	// touch state
+	let touchPanning = false;
+	let lastTouchX = 0;
+	let lastTouchY = 0;
+	let pinchStartDistance = 0;
+	let pinchStartScale = 1;
+
+	const getDistance = (t1: Touch, t2: Touch) => {
+		const dx = t2.clientX - t1.clientX;
+		const dy = t2.clientY - t1.clientY;
+		return Math.hypot(dx, dy);
+	};
+
+	const getCenter = (t1: Touch, t2: Touch) => ({
+		x: (t1.clientX + t2.clientX) / 2,
+		y: (t1.clientY + t2.clientY) / 2,
+	});
+
 	const setZoom = (scale: number, pinchPoint: { x: number; y: number } | "center" = "center") => {
 		const clampedScale = Math.min(Math.max(scale, zoomLimits.min), zoomLimits.max);
 		const oldScale = props.scale;
@@ -118,6 +136,53 @@ function setPanAndZoom(
 		}, 200);
 	};
 
+	const onTouchStart = (e: TouchEvent) => {
+		if (e.touches.length === 1) {
+			touchPanning = true;
+			props.panning = true;
+			props.scaling = false;
+			lastTouchX = e.touches[0].clientX;
+			lastTouchY = e.touches[0].clientY;
+		} else if (e.touches.length === 2) {
+			touchPanning = false;
+			props.scaling = true;
+			props.panning = false;
+			pinchStartDistance = getDistance(e.touches[0], e.touches[1]);
+			pinchStartScale = props.scale;
+		}
+	};
+
+	const onTouchMove = (e: TouchEvent) => {
+		e.preventDefault();
+		if (e.touches.length === 1 && touchPanning) {
+			const t = e.touches[0];
+			const dx = t.clientX - lastTouchX;
+			const dy = t.clientY - lastTouchY;
+			lastTouchX = t.clientX;
+			lastTouchY = t.clientY;
+			props.translateX += dx / props.scale;
+			props.translateY += dy / props.scale;
+		} else if (e.touches.length === 2) {
+			const distance = getDistance(e.touches[0], e.touches[1]);
+			const center = getCenter(e.touches[0], e.touches[1]);
+			const nextScale = pinchStartScale * (distance / Math.max(pinchStartDistance, 1));
+			setZoom(nextScale, center);
+		}
+	};
+
+	const onTouchEnd = (e: TouchEvent) => {
+		if (e.touches.length === 0) {
+			touchPanning = false;
+			props.panning = false;
+			props.scaling = false;
+		}
+	};
+
+	const preventDocumentZoom = (e: WheelEvent) => {
+		if (e.ctrlKey || e.metaKey) e.preventDefault();
+	};
+	const preventGestureZoom = (e: Event) => e.preventDefault();
+
 	panAndZoomAreaElement.addEventListener(
 		"wheel",
 		(e) => {
@@ -126,6 +191,17 @@ function setPanAndZoom(
 		},
 		{ passive: false },
 	);
+
+	panAndZoomAreaElement.addEventListener("touchstart", onTouchStart, { passive: false });
+	panAndZoomAreaElement.addEventListener("touchmove", onTouchMove, { passive: false });
+	panAndZoomAreaElement.addEventListener("touchend", onTouchEnd);
+	panAndZoomAreaElement.addEventListener("touchcancel", onTouchEnd);
+
+	// Disable zooming for the entire document
+	document.addEventListener("wheel", preventDocumentZoom, { passive: false });
+	document.addEventListener("gesturestart", preventGestureZoom, { passive: false });
+	document.addEventListener("gesturechange", preventGestureZoom, { passive: false });
+	document.addEventListener("gestureend", preventGestureZoom, { passive: false });
 
 	return { setZoom };
 }

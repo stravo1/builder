@@ -445,6 +445,68 @@ export function useBuilderEvents(
 			}
 		}
 	});
+
+	// Press and hold for context menu
+	let pressTimer: ReturnType<typeof setTimeout> | null = null;
+	const LONG_PRESS_DURATION = 500; // 500ms for long press
+	const LONG_PRESS_MOVE_THRESHOLD = 8;
+	let longPressPointerId: number | null = null;
+	let longPressStartX = 0;
+	let longPressStartY = 0;
+
+	const clearPressTimer = () => {
+		if (pressTimer) {
+			clearTimeout(pressTimer);
+			pressTimer = null;
+		}
+		longPressPointerId = null;
+	};
+
+	useEventListener(document, "pointerdown", async (e) => {
+		if (isTargetEditable(e)) return;
+		if (e.pointerType !== "touch" || !e.isPrimary) return;
+		if (e.pointerType === "touch" && e.width && e.height && (e.width > 1 || e.height > 1)) {
+			// ...existing code...
+		}
+		if (longPressPointerId !== null) return;
+
+		longPressPointerId = e.pointerId;
+		longPressStartX = e.clientX;
+		longPressStartY = e.clientY;
+
+		const target =
+			<HTMLElement | null>(e.target as HTMLElement)?.closest("[data-block-layer-id]") ||
+			(e.target as HTMLElement)?.closest("[data-block-id]");
+		if (target) {
+			const blockId = target.dataset.blockLayerId || target.dataset.blockId;
+			const block = canvasStore.activeCanvas?.findBlock(blockId as string);
+			if (block) {
+				pressTimer = setTimeout(() => {
+					canvasStore.activeCanvas?.selectBlock(block, blockController.multipleBlocksSelected());
+					builderStore.blockContextMenu?.showContextMenu(e, block);
+					pressTimer = null;
+					longPressPointerId = null;
+				}, LONG_PRESS_DURATION);
+			}
+		}
+	});
+
+	useEventListener(document, "pointermove", (e) => {
+		if (longPressPointerId === null || e.pointerId !== longPressPointerId) return;
+		const dx = e.clientX - longPressStartX;
+		const dy = e.clientY - longPressStartY;
+		if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_THRESHOLD) {
+			clearPressTimer();
+		}
+	});
+
+	useEventListener(document, "pointerup", (e) => {
+		if (longPressPointerId === e.pointerId) clearPressTimer();
+	});
+
+	useEventListener(document, "pointercancel", (e) => {
+		if (longPressPointerId === e.pointerId) clearPressTimer();
+	});
 }
 
 const clearSelection = () => {
