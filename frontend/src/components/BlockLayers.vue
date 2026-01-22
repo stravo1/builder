@@ -13,6 +13,7 @@
 					:title="element.blockId"
 					class="min-w-24 cursor-pointer select-none rounded border border-transparent bg-surface-white bg-opacity-50 text-base text-ink-gray-7"
 					@click.stop="selectBlock(element, $event)"
+					@pointerdown.stop="handlePointerDown(element, $event)"
 					@mouseover.stop="canvasStore.activeCanvas?.setHoveredBlock(element.blockId)"
 					@mouseleave.stop="canvasStore.activeCanvas?.setHoveredBlock(null)">
 					<span
@@ -31,7 +32,8 @@
 								'ml-[-18px]': adjustForRoot,
 							}"
 							v-if="element.children && element.children.length && !element.isRoot()"
-							@click.stop="toggleExpanded(element)" />
+							@click.stop="toggleExpanded(element)"
+							@pointerdown.stop="handleExpandPointerDown(element, $event)" />
 						<FeatherIcon
 							:name="element.getIcon()"
 							class="h-3 w-3"
@@ -74,7 +76,8 @@
 							v-if="!element.isRoot() && !isParentHidden && !readonly"
 							:name="element.isVisible() ? 'eye' : 'eye-off'"
 							class="invisible ml-auto mr-2 h-3 w-3 group-hover:visible"
-							@click.stop="element.toggleVisibility()" />
+							@click.stop="element.toggleVisibility()"
+							@pointerdown.stop="handleVisibilityPointerDown(element, $event)" />
 					</span>
 					<div v-if="canShowChildLayer(element)">
 						<BlockLayers
@@ -228,8 +231,32 @@ const blockExitsInTree = (block: Block) => {
 	return false;
 };
 
-const selectBlock = (block: Block, event: MouseEvent) => {
+const selectBlock = (block: Block, event: MouseEvent | PointerEvent) => {
 	canvasStore.selectBlock(block, event, false, true);
+};
+
+const handlePointerDown = (block: Block, event: PointerEvent) => {
+	// Handle Apple Pencil / stylus selection explicitly
+	if (event.pointerType === "pen") {
+		event.preventDefault();
+		selectBlock(block, event);
+	}
+};
+
+const handleExpandPointerDown = (block: Block, event: PointerEvent) => {
+	// Handle Apple Pencil / stylus for expand/collapse
+	if (event.pointerType === "pen") {
+		event.preventDefault();
+		toggleExpanded(block);
+	}
+};
+
+const handleVisibilityPointerDown = (element: Block, event: PointerEvent) => {
+	// Handle Apple Pencil / stylus for visibility toggle
+	if (event.pointerType === "pen") {
+		event.preventDefault();
+		element.toggleVisibility();
+	}
 };
 
 defineExpose({

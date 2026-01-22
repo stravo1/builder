@@ -22,6 +22,9 @@ function setPanAndZoom(
 	let pinchStartDistance = 0;
 	let pinchStartScale = 1;
 
+	// Track if current interaction is from stylus/pencil
+	let isStylusInteraction = false;
+
 	const getDistance = (t1: Touch, t2: Touch) => {
 		const dx = t2.clientX - t1.clientX;
 		const dy = t2.clientY - t1.clientY;
@@ -136,7 +139,26 @@ function setPanAndZoom(
 		}, 200);
 	};
 
+	// Pointer event handlers to detect stylus
+	const onPointerDown = (e: PointerEvent) => {
+		// Check if this is a stylus/pen input
+		if (e.pointerType === "pen") {
+			isStylusInteraction = true;
+		} else {
+			isStylusInteraction = false;
+		}
+	};
+
+	const onPointerUp = () => {
+		isStylusInteraction = false;
+	};
+
 	const onTouchStart = (e: TouchEvent) => {
+		// Skip pan/zoom handling if this is a stylus interaction
+		if (isStylusInteraction) {
+			return;
+		}
+
 		if (e.touches.length === 1) {
 			touchPanning = true;
 			props.panning = true;
@@ -153,6 +175,11 @@ function setPanAndZoom(
 	};
 
 	const onTouchMove = (e: TouchEvent) => {
+		// Skip pan/zoom handling if this is a stylus interaction
+		if (isStylusInteraction) {
+			return;
+		}
+
 		e.preventDefault();
 		if (e.touches.length === 1 && touchPanning) {
 			const t = e.touches[0];
@@ -171,6 +198,12 @@ function setPanAndZoom(
 	};
 
 	const onTouchEnd = (e: TouchEvent) => {
+		// Skip if this was a stylus interaction
+		if (isStylusInteraction) {
+			isStylusInteraction = false;
+			return;
+		}
+
 		if (e.touches.length === 0) {
 			touchPanning = false;
 			props.panning = false;
@@ -191,6 +224,11 @@ function setPanAndZoom(
 		},
 		{ passive: false },
 	);
+
+	// Add pointer event listeners to detect stylus before touch events fire
+	panAndZoomAreaElement.addEventListener("pointerdown", onPointerDown, { passive: true });
+	panAndZoomAreaElement.addEventListener("pointerup", onPointerUp, { passive: true });
+	panAndZoomAreaElement.addEventListener("pointercancel", onPointerUp, { passive: true });
 
 	panAndZoomAreaElement.addEventListener("touchstart", onTouchStart, { passive: false });
 	panAndZoomAreaElement.addEventListener("touchmove", onTouchMove, { passive: false });

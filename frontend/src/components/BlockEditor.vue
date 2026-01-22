@@ -6,6 +6,7 @@
 		@click.stop="handleClick"
 		@dblclick="handleDoubleClick"
 		@mousedown.prevent="handleMove"
+		@pointerdown.stop="handlePointerDown"
 		@drop.prevent.stop="handleDrop"
 		:data-block-id="block.blockId"
 		:class="getStyleClasses">
@@ -302,6 +303,25 @@ const handleMove = (ev: MouseEvent) => {
 		},
 		{ once: true },
 	);
+};
+
+const handlePointerDown = (ev: PointerEvent) => {
+	// Handle Apple Pencil / stylus selection
+	if (ev.pointerType === "pen") {
+		ev.stopPropagation();
+
+		if (props.editable || props.readonly) return;
+
+		// Select the block on pencil tap
+		if (!props.isSelected) {
+			blockController.selectBlock(props.block, ev);
+		}
+
+		// Allow double-tap to edit with pencil
+		if (props.block.isText() || props.block.isButton() || props.block.isLink()) {
+			canvasStore.editableBlock = props.block;
+		}
+	}
 };
 
 defineExpose({
