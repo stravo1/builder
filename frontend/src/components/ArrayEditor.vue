@@ -2,7 +2,7 @@
 	<div ref="arrayEditor" class="flex flex-col gap-2" @paste="pasteArray">
 		<div v-for="(item, index) in arr" :key="index" class="flex gap-2">
 			<BuilderInput
-				placeholder="empty string"
+				placeholder="Enter value"
 				:modelValue="item"
 				@input="(val: string) => updateItem(index, val)" />
 			<BuilderButton
@@ -65,7 +65,6 @@ const pasteArray = (e: ClipboardEvent) => {
 			if (Array.isArray(parsed)) {
 				const stringArray = parsed.map(item => String(item));
 				emit("update:arr", [...passedArr, ...stringArray]);
-				console.log("Pasted JSON array:", [...passedArr, ...stringArray]);
 				return;
 			}
 		} catch (e) {

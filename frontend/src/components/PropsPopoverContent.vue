@@ -45,7 +45,7 @@
 				@input="(val) => (value = val)"></Input>
 			<Autocomplete
 				v-else
-				anchorSelector=".props-popover-content"
+				referenceElementSelector=".props-popover-content"
 				class="w-full [&>.form-input]:border-none [&>.form-input]:hover:border-none"
 				ref="autoCompleteRef"
 				placeholder="Choose prop value"
@@ -351,7 +351,7 @@ interface ResetParams {
 }
 
 function getDefaultIsStandard(keepProps: boolean): string {
-	const isStandardByDefault = isInFragmentMode.value && props.mode === "add";
+	const isStandardByDefault = showIsStandardInput.value && isInFragmentMode.value && props.mode === "add";
 	const propDetailsStandard = keepProps ? props.propDetails?.isStandard : undefined;
 	return propDetailsStandard !== undefined
 		? String(propDetailsStandard)

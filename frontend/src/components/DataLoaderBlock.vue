@@ -15,6 +15,7 @@
 			:readonly="readonly"
 			:breakpoint="breakpoint"
 			:isChildOfComponent="block.isExtendedFromComponent()"
+			:repeater-index="index"
 			v-for="(_data, index) in blockRepeaterData" />
 	</div>
 </template>
@@ -50,7 +51,6 @@ const props = withDefaults(
 const component = ref(null) as Ref<HTMLElement | null>;
 
 const repeatingFrom = computed(() => {
-	console.log("Repeating from:", props.block.getDataKey("comesFrom"));
 	return props.block.getDataKey("comesFrom") || "dataScript";
 });
 

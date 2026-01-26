@@ -41,7 +41,13 @@
 import type Block from "@/block";
 import useCanvasStore from "@/stores/canvasStore";
 import { setFont } from "@/utils/fontManager";
-import { getDataForKey, getPropValue, saferExecuteBlockClientScript } from "@/utils/helpers";
+import {
+	executeBlockClientScriptRestricted,
+	executeBlockClientScriptUnrestricted,
+	getDataForKey,
+	getParentProps,
+	getPropValue,
+} from "@/utils/helpers";
 import { useDraggableBlock } from "@/utils/useDraggableBlock";
 import {
 	computed,
@@ -82,6 +88,7 @@ const props = withDefaults(
 		data?: Record<string, any> | null;
 		blockData?: Record<string, any> | null;
 		defaultProps?: Record<string, any> | null;
+		repeaterIndex?: string | number | null;
 	}>(),
 	{
 		isChildOfComponent: false,
@@ -91,6 +98,7 @@ const props = withDefaults(
 		data: null,
 		blockData: null,
 		defaultProps: null,
+		repeaterIndex: null,
 	},
 );
 
@@ -187,7 +195,8 @@ const attributes = computed(() => {
 			attribs[props.block.getDataKey("property") as string] =
 				value ?? attribs[props.block.getDataKey("property") as string];
 		}
-		props.block.getDynamicValues()
+		props.block
+			.getDynamicValues()
 			?.filter((dataKeyObj: BlockDataKey) => {
 				return dataKeyObj.type === "attribute";
 			})
@@ -250,7 +259,8 @@ const styles = computed(() => {
 				[props.block.getDataKey("property") as string]: value,
 			};
 		}
-		props.block.getDynamicValues()
+		props.block
+			.getDynamicValues()
 			?.filter((dataKeyObj: BlockDataKey) => {
 				return dataKeyObj.type === "style";
 			})
@@ -354,18 +364,20 @@ const allResolvedProps = computed(() => {
 			}),
 		),
 		...Object.fromEntries(
-			Object.entries(props.block.getBlockProps()).map(([key, prop]) => {
-				return [
-					key,
-					getPropValue(
+			Object.entries({ ...props.block.getBlockProps(), ...getParentProps(props.block) }).map(
+				([key, prop]) => {
+					return [
 						key,
-						props.block,
-						getDataScriptValue,
-						(path: string) => getDataForKey({ ...props.blockData }, path), // block props can not refer to own block data items
-						props.defaultProps,
-					),
-				];
-			}),
+						getPropValue(
+							key,
+							props.block,
+							getDataScriptValue,
+							(path: string) => getDataForKey({ ...props.blockData }, path), // block props can not refer to own block data items
+							props.defaultProps,
+						),
+					];
+				},
+			),
 		),
 	};
 });
@@ -375,13 +387,16 @@ watch(
 		component,
 		allResolvedProps,
 		() => props.block.getBlockClientScript(),
-		() => Boolean(builderSettings.doc?.execute_block_scripts_in_editor),
+		() => builderSettings.doc?.execute_block_scripts_in_editor,
 		() => pageStore.settingPage,
 	],
 	() => {
-		if (pageStore.settingPage) return;
-		if (builderSettings.doc?.execute_block_scripts_in_editor) {
-			saferExecuteBlockClientScript(uid, props.block.getBlockClientScript(), allResolvedProps.value);
+		if (pageStore.settingPage || !props.block.getBlockClientScript().trim()) return;
+		if (builderSettings.doc?.execute_block_scripts_in_editor !== "Don't Execute") {
+			if (builderSettings.doc?.execute_block_scripts_in_editor === "Restricted")
+				executeBlockClientScriptRestricted(uid, props.block.getBlockClientScript(), allResolvedProps.value);
+			else
+				executeBlockClientScriptUnrestricted(uid, props.block.getBlockClientScript(), allResolvedProps.value);
 		}
 	},
 	{ deep: true },
@@ -390,6 +405,7 @@ watch(
 watch(
 	[component, () => props.blockData, () => props.data],
 	() => {
+		if (props.repeaterIndex) return;
 		blockDataStore.setPageData(props.block.blockId, props.data || {});
 		blockDataStore.setBlockData(props.block.blockId, props.blockData || {}, "passedDown");
 	},
@@ -405,13 +421,12 @@ watch(
 		() => pageStore.settingPage,
 	],
 	() => {
-		if (pageStore.settingPage) return;
+		if (pageStore.settingPage || props.repeaterIndex) return;
 		if (props.block.getBlockDataScript().trim() === "") {
 			ownBlockData.value = {};
 			blockDataStore.setBlockData(props.block.blockId, {}, "own");
 			return;
 		}
-		console.log("Fetching block data for", allResolvedProps.value, props.blockData);
 		fetchBlockData
 			.fetch({
 				block_id: uid,
@@ -491,8 +506,10 @@ if (!props.preview) {
 }
 
 onUnmounted(() => {
-	blockDataStore.clearBlockData(props.block.blockId);
-	blockDataStore.clearPageData(props.block.blockId);
+	if (props.repeaterIndex) {
+		blockDataStore.clearBlockData(props.block.blockId);
+		blockDataStore.clearPageData(props.block.blockId);
+	}
 });
 
 // Note: All the block event listeners are delegated to parent for better scalability
