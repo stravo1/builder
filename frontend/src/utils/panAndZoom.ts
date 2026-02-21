@@ -15,6 +15,9 @@ function setPanAndZoom(
 	let pinchPointSet = false;
 	let wheeling: undefined | NodeJS.Timeout;
 
+	// Track active pointers for multi-touch pinch-to-zoom and pan
+	const activePointers = new Map<number, { x: number; y: number }>();
+
 	const setZoom = (scale: number, pinchPoint: { x: number; y: number } | "center" = "center") => {
 		const clampedScale = Math.min(Math.max(scale, zoomLimits.min), zoomLimits.max);
 		const oldScale = props.scale;
@@ -127,7 +130,165 @@ function setPanAndZoom(
 		{ passive: false },
 	);
 
-	return { setZoom };
+	// Middle-click drag and Space+left-click drag to pan (mouse users)
+	let spacePressed = false;
+	let mousePanActive = false;
+	let savedCursor = "";
+
+	const startMousePan = (e: MouseEvent) => {
+		mousePanActive = true;
+		props.panning = true;
+		panAndZoomAreaElement.style.cursor = "grabbing";
+		const startX = e.clientX;
+		const startY = e.clientY;
+		const startTranslateX = props.translateX;
+		const startTranslateY = props.translateY;
+
+		const onMouseMove = (moveEvent: MouseEvent) => {
+			moveEvent.preventDefault();
+			props.translateX = startTranslateX + (moveEvent.clientX - startX) / props.scale;
+			props.translateY = startTranslateY + (moveEvent.clientY - startY) / props.scale;
+		};
+
+		const onMouseUp = () => {
+			mousePanActive = false;
+			props.panning = false;
+			panAndZoomAreaElement.style.cursor = spacePressed ? "grab" : savedCursor;
+			document.removeEventListener("mousemove", onMouseMove);
+			document.removeEventListener("mouseup", onMouseUp);
+		};
+
+		document.addEventListener("mousemove", onMouseMove);
+		document.addEventListener("mouseup", onMouseUp);
+	};
+
+	panAndZoomAreaElement.addEventListener("mousedown", (e: MouseEvent) => {
+		// Middle-click drag: always pan regardless of mode
+		if (e.button === 1) {
+			e.preventDefault();
+			startMousePan(e);
+			return;
+		}
+		// Space + left-click drag: pan when space is held
+		if (e.button === 0 && spacePressed) {
+			e.preventDefault();
+			startMousePan(e);
+		}
+	});
+
+	const onKeyDown = (e: KeyboardEvent) => {
+		if (e.code === "Space" && !e.repeat && !spacePressed && !mousePanActive) {
+			// Don't activate grab cursor if typing in an input/editable element
+			const target = e.target as HTMLElement;
+			if (
+				target.tagName === "INPUT" ||
+				target.tagName === "TEXTAREA" ||
+				target.isContentEditable
+			) {
+				return;
+			}
+			e.preventDefault();
+			spacePressed = true;
+			savedCursor = panAndZoomAreaElement.style.cursor;
+			panAndZoomAreaElement.style.cursor = "grab";
+		}
+	};
+
+	const onKeyUp = (e: KeyboardEvent) => {
+		if (e.code === "Space") {
+			spacePressed = false;
+			if (!mousePanActive) {
+				panAndZoomAreaElement.style.cursor = savedCursor;
+				savedCursor = "";
+			}
+		}
+	};
+
+	document.addEventListener("keydown", onKeyDown);
+	document.addEventListener("keyup", onKeyUp);
+
+	// Touch/stylus: track pointer positions for pinch-to-zoom and two-finger pan
+	const onPointerDown = (e: PointerEvent) => {
+		if (e.pointerType === "mouse") return;
+		activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+	};
+
+	const onPointerMove = (e: PointerEvent) => {
+		if (e.pointerType === "mouse") return;
+		if (!activePointers.has(e.pointerId)) return;
+
+		const prevPointers = new Map(activePointers);
+		activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+		if (activePointers.size === 2) {
+			// Two-finger pinch-to-zoom and pan
+			const prev = Array.from(prevPointers.values());
+			const curr = Array.from(activePointers.values());
+			if (prev.length < 2) return;
+
+			const prevDist = Math.hypot(prev[1].x - prev[0].x, prev[1].y - prev[0].y);
+			const currDist = Math.hypot(curr[1].x - curr[0].x, curr[1].y - curr[0].y);
+
+			if (prevDist > 0) {
+				const midX = (curr[0].x + curr[1].x) / 2;
+				const midY = (curr[0].y + curr[1].y) / 2;
+				setZoom(props.scale * (currDist / prevDist), { x: midX, y: midY });
+			}
+
+			// Two-finger pan
+			const prevMidX = (prev[0].x + prev[1].x) / 2;
+			const prevMidY = (prev[0].y + prev[1].y) / 2;
+			const currMidX = (curr[0].x + curr[1].x) / 2;
+			const currMidY = (curr[0].y + curr[1].y) / 2;
+			props.translateX += (currMidX - prevMidX) / props.scale;
+			props.translateY += (currMidY - prevMidY) / props.scale;
+			props.scaling = true;
+			props.panning = true;
+
+			clearTimeout(wheeling);
+			wheeling = setTimeout(() => {
+				props.scaling = false;
+				props.panning = false;
+			}, 200);
+			e.preventDefault();
+		} else if (activePointers.size === 1) {
+			// Single-finger pan
+			const prev = prevPointers.get(e.pointerId);
+			if (!prev) return;
+			props.translateX += (e.clientX - prev.x) / props.scale;
+			props.translateY += (e.clientY - prev.y) / props.scale;
+			props.panning = true;
+
+			clearTimeout(wheeling);
+			wheeling = setTimeout(() => {
+				props.panning = false;
+			}, 200);
+			e.preventDefault();
+		}
+	};
+
+	const onPointerUp = (e: PointerEvent) => {
+		if (e.pointerType === "mouse") return;
+		activePointers.delete(e.pointerId);
+		if (activePointers.size < 2) {
+			props.scaling = false;
+		}
+		if (activePointers.size === 0) {
+			props.panning = false;
+		}
+	};
+
+	panAndZoomAreaElement.addEventListener("pointerdown", onPointerDown);
+	panAndZoomAreaElement.addEventListener("pointermove", onPointerMove, { passive: false });
+	panAndZoomAreaElement.addEventListener("pointerup", onPointerUp);
+	panAndZoomAreaElement.addEventListener("pointercancel", onPointerUp);
+
+	const cleanup = () => {
+		document.removeEventListener("keydown", onKeyDown);
+		document.removeEventListener("keyup", onKeyUp);
+	};
+
+	return { setZoom, cleanup };
 }
 
 export default setPanAndZoom;

@@ -279,6 +279,7 @@ const onDragStart = (event: any) => {
 	resetDropIndicators();
 	dragState.draggedElement = event.item;
 	document.addEventListener("mousemove", onMouseMove);
+	document.addEventListener("pointermove", onPointerMove);
 };
 
 const updateDropIndicator = (blockLayerItem: HTMLElement, relativeY: number, elementHeight: number) => {
@@ -333,6 +334,43 @@ const onMouseMove = (event: MouseEvent) => {
 	}
 };
 
+const onPointerMove = (event: PointerEvent) => {
+	if (event.pointerType === "mouse") return; // handled by onMouseMove
+	if (!dragState.draggedElement) return;
+
+	const target = document.elementFromPoint(event.clientX, event.clientY);
+	const blockLayerItem = target?.closest(".block-layer-item") as HTMLElement | null;
+
+	if (!blockLayerItem || blockLayerItem === dragState.draggedElement) {
+		resetDropIndicators();
+		return;
+	}
+
+	const blockId = blockLayerItem.dataset.blockLayerId;
+	const block = canvasStore.activeCanvas?.findBlock(blockId!);
+
+	if (!block) {
+		resetDropIndicators();
+		return;
+	}
+
+	const rect = blockLayerItem.getBoundingClientRect();
+	const relativeY = event.clientY - rect.top;
+	const elementHeight = rect.height;
+	const isInCenterZone = relativeY > elementHeight * 0.25 && relativeY < elementHeight * 0.75;
+
+	dragState.hoverTarget = blockLayerItem;
+
+	if (block.canHaveChildren() && isInCenterZone) {
+		canvasStore.layerDraggingOverBlock = blockId!;
+		showDropIndicator.value = false;
+		dragState.hoverPosition = "inside";
+	} else {
+		canvasStore.layerDraggingOverBlock = null;
+		updateDropIndicator(blockLayerItem, relativeY, elementHeight);
+	}
+};
+
 const removeFromParent = (block: Block) => {
 	const parent = block.getParentBlock();
 	if (parent?.children) {
@@ -363,6 +401,7 @@ const onDragEnd = () => {
 	canvasStore.isDragging = false;
 	resetDropIndicators();
 	document.removeEventListener("mousemove", onMouseMove);
+	document.removeEventListener("pointermove", onPointerMove);
 
 	const { draggedElement, hoverTarget, hoverPosition } = dragState;
 	if (!draggedElement || !hoverTarget || !hoverPosition) {

@@ -6,6 +6,7 @@
 		@click.stop="handleClick"
 		@dblclick="handleDoubleClick"
 		@mousedown.prevent="handleMove"
+		@touchstart.prevent="handleMove"
 		@drop.prevent.stop="handleDrop"
 		:data-block-id="block.blockId"
 		:class="getStyleClasses">
@@ -37,7 +38,7 @@ import type Block from "@/block";
 import useBuilderStore from "@/stores/builderStore";
 import useCanvasStore from "@/stores/canvasStore";
 import blockController from "@/utils/blockController";
-import { addPxToNumber } from "@/utils/helpers";
+import { addPxToNumber, getEventCoords } from "@/utils/helpers";
 import { Ref, computed, inject, nextTick, onMounted, ref, watch, watchEffect } from "vue";
 import setGuides from "../utils/guidesTracker";
 import trackTarget from "../utils/trackTarget";
@@ -247,7 +248,7 @@ const handleDoubleClick = (ev: MouseEvent) => {
 	}
 };
 
-const handleMove = (ev: MouseEvent) => {
+const handleMove = (ev: MouseEvent | TouchEvent) => {
 	if (props.readonly) return;
 	if (builderStore.mode === "text") {
 		canvasStore.editableBlock = props.block;
@@ -255,8 +256,9 @@ const handleMove = (ev: MouseEvent) => {
 	if (!movable.value || props.block.isRoot()) return;
 	const pauseId = canvasStore.activeCanvas?.history?.pause();
 	const target = ev.target as HTMLElement;
-	const startX = ev.clientX;
-	const startY = ev.clientY;
+	const { clientX, clientY } = getEventCoords(ev);
+	const startX = clientX;
+	const startY = clientY;
 	const startLeft = (props.target as HTMLElement).offsetLeft || 0;
 	const startTop = (props.target as HTMLElement).offsetTop || 0;
 
@@ -288,20 +290,46 @@ const handleMove = (ev: MouseEvent) => {
 		mouseMoveEvent.preventDefault();
 		preventCLick.value = true;
 	};
+
+	const touchmove = async (touchMoveEvent: TouchEvent) => {
+		const scale = canvasProps.scale;
+		const touch = touchMoveEvent.touches[0];
+		if (!touch) return;
+		const movementX = (touch.clientX - startX) / scale;
+		const movementY = (touch.clientY - startY) / scale;
+		let finalLeft = startLeft + movementX;
+		let finalTop = startTop + movementY;
+		props.block.setStyle("left", addPxToNumber(finalLeft));
+		props.block.setStyle("top", addPxToNumber(finalTop));
+		await nextTick();
+		const { leftOffset, rightOffset } = guides.getPositionOffset();
+		if (leftOffset !== 0) {
+			props.block.setStyle("left", addPxToNumber(finalLeft + leftOffset));
+		}
+		if (rightOffset !== 0) {
+			props.block.setStyle("left", addPxToNumber(finalLeft + rightOffset));
+		}
+
+		touchMoveEvent.preventDefault();
+		preventCLick.value = true;
+	};
+
 	document.addEventListener("mousemove", mousemove);
-	document.addEventListener(
-		"mouseup",
-		(mouseUpEvent) => {
-			moving.value = false;
-			document.body.style.cursor = docCursor;
-			target.style.cursor = "grab";
-			document.removeEventListener("mousemove", mousemove);
-			mouseUpEvent.preventDefault();
-			guides.hideX();
-			canvasStore.activeCanvas?.history?.resume(pauseId, true);
-		},
-		{ once: true },
-	);
+	document.addEventListener("touchmove", touchmove, { passive: false });
+	const cleanup = (upEvent: Event) => {
+		moving.value = false;
+		document.body.style.cursor = docCursor;
+		target.style.cursor = "grab";
+		document.removeEventListener("mousemove", mousemove);
+		document.removeEventListener("touchmove", touchmove);
+		document.removeEventListener("mouseup", cleanup);
+		document.removeEventListener("touchend", cleanup);
+		upEvent.preventDefault();
+		guides.hideX();
+		canvasStore.activeCanvas?.history?.resume(pauseId, true);
+	};
+	document.addEventListener("mouseup", cleanup, { once: true });
+	document.addEventListener("touchend", cleanup, { once: true });
 };
 
 defineExpose({

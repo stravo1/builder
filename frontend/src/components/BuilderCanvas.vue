@@ -1,5 +1,5 @@
 <template>
-	<div ref="canvasContainer" @click="handleClick">
+	<div ref="canvasContainer" class="touch-none" @click="handleClick">
 		<Transition name="fade">
 			<div
 				class="absolute bottom-0 left-0 right-0 top-0 grid w-full place-items-center bg-surface-gray-1 p-10 text-ink-gray-5"
@@ -107,7 +107,7 @@ import { useCanvasDropZone } from "@/utils/useCanvasDropZone";
 import { useCanvasEvents } from "@/utils/useCanvasEvents";
 import { useCanvasUtils } from "@/utils/useCanvasUtils";
 import { FeatherIcon } from "frappe-ui";
-import { Ref, computed, onMounted, provide, reactive, ref, watch } from "vue";
+import { Ref, computed, onMounted, onUnmounted, provide, reactive, ref, watch } from "vue";
 import setPanAndZoom from "../utils/panAndZoom";
 import BlockSnapGuides from "./BlockSnapGuides.vue";
 import BuilderBlock from "./BuilderBlock.vue";
@@ -233,9 +233,13 @@ onMounted(() => {
 		getRootBlock,
 		findBlock,
 	);
-	const { setZoom } = setPanAndZoom(canvasEl, canvasContainerEl, canvasProps);
+	const { setZoom, cleanup: cleanupPanAndZoom } = setPanAndZoom(canvasEl, canvasContainerEl, canvasProps);
 	setCanvasZoom.value = setZoom;
 	useBlockEventHandlers(canvasContainerEl);
+});
+
+onUnmounted(() => {
+	cleanupPanAndZoom?.();
 });
 
 const handleClick = (ev: MouseEvent) => {
