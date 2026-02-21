@@ -130,6 +130,83 @@ function setPanAndZoom(
 		{ passive: false },
 	);
 
+	// Middle-click drag and Space+left-click drag to pan (mouse users)
+	let spacePressed = false;
+	let mousePanActive = false;
+	let savedCursor = "";
+
+	const startMousePan = (e: MouseEvent) => {
+		mousePanActive = true;
+		props.panning = true;
+		panAndZoomAreaElement.style.cursor = "grabbing";
+		const startX = e.clientX;
+		const startY = e.clientY;
+		const startTranslateX = props.translateX;
+		const startTranslateY = props.translateY;
+
+		const onMouseMove = (moveEvent: MouseEvent) => {
+			moveEvent.preventDefault();
+			props.translateX = startTranslateX + (moveEvent.clientX - startX) / props.scale;
+			props.translateY = startTranslateY + (moveEvent.clientY - startY) / props.scale;
+		};
+
+		const onMouseUp = () => {
+			mousePanActive = false;
+			props.panning = false;
+			panAndZoomAreaElement.style.cursor = spacePressed ? "grab" : savedCursor;
+			document.removeEventListener("mousemove", onMouseMove);
+			document.removeEventListener("mouseup", onMouseUp);
+		};
+
+		document.addEventListener("mousemove", onMouseMove);
+		document.addEventListener("mouseup", onMouseUp);
+	};
+
+	panAndZoomAreaElement.addEventListener("mousedown", (e: MouseEvent) => {
+		// Middle-click drag: always pan regardless of mode
+		if (e.button === 1) {
+			e.preventDefault();
+			startMousePan(e);
+			return;
+		}
+		// Space + left-click drag: pan when space is held
+		if (e.button === 0 && spacePressed) {
+			e.preventDefault();
+			startMousePan(e);
+		}
+	});
+
+	const onKeyDown = (e: KeyboardEvent) => {
+		if (e.code === "Space" && !e.repeat && !spacePressed && !mousePanActive) {
+			// Don't activate grab cursor if typing in an input/editable element
+			const target = e.target as HTMLElement;
+			if (
+				target.tagName === "INPUT" ||
+				target.tagName === "TEXTAREA" ||
+				target.isContentEditable
+			) {
+				return;
+			}
+			e.preventDefault();
+			spacePressed = true;
+			savedCursor = panAndZoomAreaElement.style.cursor;
+			panAndZoomAreaElement.style.cursor = "grab";
+		}
+	};
+
+	const onKeyUp = (e: KeyboardEvent) => {
+		if (e.code === "Space") {
+			spacePressed = false;
+			if (!mousePanActive) {
+				panAndZoomAreaElement.style.cursor = savedCursor;
+				savedCursor = "";
+			}
+		}
+	};
+
+	document.addEventListener("keydown", onKeyDown);
+	document.addEventListener("keyup", onKeyUp);
+
 	// Touch/stylus: track pointer positions for pinch-to-zoom and two-finger pan
 	const onPointerDown = (e: PointerEvent) => {
 		if (e.pointerType === "mouse") return;
@@ -206,7 +283,12 @@ function setPanAndZoom(
 	panAndZoomAreaElement.addEventListener("pointerup", onPointerUp);
 	panAndZoomAreaElement.addEventListener("pointercancel", onPointerUp);
 
-	return { setZoom };
+	const cleanup = () => {
+		document.removeEventListener("keydown", onKeyDown);
+		document.removeEventListener("keyup", onKeyUp);
+	};
+
+	return { setZoom, cleanup };
 }
 
 export default setPanAndZoom;
