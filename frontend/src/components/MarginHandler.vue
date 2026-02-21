@@ -27,7 +27,8 @@
 					'cursor-ns-resize': !disableHandlers,
 					hidden: updating,
 				}"
-				@mousedown.stop="handleMargin($event, Position.Top)" />
+				@mousedown.stop="handleMargin($event, Position.Top)"
+				@touchstart.stop.prevent="handleMargin($event, Position.Top)" />
 			<div class="m-auto text-sm text-yellow-900" v-show="updating">
 				{{ blockStyles.marginTop || "auto" }}
 			</div>
@@ -53,7 +54,8 @@
 					'cursor-ns-resize': !disableHandlers,
 					hidden: updating,
 				}"
-				@mousedown.stop="handleMargin($event, Position.Bottom)" />
+				@mousedown.stop="handleMargin($event, Position.Bottom)"
+				@touchstart.stop.prevent="handleMargin($event, Position.Bottom)" />
 			<div class="m-auto text-sm text-yellow-900" v-show="updating">
 				{{ blockStyles.marginBottom || "auto" }}
 			</div>
@@ -79,7 +81,8 @@
 					'cursor-ew-resize': !disableHandlers,
 					hidden: updating,
 				}"
-				@mousedown.stop="handleMargin($event, Position.Left)" />
+				@mousedown.stop="handleMargin($event, Position.Left)"
+				@touchstart.stop.prevent="handleMargin($event, Position.Left)" />
 			<div class="m-auto text-sm text-yellow-900" v-show="updating">
 				{{ blockStyles.marginLeft || "auto" }}
 			</div>
@@ -105,7 +108,8 @@
 					'cursor-ew-resize': !disableHandlers,
 					hidden: updating,
 				}"
-				@mousedown.stop="handleMargin($event, Position.Right)" />
+				@mousedown.stop="handleMargin($event, Position.Right)"
+				@touchstart.stop.prevent="handleMargin($event, Position.Right)" />
 			<div class="m-auto text-sm text-yellow-900" v-show="updating">
 				{{ blockStyles.marginRight || "auto" }}
 			</div>
@@ -116,7 +120,7 @@
 import type Block from "@/block";
 import { clamp } from "@vueuse/core";
 import { computed, inject, ref, watchEffect } from "vue";
-import { getNumberFromPx } from "../utils/helpers";
+import { getEventCoords, getNumberFromPx } from "../utils/helpers";
 const props = withDefaults(
 	defineProps<{
 		targetBlock: Block;
@@ -240,12 +244,13 @@ enum Position {
 	Left = "left",
 }
 
-const handleMargin = (ev: MouseEvent, position: Position) => {
+const handleMargin = (ev: MouseEvent | TouchEvent, position: Position) => {
 	if (props.disableHandlers) return;
 	ev.preventDefault();
 	updating.value = true;
-	const startY = ev.clientY;
-	const startX = ev.clientX;
+	const { clientX, clientY } = getEventCoords(ev);
+	const startY = clientY;
+	const startX = clientX;
 	const target = ev.target as HTMLElement;
 
 	const startTop = getNumberFromPx(blockStyles.value.marginTop) || 0;
@@ -255,36 +260,36 @@ const handleMargin = (ev: MouseEvent, position: Position) => {
 
 	// to disable cursor jitter
 	const docCursor = document.body.style.cursor;
-	document.body.style.cursor = window.getComputedStyle(target).cursor;
+	document.body.style.cursor = ev instanceof TouchEvent ? "ns-resize" : window.getComputedStyle(target).cursor;
 
-	const mousemove = (mouseMoveEvent: MouseEvent) => {
+	const applyMovement = (currentX: number, currentY: number, altKey = false, shiftKey = false) => {
 		let movement = 0;
 		let affectingAxis = null;
 		props.onUpdate && props.onUpdate();
 		if (position === Position.Top) {
-			movement = Math.max(startTop + mouseMoveEvent.clientY - startY, 0);
+			movement = Math.max(startTop + currentY - startY, 0);
 			props.targetBlock.setStyle("marginTop", movement + "px");
 			affectingAxis = "y";
 		} else if (position === Position.Bottom) {
-			movement = Math.max(startBottom + mouseMoveEvent.clientY - startY, 0);
+			movement = Math.max(startBottom + currentY - startY, 0);
 			props.targetBlock.setStyle("marginBottom", movement + "px");
 			affectingAxis = "y";
 		} else if (position === Position.Left) {
-			movement = Math.max(startLeft + mouseMoveEvent.clientX - startX, 0);
+			movement = Math.max(startLeft + currentX - startX, 0);
 			props.targetBlock.setStyle("marginLeft", movement + "px");
 			affectingAxis = "x";
 		} else if (position === Position.Right) {
-			movement = Math.max(startRight + mouseMoveEvent.clientX - startX, 0);
+			movement = Math.max(startRight + currentX - startX, 0);
 			props.targetBlock.setStyle("marginRight", movement + "px");
 			affectingAxis = "x";
 		}
 
-		if (mouseMoveEvent.shiftKey) {
+		if (shiftKey) {
 			props.targetBlock.setStyle("marginTop", movement + "px");
 			props.targetBlock.setStyle("marginBottom", movement + "px");
 			props.targetBlock.setStyle("marginLeft", movement + "px");
 			props.targetBlock.setStyle("marginRight", movement + "px");
-		} else if (mouseMoveEvent.altKey) {
+		} else if (altKey) {
 			if (affectingAxis === "y") {
 				props.targetBlock.setStyle("marginTop", movement + "px");
 				props.targetBlock.setStyle("marginBottom", movement + "px");
@@ -293,19 +298,29 @@ const handleMargin = (ev: MouseEvent, position: Position) => {
 				props.targetBlock.setStyle("marginRight", movement + "px");
 			}
 		}
+	};
 
+	const mousemove = (mouseMoveEvent: MouseEvent) => {
+		applyMovement(mouseMoveEvent.clientX, mouseMoveEvent.clientY, mouseMoveEvent.altKey, mouseMoveEvent.shiftKey);
 		mouseMoveEvent.preventDefault();
 	};
+	const touchmove = (touchMoveEvent: TouchEvent) => {
+		const touch = touchMoveEvent.touches[0];
+		if (!touch) return;
+		applyMovement(touch.clientX, touch.clientY);
+		touchMoveEvent.preventDefault();
+	};
+	const cleanup = () => {
+		document.body.style.cursor = docCursor;
+		document.removeEventListener("mousemove", mousemove);
+		document.removeEventListener("touchmove", touchmove);
+		document.removeEventListener("mouseup", cleanup);
+		document.removeEventListener("touchend", cleanup);
+		updating.value = false;
+	};
 	document.addEventListener("mousemove", mousemove);
-	document.addEventListener(
-		"mouseup",
-		(mouseUpEvent) => {
-			document.body.style.cursor = docCursor;
-			document.removeEventListener("mousemove", mousemove);
-			updating.value = false;
-			mouseUpEvent.preventDefault();
-		},
-		{ once: true },
-	);
+	document.addEventListener("touchmove", touchmove, { passive: false });
+	document.addEventListener("mouseup", cleanup, { once: true });
+	document.addEventListener("touchend", cleanup, { once: true });
 };
 </script>

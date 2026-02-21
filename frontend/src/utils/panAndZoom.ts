@@ -15,6 +15,9 @@ function setPanAndZoom(
 	let pinchPointSet = false;
 	let wheeling: undefined | NodeJS.Timeout;
 
+	// Track active pointers for multi-touch pinch-to-zoom and pan
+	const activePointers = new Map<number, { x: number; y: number }>();
+
 	const setZoom = (scale: number, pinchPoint: { x: number; y: number } | "center" = "center") => {
 		const clampedScale = Math.min(Math.max(scale, zoomLimits.min), zoomLimits.max);
 		const oldScale = props.scale;
@@ -126,6 +129,82 @@ function setPanAndZoom(
 		},
 		{ passive: false },
 	);
+
+	// Touch/stylus: track pointer positions for pinch-to-zoom and two-finger pan
+	const onPointerDown = (e: PointerEvent) => {
+		if (e.pointerType === "mouse") return;
+		activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+	};
+
+	const onPointerMove = (e: PointerEvent) => {
+		if (e.pointerType === "mouse") return;
+		if (!activePointers.has(e.pointerId)) return;
+
+		const prevPointers = new Map(activePointers);
+		activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+		if (activePointers.size === 2) {
+			// Two-finger pinch-to-zoom and pan
+			const prev = Array.from(prevPointers.values());
+			const curr = Array.from(activePointers.values());
+			if (prev.length < 2) return;
+
+			const prevDist = Math.hypot(prev[1].x - prev[0].x, prev[1].y - prev[0].y);
+			const currDist = Math.hypot(curr[1].x - curr[0].x, curr[1].y - curr[0].y);
+
+			if (prevDist > 0) {
+				const midX = (curr[0].x + curr[1].x) / 2;
+				const midY = (curr[0].y + curr[1].y) / 2;
+				setZoom(props.scale * (currDist / prevDist), { x: midX, y: midY });
+			}
+
+			// Two-finger pan
+			const prevMidX = (prev[0].x + prev[1].x) / 2;
+			const prevMidY = (prev[0].y + prev[1].y) / 2;
+			const currMidX = (curr[0].x + curr[1].x) / 2;
+			const currMidY = (curr[0].y + curr[1].y) / 2;
+			props.translateX += (currMidX - prevMidX) / props.scale;
+			props.translateY += (currMidY - prevMidY) / props.scale;
+			props.scaling = true;
+			props.panning = true;
+
+			clearTimeout(wheeling);
+			wheeling = setTimeout(() => {
+				props.scaling = false;
+				props.panning = false;
+			}, 200);
+			e.preventDefault();
+		} else if (activePointers.size === 1) {
+			// Single-finger pan
+			const prev = prevPointers.get(e.pointerId);
+			if (!prev) return;
+			props.translateX += (e.clientX - prev.x) / props.scale;
+			props.translateY += (e.clientY - prev.y) / props.scale;
+			props.panning = true;
+
+			clearTimeout(wheeling);
+			wheeling = setTimeout(() => {
+				props.panning = false;
+			}, 200);
+			e.preventDefault();
+		}
+	};
+
+	const onPointerUp = (e: PointerEvent) => {
+		if (e.pointerType === "mouse") return;
+		activePointers.delete(e.pointerId);
+		if (activePointers.size < 2) {
+			props.scaling = false;
+		}
+		if (activePointers.size === 0) {
+			props.panning = false;
+		}
+	};
+
+	panAndZoomAreaElement.addEventListener("pointerdown", onPointerDown);
+	panAndZoomAreaElement.addEventListener("pointermove", onPointerMove, { passive: false });
+	panAndZoomAreaElement.addEventListener("pointerup", onPointerUp);
+	panAndZoomAreaElement.addEventListener("pointercancel", onPointerUp);
 
 	return { setZoom };
 }

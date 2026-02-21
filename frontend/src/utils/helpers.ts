@@ -668,6 +668,14 @@ function getBlock(e: MouseEvent) {
 	return canvasStore.activeCanvas?.findBlock(blockInfo.blockId);
 }
 
+function getEventCoords(ev: MouseEvent | TouchEvent): { clientX: number; clientY: number } {
+	if (ev instanceof TouchEvent) {
+		const touch = ev.touches[0] ?? ev.changedTouches[0];
+		return { clientX: touch?.clientX ?? 0, clientY: touch?.clientY ?? 0 };
+	}
+	return { clientX: ev.clientX, clientY: ev.clientY };
+}
+
 function getRootBlockTemplate() {
 	return getBlockInstance(getBlockTemplate("body"));
 }
@@ -1480,6 +1488,7 @@ export {
 	getDefaultPropsList,
 	getFontName,
 	getImageBlock,
+	getEventCoords,
 	getNumberFromPx,
 	getParentProps,
 	getPropValue,

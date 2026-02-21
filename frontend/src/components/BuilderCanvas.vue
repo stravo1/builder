@@ -1,5 +1,5 @@
 <template>
-	<div ref="canvasContainer" @click="handleClick">
+	<div ref="canvasContainer" class="touch-none" @click="handleClick">
 		<Transition name="fade">
 			<div
 				class="absolute bottom-0 left-0 right-0 top-0 grid w-full place-items-center bg-surface-gray-1 p-10 text-ink-gray-5"

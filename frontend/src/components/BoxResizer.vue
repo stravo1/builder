@@ -12,29 +12,32 @@
 	</span>
 
 	<div
-		class="left-handle ew-resize pointer-events-auto absolute bottom-0 left-[-2px] top-0 w-2 border-none bg-transparent" />
+		class="left-handle ew-resize pointer-events-auto absolute bottom-0 left-[-2px] top-0 w-2 touch-none border-none bg-transparent" />
 	<div
-		class="right-handle pointer-events-auto absolute bottom-0 right-[-2px] top-0 w-2 border-none bg-transparent"
+		class="right-handle pointer-events-auto absolute bottom-0 right-[-2px] top-0 w-2 touch-none border-none bg-transparent"
 		:class="{ 'cursor-ew-resize': true }"
-		@mousedown.stop="handleRightResize" />
+		@mousedown.stop="handleRightResize"
+		@touchstart.stop.prevent="handleRightResize" />
 	<div
-		class="top-handle ns-resize pointer-events-auto absolute left-0 right-0 top-[-2px] h-2 border-none bg-transparent" />
+		class="top-handle ns-resize pointer-events-auto absolute left-0 right-0 top-[-2px] h-2 touch-none border-none bg-transparent" />
 	<div
-		class="bottom-handle pointer-events-auto absolute bottom-[-2px] left-0 right-0 h-2 border-none bg-transparent"
+		class="bottom-handle pointer-events-auto absolute bottom-[-2px] left-0 right-0 h-2 touch-none border-none bg-transparent"
 		:class="{ 'cursor-ns-resize': true }"
-		@mousedown.stop="handleBottomResize" />
+		@mousedown.stop="handleBottomResize"
+		@touchstart.stop.prevent="handleBottomResize" />
 	<div
-		class="pointer-events-auto absolute bottom-[-5px] right-[-5px] h-[12px] w-[12px] cursor-nwse-resize rounded-full border-[2.5px] border-blue-400 bg-white"
+		class="pointer-events-auto absolute bottom-[-5px] right-[-5px] h-[12px] w-[12px] cursor-nwse-resize touch-none rounded-full border-[2.5px] border-blue-400 bg-white"
 		:class="{
 			'border-purple-400': targetBlock.isExtendedFromComponent(),
 		}"
 		v-show="!resizing"
-		@mousedown.stop.prevent="handleBottomCornerResize" />
+		@mousedown.stop.prevent="handleBottomCornerResize"
+		@touchstart.stop.prevent="handleBottomCornerResize" />
 </template>
 <script setup lang="ts">
 import type Block from "@/block";
 import useCanvasStore from "@/stores/canvasStore";
-import { getNumberFromPx } from "@/utils/helpers";
+import { getEventCoords, getNumberFromPx } from "@/utils/helpers";
 import { clamp } from "@vueuse/core";
 import { computed, inject, onMounted, ref, watch } from "vue";
 import guidesTracker from "../utils/guidesTracker";
@@ -86,8 +89,9 @@ const fontSize = computed(() => {
 	return Math.round(getNumberFromPx(getComputedStyle(props.target).getPropertyValue("font-size")));
 });
 
-const handleRightResize = (ev: MouseEvent) => {
-	const startX = ev.clientX;
+const handleRightResize = (ev: MouseEvent | TouchEvent) => {
+	const { clientX } = getEventCoords(ev);
+	const startX = clientX;
 	const startHeight = (props.target as HTMLElement).offsetHeight;
 	const startWidth = (props.target as HTMLElement).offsetWidth;
 	const blockStartWidth = props.targetBlock.getStyle("width") as string;
@@ -96,8 +100,7 @@ const handleRightResize = (ev: MouseEvent) => {
 
 	// to disable cursor jitter
 	const docCursor = document.body.style.cursor;
-	document.body.style.cursor = window.getComputedStyle(ev.target as HTMLElement).cursor;
-	resizing.value = true;
+	document.body.style.cursor = ev instanceof TouchEvent ? "ew-resize" : window.getComputedStyle(ev.target as HTMLElement).cursor;	resizing.value = true;
 	guides.showX();
 	const mousemove = (mouseMoveEvent: MouseEvent) => {
 		const movement = (mouseMoveEvent.clientX - startX) / canvasProps.scale;
@@ -111,22 +114,35 @@ const handleRightResize = (ev: MouseEvent) => {
 		}
 		mouseMoveEvent.preventDefault();
 	};
+	const touchmove = (touchMoveEvent: TouchEvent) => {
+		const touch = touchMoveEvent.touches[0];
+		if (!touch) return;
+		const movement = (touch.clientX - startX) / canvasProps.scale;
+		if (props.targetBlock.isText() && !props.targetBlock.hasChildren()) {
+			setFontSize(movement, startFontSize);
+		} else {
+			setWidth(movement, startWidth, blockStartWidth);
+		}
+		touchMoveEvent.preventDefault();
+	};
+	const cleanup = () => {
+		document.body.style.cursor = docCursor;
+		document.removeEventListener("mousemove", mousemove);
+		document.removeEventListener("touchmove", touchmove);
+		document.removeEventListener("mouseup", cleanup);
+		document.removeEventListener("touchend", cleanup);
+		resizing.value = false;
+		guides.hideX();
+	};
 	document.addEventListener("mousemove", mousemove);
-	document.addEventListener(
-		"mouseup",
-		(mouseUpEvent) => {
-			document.body.style.cursor = docCursor;
-			document.removeEventListener("mousemove", mousemove);
-			mouseUpEvent.preventDefault();
-			resizing.value = false;
-			guides.hideX();
-		},
-		{ once: true },
-	);
+	document.addEventListener("touchmove", touchmove, { passive: false });
+	document.addEventListener("mouseup", cleanup, { once: true });
+	document.addEventListener("touchend", cleanup, { once: true });
 };
 
-const handleBottomResize = (ev: MouseEvent) => {
-	const startY = ev.clientY;
+const handleBottomResize = (ev: MouseEvent | TouchEvent) => {
+	const { clientY } = getEventCoords(ev);
+	const startY = clientY;
 	const startHeight = (props.target as HTMLElement).offsetHeight;
 	const startWidth = (props.target as HTMLElement).offsetWidth;
 	const blockStartWidth = props.targetBlock.getStyle("width") as string;
@@ -135,7 +151,7 @@ const handleBottomResize = (ev: MouseEvent) => {
 
 	// to disable cursor jitter
 	const docCursor = document.body.style.cursor;
-	document.body.style.cursor = window.getComputedStyle(ev.target as HTMLElement).cursor;
+	document.body.style.cursor = ev instanceof TouchEvent ? "ns-resize" : window.getComputedStyle(ev.target as HTMLElement).cursor;
 	resizing.value = true;
 	guides.showY();
 
@@ -152,23 +168,36 @@ const handleBottomResize = (ev: MouseEvent) => {
 		}
 		mouseMoveEvent.preventDefault();
 	};
+	const touchmove = (touchMoveEvent: TouchEvent) => {
+		const touch = touchMoveEvent.touches[0];
+		if (!touch) return;
+		const movement = (touch.clientY - startY) / canvasProps.scale;
+		if (props.targetBlock.isText() && !props.targetBlock.hasChildren()) {
+			setFontSize(movement, startFontSize);
+		} else {
+			setHeight(movement, startHeight, blockStartHeight);
+		}
+		touchMoveEvent.preventDefault();
+	};
+	const cleanup = () => {
+		document.body.style.cursor = docCursor;
+		document.removeEventListener("mousemove", mousemove);
+		document.removeEventListener("touchmove", touchmove);
+		document.removeEventListener("mouseup", cleanup);
+		document.removeEventListener("touchend", cleanup);
+		resizing.value = false;
+		guides.hideY();
+	};
 	document.addEventListener("mousemove", mousemove);
-	document.addEventListener(
-		"mouseup",
-		(mouseUpEvent) => {
-			document.body.style.cursor = docCursor;
-			document.removeEventListener("mousemove", mousemove);
-			mouseUpEvent.preventDefault();
-			resizing.value = false;
-			guides.hideY();
-		},
-		{ once: true },
-	);
+	document.addEventListener("touchmove", touchmove, { passive: false });
+	document.addEventListener("mouseup", cleanup, { once: true });
+	document.addEventListener("touchend", cleanup, { once: true });
 };
 
-const handleBottomCornerResize = (ev: MouseEvent) => {
-	const startX = ev.clientX;
-	const startY = ev.clientY;
+const handleBottomCornerResize = (ev: MouseEvent | TouchEvent) => {
+	const { clientX, clientY } = getEventCoords(ev);
+	const startX = clientX;
+	const startY = clientY;
 	const startHeight = (props.target as HTMLElement).offsetHeight;
 	const startWidth = (props.target as HTMLElement).offsetWidth;
 	const blockStartWidth = props.targetBlock.getStyle("width") as string;
@@ -177,7 +206,7 @@ const handleBottomCornerResize = (ev: MouseEvent) => {
 
 	// to disable cursor jitter
 	const docCursor = document.body.style.cursor;
-	document.body.style.cursor = window.getComputedStyle(ev.target as HTMLElement).cursor;
+	document.body.style.cursor = ev instanceof TouchEvent ? "nwse-resize" : window.getComputedStyle(ev.target as HTMLElement).cursor;
 	resizing.value = true;
 
 	const mousemove = (mouseMoveEvent: MouseEvent) => {
@@ -191,17 +220,31 @@ const handleBottomCornerResize = (ev: MouseEvent) => {
 		setHeight(mouseMoveEvent.shiftKey ? movementX : movementY, startHeight, blockStartHeight);
 		mouseMoveEvent.preventDefault();
 	};
+	const touchmove = (touchMoveEvent: TouchEvent) => {
+		const touch = touchMoveEvent.touches[0];
+		if (!touch) return;
+		const movementX = (touch.clientX - startX) / canvasProps.scale;
+		const movementY = (touch.clientY - startY) / canvasProps.scale;
+		if (props.targetBlock.isText() && !props.targetBlock.hasChildren()) {
+			setFontSize(movementY, startFontSize);
+		} else {
+			setWidth(movementX, startWidth, blockStartWidth);
+			setHeight(movementY, startHeight, blockStartHeight);
+		}
+		touchMoveEvent.preventDefault();
+	};
+	const cleanup = () => {
+		document.body.style.cursor = docCursor;
+		document.removeEventListener("mousemove", mousemove);
+		document.removeEventListener("touchmove", touchmove);
+		document.removeEventListener("mouseup", cleanup);
+		document.removeEventListener("touchend", cleanup);
+		resizing.value = false;
+	};
 	document.addEventListener("mousemove", mousemove);
-	document.addEventListener(
-		"mouseup",
-		(mouseUpEvent) => {
-			document.body.style.cursor = docCursor;
-			document.removeEventListener("mousemove", mousemove);
-			mouseUpEvent.preventDefault();
-			resizing.value = false;
-		},
-		{ once: true },
-	);
+	document.addEventListener("touchmove", touchmove, { passive: false });
+	document.addEventListener("mouseup", cleanup, { once: true });
+	document.addEventListener("touchend", cleanup, { once: true });
 };
 
 const setWidth = (movementX: number, startWidth: number, blockStartWidth: string) => {

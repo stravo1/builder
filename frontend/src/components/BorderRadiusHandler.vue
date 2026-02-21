@@ -7,7 +7,8 @@
 			'border-purple-400': targetBlock.isExtendedFromComponent(),
 		}"
 		:style="handlerPosition"
-		@mousedown.stop="handleRounded">
+		@mousedown.stop="handleRounded"
+		@touchstart.stop.prevent="handleRounded">
 		<div
 			v-show="updating"
 			class="absolute left-2 top-2 w-fit rounded-full bg-gray-800 px-3 py-2 text-xs text-white opacity-60">
@@ -18,7 +19,7 @@
 
 <script setup lang="ts">
 import type Block from "@/block";
-import { getNumberFromPx } from "@/utils/helpers";
+import { getEventCoords, getNumberFromPx } from "@/utils/helpers";
 import { useElementBounding } from "@vueuse/core";
 import type { Ref } from "vue";
 import { computed, inject, onMounted, reactive, ref, watchEffect } from "vue";
@@ -68,9 +69,10 @@ const setHandlerPosition = (radius: number) => {
 	handlerLeft.value = Math.max(MIN_POSITION.left, maxDistance.value * ratio - width / 2);
 };
 
-const handleRounded = (ev: MouseEvent) => {
-	const startX = ev.clientX;
-	const startY = ev.clientY;
+const handleRounded = (ev: MouseEvent | TouchEvent) => {
+	const { clientX, clientY } = getEventCoords(ev);
+	const startX = clientX;
+	const startY = clientY;
 	let lastX = startX;
 	let lastY = startY;
 	updating.value = true;
@@ -100,18 +102,48 @@ const handleRounded = (ev: MouseEvent) => {
 		lastY = mouseMoveEvent.clientY;
 	};
 
-	const mouseup = (mouseUpEvent: MouseEvent) => {
-		mouseUpEvent.preventDefault();
+	const touchmove = (touchMoveEvent: TouchEvent) => {
+		touchMoveEvent.preventDefault();
+		const touch = touchMoveEvent.touches[0];
+		if (!touch) return;
+		const movementX = touch.clientX - lastX;
+		const movementY = touch.clientY - lastY;
+		const movement = ((movementX + movementY) / 2) * 2;
+
+		if (movement < 0) {
+			MIN_POSITION.top = -(handleDimensions.height / 2);
+			MIN_POSITION.left = -(handleDimensions.width / 2);
+		}
+
+		const radius = Math.round(
+			Math.max(0, Math.min(getNumberFromPx(props.target.style.borderRadius) + movement, maxRadius.value)),
+		);
+
+		borderRadius.value = radius;
+		setHandlerPosition(radius);
+		props.targetBlock.setStyle("borderRadius", `${radius}px`);
+
+		lastX = touch.clientX;
+		lastY = touch.clientY;
+	};
+
+	const cleanup = (cleanupEvent: Event) => {
+		cleanupEvent.preventDefault();
 		if (getNumberFromPx(props.targetBlock.getStyle("borderRadius")) < 10) {
 			handlerTop.value = MIN_POSITION.top;
 			handlerLeft.value = MIN_POSITION.left;
 		}
 		updating.value = false;
 		document.removeEventListener("mousemove", mousemove);
+		document.removeEventListener("touchmove", touchmove);
+		document.removeEventListener("mouseup", cleanup);
+		document.removeEventListener("touchend", cleanup);
 	};
 
 	document.addEventListener("mousemove", mousemove);
-	document.addEventListener("mouseup", mouseup, { once: true });
+	document.addEventListener("touchmove", touchmove, { passive: false });
+	document.addEventListener("mouseup", cleanup, { once: true });
+	document.addEventListener("touchend", cleanup, { once: true });
 };
 
 onMounted(() => {
