@@ -158,7 +158,11 @@ const getDynamicContent = () => {
 };
 
 const isEditable = computed(() => {
+	const hasDynamicContent = props.block
+		.getDynamicValues()
+		.reduce((bool, currentValue) => bool || currentValue.property == "innerHTML", false);
 	return (
+		!hasDynamicContent &&
 		canvasStore.editableBlock === props.block &&
 		canvasStore.activeCanvas?.activeBreakpoint === props.breakpoint
 	);
@@ -321,6 +325,7 @@ const handleClick = (e: MouseEvent) => {
 	if (isEditable.value) {
 		e.stopPropagation();
 	}
+	return;
 };
 
 const handleMouseMove = () => {
