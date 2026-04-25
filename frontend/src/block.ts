@@ -502,7 +502,7 @@ class Block implements BlockOptions {
 		};
 	}
 	isMovable(): boolean {
-		return ["absolute", "fixed"].includes(this.getStyle("position") as string);
+		return ["absolute", "fixed", "relative"].includes(this.getStyle("position") as string);
 	}
 	move(direction: "up" | "left" | "down" | "right") {
 		if (!this.isMovable()) {

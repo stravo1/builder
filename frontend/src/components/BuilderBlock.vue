@@ -41,8 +41,12 @@
 </template>
 <script setup lang="ts">
 import type Block from "@/block";
+import fetchBlockData from "@/data/blockData";
+import { builderSettings } from "@/data/builderSettings";
+import { useBlockDataStore, useBlockUidStore } from "@/stores/blockStore";
 import useBuilderStore from "@/stores/builderStore";
 import useCanvasStore from "@/stores/canvasStore";
+import usePageStore from "@/stores/pageStore";
 import { setFont } from "@/utils/fontManager";
 import {
 	executeBlockClientScriptRestricted,
@@ -64,21 +68,16 @@ import {
 	watch,
 	watchEffect,
 } from "vue";
+import { toast } from "vue-sonner";
 import BlockEditor from "./BlockEditor.vue";
 import BlockHTML from "./BlockHTML.vue";
 import DataLoaderBlock from "./DataLoaderBlock.vue";
 import TextBlock from "./TextBlock.vue";
-import { builderSettings } from "@/data/builderSettings";
-import fetchBlockData from "@/data/blockData";
-import usePageStore from "@/stores/pageStore";
-import { toast } from "vue-sonner";
-import { useBlockDataStore, useBlockUidStore } from "@/stores/blockStore";
 
 const builderStore = useBuilderStore();
 const canvasStore = useCanvasStore();
 const component = ref<HTMLElement | InstanceType<typeof TextBlock> | null>(null);
 const attrs = useAttrs();
-const editor = ref<InstanceType<typeof BlockEditor> | null>(null);
 const isMounted = ref(false);
 
 const pageStore = usePageStore();
@@ -181,7 +180,11 @@ const attributes = computed(() => {
 	}
 
 	Object.keys(additionalAttributes).forEach((key) => {
-		if (RESTRICTED_ATTRIBS.includes(key)) {
+		const trimmedKey = key.trim();
+		if (RESTRICTED_ATTRIBS.includes(trimmedKey) || trimmedKey === "") {
+			delete additionalAttributes[key];
+		} else if (trimmedKey !== key) {
+			additionalAttributes[trimmedKey] = additionalAttributes[key];
 			delete additionalAttributes[key];
 		}
 	});
@@ -432,8 +435,9 @@ watch(
 		const mode = builderSettings.doc?.execute_block_scripts_in_editor;
 		if (mode === "Don't Execute") return;
 
-		if (mode === "Restricted") executeBlockClientScriptRestricted(uidToUse, script, allResolvedProps.value);
-		else executeBlockClientScriptUnrestricted(uidToUse, script, allResolvedProps.value);
+		if (mode === "Restricted")
+			executeBlockClientScriptRestricted(uidToUse, props.breakpoint, script, allResolvedProps.value);
+		else executeBlockClientScriptUnrestricted(uidToUse, props.breakpoint, script, allResolvedProps.value);
 	},
 	{ immediate: true },
 );

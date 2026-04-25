@@ -490,17 +490,33 @@ async function uploadBuilderAsset(file: File, silent = false) {
 
 function dataURLtoFile(dataurl: string, filename: string) {
 	try {
-		let arr = dataurl.split(","),
-			mime = arr[0].match(/:(.*?);/)?.[1],
-			bstr = atob(arr[1]),
-			n = bstr.length,
+		let arr = dataurl.split(",");
+		let mimeMatch = arr[0].match(/:(.*?)(;|,)/);
+		let mime = mimeMatch ? mimeMatch[1] : "";
+		let isBase64 = arr[0].includes(";base64");
+
+		let dataString = arr.slice(1).join(",");
+		let u8arr;
+
+		if (isBase64) {
+			let bstr = atob(dataString);
+			let n = bstr.length;
 			u8arr = new Uint8Array(n);
-		while (n--) {
-			u8arr[n] = bstr.charCodeAt(n);
+			while (n--) {
+				u8arr[n] = bstr.charCodeAt(n);
+			}
+		} else {
+			let decoded = decodeURIComponent(dataString);
+			let n = decoded.length;
+			u8arr = new Uint8Array(n);
+			while (n--) {
+				u8arr[n] = decoded.charCodeAt(n);
+			}
 		}
+
 		return new File([u8arr], filename, { type: mime });
 	} catch (error) {
-		console.error(`Failed to convert dataURL ${dataurl} to file.`);
+		console.error(`Failed to convert dataURL ${dataurl.substring(0, 50)}... to file.`, error);
 		return null;
 	}
 }
@@ -1330,7 +1346,9 @@ const getDataArray = (collectionObject: Record<string, any>) => {
 		Object.entries(obj).forEach(([key, value]) => {
 			const path = prefix ? `${prefix}.${key}` : key;
 
-			if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+			if (value === null) {
+				result.push(path);
+			} else if (typeof value === "object" && !Array.isArray(value)) {
 				processObject(value, path);
 			} else if (["string", "number", "boolean"].includes(typeof value)) {
 				result.push(path);
@@ -1344,10 +1362,13 @@ const getDataArray = (collectionObject: Record<string, any>) => {
 
 function executeBlockClientScriptUnrestricted(
 	blockUid: string,
+	breakpoint: string,
 	userScript: string,
 	props: Record<string, any> = {},
 ) {
-	const thisElement = document.querySelector(`[data-block-uid='${blockUid}']`) as HTMLElement;
+	const thisElement = document.querySelector(
+		`[data-block-uid='${blockUid}'][data-breakpoint=${breakpoint}]`,
+	) as HTMLElement;
 
 	const context = {
 		thisRef: thisElement,
@@ -1384,6 +1405,7 @@ function executeBlockClientScriptUnrestricted(
 
 function executeBlockClientScriptRestricted(
 	blockUid: string,
+	breakpoint: string,
 	userScript: string,
 	props: Record<string, any> = {},
 ) {
@@ -1475,7 +1497,9 @@ function executeBlockClientScriptRestricted(
 	};
 
 	const sandboxRoot = document.querySelector("[data-block-id='root']") as HTMLElement;
-	const thisElement = document.querySelector(`[data-block-uid='${blockUid}']`) as HTMLElement;
+	const thisElement = document.querySelector(
+		`[data-block-uid='${blockUid}'][data-breakpoint='${breakpoint}']`,
+	) as HTMLElement;
 
 	const proxiedRoot = wrap(sandboxRoot);
 	const proxiedThis = wrap(thisElement);
