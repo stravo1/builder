@@ -68,13 +68,22 @@
 							:stroke-width="3"
 							class="h-3 w-3 text-orange-500"
 							v-if="showCodeIcon(element)" />
+						<TilesIcon
+							class="h-3 w-3"
+							:class="{
+								'text-yellow-600 opacity-80 dark:opacity-100 dark:brightness-125 dark:saturate-[0.3]':
+									element.getIsTile(),
+							}"
+							v-if="Boolean(element.getIsTile()) && !showCodeIcon(element)" />
 						<span
 							class="layer-label min-h-[1em] min-w-[2em] max-w-64 truncate"
 							:contenteditable="element.editable && !readonly"
 							:title="element.blockId"
 							:class="{
-								'text-purple-500 opacity-80 dark:opacity-100 dark:brightness-125 dark:saturate-[0.3]':
-									element.isExtendedFromComponent(),
+								'text-purple-500': element.isExtendedFromComponent(),
+								'text-yellow-600': element.getIsTile(),
+								'opacity-80 dark:opacity-100 dark:brightness-125 dark:saturate-[0.3]':
+									element.isExtendedFromComponent() || element.getIsTile(),
 							}"
 							@dblclick="
 								(ev) => {
@@ -132,6 +141,8 @@ import draggable from "vuedraggable";
 import BlockLayers from "./BlockLayers.vue";
 import BlocksIcon from "./Icons/Blocks.vue";
 import useBuilderStore from "@/stores/builderStore";
+// @ts-ignore
+import TilesIcon from "~icons/lucide/blocks";
 
 type LayerInstance = InstanceType<typeof BlockLayers>;
 
