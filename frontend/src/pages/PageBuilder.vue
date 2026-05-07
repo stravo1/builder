@@ -139,9 +139,22 @@ import { useBuilderEvents } from "@/utils/useBuilderEvents";
 import { useShortcut } from "@/utils/useShortcut";
 import { breakpointsTailwind, useBreakpoints, useDebounceFn, useEventListener } from "@vueuse/core";
 import { createResource } from "frappe-ui";
-import { computed, onActivated, onDeactivated, onMounted, provide, ref, watch, watchEffect } from "vue";
+import {
+	computed,
+	onActivated,
+	onDeactivated,
+	onMounted,
+	provide,
+	ref,
+	watch,
+	watchEffect,
+	toRaw,
+} from "vue";
 import { useRoute, useRouter } from "vue-router";
 import CodeEditor from "../components/Controls/CodeEditor.vue";
+import { useBlockDataStore } from "@/stores/blockStore";
+import { useSocket } from "@/utils/realtime";
+import { Socket } from "socket.io-client";
 
 const expandedEditor = ref<null | InstanceType<typeof CodeEditor>>(null);
 const aiGeneratorModal = ref<null | InstanceType<typeof AIPageGeneratorModal>>(null);
@@ -495,6 +508,32 @@ watch(
 			});
 		}
 	},
+);
+const blockStore = useBlockDataStore();
+const socket = useSocket().value as Socket | null;
+
+socket?.on("provide:block_data", (data: any) => {
+	emitBlockDataMap({
+		pageId: pageStore.activePage?.name,
+		blockDataMap: toRaw(blockStore.blockDataMap),
+		senderId: data.senderId,
+	});
+});
+
+const emitBlockDataMap = useDebounceFn((data: any) => {
+	socket?.emit("broadcast:block_data", data);
+	console.log("Emitted block data update", data);
+}, 300);
+
+watch(
+	() => blockStore.blockDataMap,
+	(newVal) => {
+		emitBlockDataMap({
+			pageId: pageStore.activePage?.name,
+			blockDataMap: toRaw(newVal),
+		});
+	},
+	{ deep: true },
 );
 </script>
 

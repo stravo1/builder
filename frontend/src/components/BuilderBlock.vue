@@ -126,7 +126,7 @@ const ownBlockData = ref<Record<string, any>>({});
 // So we need unique identifier for block data store
 // Thus we use blockId for the first index and then generate new IDs for the next items
 const uidToUse = !!props.repeaterIndex
-	? `builder-block-${props.block.blockId}-${props.repeaterIndex}}`
+	? `builder-block-${props.block.blockId}-${props.repeaterIndex}`
 	: props.block.blockId;
 
 const getComponentName = (block: Block) => {

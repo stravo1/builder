@@ -10,6 +10,7 @@ from frappe.apps import get_apps as get_permitted_apps
 from frappe.core.doctype.file.file import get_local_image
 from frappe.core.doctype.file.utils import delete_file
 from frappe.model.document import Document
+from frappe.rate_limiter import rate_limit
 from frappe.utils.caching import redis_cache
 from frappe.utils.safe_exec import NamespaceDict, get_safe_globals
 from PIL import Image
@@ -311,3 +312,25 @@ def get_codemirror_completions():
 def reorder_client_scripts(script_order: list[str]):
 	for idx, script_name in enumerate(script_order, start=1):
 		frappe.db.set_value("Builder Page Client Script", script_name, "idx", idx)
+
+
+@frappe.whitelist()
+@has_page_write("You do not have permission to save from CLI")
+def save_from_cli(
+	doctype: str, name: str, update_map: dict | None = None, last_known_server_mtime: str | None = None
+):
+	if ["Builder Page", "Builder Component"].index(doctype) == -1:
+		frappe.throw("Unsupported document type")
+
+	doc = frappe.get_doc(doctype, name)
+	if last_known_server_mtime and doc.modified and str(doc.modified) != last_known_server_mtime:
+		frappe.throw("Page has been modified on the server since last sync. Please refresh and try again.")
+	for key, value in (update_map or {}).items():
+		doc.set(key, value)
+	doc.save()
+
+
+@frappe.whitelist(allow_guest=True)
+@rate_limit(limit=10, seconds=60)
+def test_save_from_cli():
+	return "Available"
