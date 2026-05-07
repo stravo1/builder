@@ -8,9 +8,8 @@ export function useSocket() {
 	function initSocket() {
 		let url;
 		let urlObject = new URL(window.location.origin);
-		if (socketio_port) {
-			urlObject.port = String(socketio_port);
-		}
+		let port = window.location.port ? `:${socketio_port}` : "";
+		urlObject.port = port;
 		url = `${urlObject.toString()}${urlObject.hostname}`;
 
 		console.log("Initializing socket with URL:", url);
