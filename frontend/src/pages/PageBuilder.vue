@@ -153,8 +153,7 @@ import {
 import { useRoute, useRouter } from "vue-router";
 import CodeEditor from "../components/Controls/CodeEditor.vue";
 import { useBlockDataStore } from "@/stores/blockStore";
-import { useSocket } from "@/utils/realtime";
-import { Socket } from "socket.io-client";
+import webComponent from "@/data/webComponent";
 
 const expandedEditor = ref<null | InstanceType<typeof CodeEditor>>(null);
 const aiGeneratorModal = ref<null | InstanceType<typeof AIPageGeneratorModal>>(null);
@@ -410,6 +409,19 @@ onActivated(async () => {
 	if (route.params.pageId && route.params.pageId !== "new") {
 		pageStore.setPage(route.params.pageId as string, true, route.query);
 	}
+	builderStore.realtime.on(
+		"doc_update",
+		async (data: { doctype: string; modified: string; name: string }) => {
+			if (route.params.pageId && route.params.pageId !== "new") {
+				const currentModified = pageStore.activePage?.modified;
+				const currentName = pageStore.activePage?.name;
+				webComponent.reload();
+				if (currentModified !== data?.modified && currentName === data?.name) {
+					pageStore.setPage(route.params.pageId as string, false, route.query);
+				}
+			}
+		},
+	);
 });
 
 watch(
@@ -510,9 +522,8 @@ watch(
 	},
 );
 const blockStore = useBlockDataStore();
-const socket = useSocket().value as Socket | null;
 
-socket?.on("provide:block_data", (data: any) => {
+builderStore.realtime.on("provide:block_data", (data: any) => {
 	emitBlockDataMap({
 		pageId: pageStore.activePage?.name,
 		blockDataMap: toRaw(blockStore.blockDataMap),
@@ -521,7 +532,7 @@ socket?.on("provide:block_data", (data: any) => {
 });
 
 const emitBlockDataMap = useDebounceFn((data: any) => {
-	socket?.emit("broadcast:block_data", data);
+	builderStore.realtime.emit("broadcast:block_data", data);
 	console.log("Emitted block data update", data);
 }, 300);
 
