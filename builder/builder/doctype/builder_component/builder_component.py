@@ -28,6 +28,13 @@ class BuilderComponent(Document):
 		for_web_page: DF.Link | None
 	# end: auto-generated types
 
+	def validate(self):
+		request_source = frappe.request.json.get("source", "")
+		if request_source == "cli":
+			last_server_mtime_sent = frappe.request.json.get("last_known_server_mtime", "")
+			if last_server_mtime_sent != str(self.get_doc_before_save().modified):
+				frappe.throw("Modified time mismatch!")
+
 	def before_insert(self):
 		if not self.component_id:
 			self.component_id = frappe.generate_hash(length=16)

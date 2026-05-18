@@ -140,6 +140,13 @@ class BuilderPage(WebsiteGenerator):
 		if not self.name:
 			self.name = f"page-{frappe.generate_hash(length=8)}"
 
+	def validate(self):
+		request_source = frappe.request.json.get("source", "")
+		if request_source == "cli":
+			last_server_mtime_sent = frappe.request.json.get("last_known_server_mtime", "")
+			if last_server_mtime_sent != str(self.get_doc_before_save().modified):
+				frappe.throw("Modified time mismatch!")
+
 	def before_insert(self):
 		self.process_blocks()
 		self.set_preview()
