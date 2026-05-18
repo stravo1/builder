@@ -2,25 +2,21 @@
 	<div
 		class="toolbar border-outline border-outline flex items-center justify-center border-b-[1px] border-outline-gray-1 bg-surface-white px-2 py-1"
 		ref="toolbar">
-		<div class="absolute left-3 flex items-center gap-5">
+		<div class="absolute left-3 flex items-center gap-4">
 			<MainMenu @showSettings="() => (showSettingsDialog = true)" @showShortcuts="showShortcuts"></MainMenu>
 			<div class="flex gap-2">
-				<Tooltip
-					:text="mode.description"
-					:hoverDelay="0.6"
+				<BuilderButton
 					v-for="mode in [
-						{ mode: 'select', icon: 'mouse-pointer', description: 'Select (v)' },
-						{ mode: 'container', icon: 'square', description: 'Container (c)' },
-						{ mode: 'text', icon: 'type', description: 'Text (t)' },
-						{ mode: 'image', icon: 'image', description: 'Image (i)' },
-					]">
-					<BuilderButton
-						variant="ghost"
-						:icon="mode.icon"
-						class="text-ink-gray-7 hover:bg-surface-gray-2 focus:!bg-surface-gray-3 [&[active='true']]:bg-surface-gray-3 [&[active='true']]:text-ink-gray-9"
-						@click="() => (builderStore.mode = mode.mode as BuilderMode)"
-						:active="builderStore.mode === mode.mode"></BuilderButton>
-				</Tooltip>
+						{ mode: 'select', icon: 'lucide-mouse-pointer', description: 'Select (v)' },
+						{ mode: 'container', icon: 'lucide-square', description: 'Container (c)' },
+						{ mode: 'text', icon: 'lucide-type', description: 'Text (t)' },
+						{ mode: 'image', icon: 'lucide-image', description: 'Image (i)' },
+					]"
+					:variant="builderStore.mode === mode.mode ? 'subtle' : 'ghost'"
+					:tooltip="mode.description"
+					:icon="mode.icon"
+					@click="() => (builderStore.mode = mode.mode as BuilderMode)"
+					:active="builderStore.mode === mode.mode"></BuilderButton>
 			</div>
 		</div>
 		<div>
@@ -32,10 +28,10 @@
 						</div>
 						<div @click="togglePopover" v-else class="flex items-center gap-1">
 							<Tooltip text="This is the homepage for your site" :hoverDelay="0.6">
-								<FeatherIcon
-									name="home"
-									class="h-[14px] w-4"
-									v-if="pageStore.isHomePage(pageStore.activePage)"></FeatherIcon>
+								<span
+									class="lucide-home h-[14px] w-4"
+									aria-hidden="true"
+									v-if="pageStore.isHomePage(pageStore.activePage)" />
 							</Tooltip>
 							<Tooltip text="This page has limited access" :hoverDelay="0.6">
 								<AuthenticatedUserIcon
@@ -55,11 +51,11 @@
 								v-html="routeString"
 								:title="getTextContent(routeString)"></span>
 						</div>
-						<FeatherIcon
-							name="external-link"
+						<span
+							class="lucide-external-link h-[14px] w-[14px] !text-gray-700 dark:!text-gray-200"
+							aria-hidden="true"
 							v-if="pageStore.activePage && pageStore.activePage.published"
-							class="h-[14px] w-[14px] !text-gray-700 dark:!text-gray-200"
-							@click="pageStore.openPageInBrowser(pageStore.activePage as BuilderPage)"></FeatherIcon>
+							@click="pageStore.openPageInBrowser(pageStore.activePage as BuilderPage)" />
 					</div>
 				</template>
 				<template #body="{ close }">
@@ -72,7 +68,7 @@
 			</Popover>
 		</div>
 		<div class="absolute right-3 flex items-center gap-4">
-			<div class="group flex hover:gap-1">
+			<div class="group flex hover:gap-1" v-if="builderStore.viewers.length">
 				<div v-for="user in builderStore.viewers">
 					<Tooltip :text="currentlyViewedByText" :hoverDelay="0.6" arrow-class="mb-3">
 						<div class="ml-[-10px] h-6 w-6 cursor-pointer transition-all group-hover:ml-0">
@@ -104,7 +100,7 @@
 					<Button
 						variant="ghost"
 						@click="() => transitionTheme(toggleDark)"
-						:icon="isDark ? 'sun' : 'moon'"></Button>
+						:icon="isDark ? 'lucide-sun' : 'lucide-moon'"></Button>
 				</Tooltip>
 				<span
 					class="text-sm text-ink-gray-3"
@@ -112,7 +108,7 @@
 					Saving template
 				</span>
 				<Tooltip text="Settings" :hoverDelay="0.6" arrow-class="mb-3">
-					<Button variant="ghost" @click="showSettingsDialog = true" :icon="SettingsGearIcon"></Button>
+					<Button variant="ghost" @click="openSettings" :icon="SettingsGearIcon"></Button>
 				</Tooltip>
 				<router-link :to="{ name: 'preview', params: { pageId: pageStore.selectedPage } }" title="Preview">
 					<Tooltip text="Preview" :hoverDelay="0.6" arrow-class="mb-3">
@@ -122,13 +118,8 @@
 			</div>
 			<PublishButton :disabled="builderStore.readOnlyMode"></PublishButton>
 		</div>
-		<Dialog
-			:options="{
-				title: 'Get Started',
-				size: '4xl',
-			}"
-			v-model="showInfoDialog">
-			<template #body-content>
+		<Dialog title="Get Started" size="4xl" v-model="showInfoDialog">
+			<template #default>
 				<iframe
 					class="h-[60vh] w-full rounded-sm"
 					src="https://www.youtube-nocookie.com/embed/videoseries?si=8NvOFXFq6ntafauO&amp;controls=0&amp;list=PL3lFfCEoMxvwZsBfCgk6vLKstZx204xe3"
@@ -137,14 +128,12 @@
 					allowfullscreen></iframe>
 			</template>
 		</Dialog>
-		<Dialog
-			v-model="showSettingsDialog"
-			:disableOutsideClickToClose="true"
-			:options="{
-				title: 'Settings',
-				size: '5xl',
-			}">
-			<template #body>
+		<Dialog v-model="showSettingsDialog" :dismissable="false" size="5xl" bare>
+			<template #default>
+				<DialogTitle class="sr-only">Builder Settings</DialogTitle>
+				<DialogDescription class="sr-only">
+					Configure page and global settings for this project.
+				</DialogDescription>
 				<BuilderSettings @close="showSettingsDialog = false"></BuilderSettings>
 			</template>
 		</Dialog>
@@ -156,7 +145,6 @@ import AuthenticatedUserIcon from "@/components/Icons/AuthenticatedUser.vue";
 import PlayIcon from "@/components/Icons/Play.vue";
 import SettingsGearIcon from "@/components/Icons/SettingsGear.vue";
 import PublishButton from "@/components/PublishButton.vue";
-import { builderSettings } from "@/data/builderSettings";
 import { webPages } from "@/data/webPage";
 import useBuilderStore from "@/stores/builderStore";
 import usePageStore from "@/stores/pageStore";
@@ -164,6 +152,7 @@ import { BuilderPage } from "@/types/Builder/BuilderPage";
 import { getTextContent } from "@/utils/helpers";
 import { useDark, useToggle } from "@vueuse/core";
 import { Badge, Popover, Tooltip } from "frappe-ui";
+import { DialogDescription, DialogTitle } from "reka-ui";
 import { computed, defineAsyncComponent, inject, ref } from "vue";
 import { toast } from "vue-sonner";
 // @ts-ignore
@@ -187,12 +176,18 @@ const showShortcuts = inject<() => void>("showShortcuts", () => {});
 
 const openAIGeneratorFn = inject<(() => void) | undefined>("showAIGenerator", undefined);
 
-const openAIGenerator = () => {
+const openAIGenerator = (e: MouseEvent) => {
+	(e.currentTarget as HTMLElement)?.blur();
 	if (openAIGeneratorFn) {
 		openAIGeneratorFn();
 	} else {
 		toast.error("AI Generator is not available");
 	}
+};
+
+const openSettings = (e: MouseEvent) => {
+	(e.currentTarget as HTMLElement)?.blur();
+	showSettingsDialog.value = true;
 };
 
 const currentlyViewedByText = computed(() => {

@@ -31,7 +31,7 @@
 				<div class="flex items-center justify-between bg-surface-white p-2 text-sm text-ink-gray-8 shadow-sm">
 					<div class="flex items-center gap-1 pl-2 text-xs">
 						<a @click="canvasStore.exitFragmentMode" class="cursor-pointer">Page</a>
-						<FeatherIcon name="chevron-right" class="h-3 w-3" />
+						<span class="lucide-chevron-right h-3 w-3" aria-hidden="true" />
 						<span class="flex items-center gap-2">
 							{{ canvasStore.fragmentData.fragmentName }}
 							<a
@@ -83,11 +83,9 @@
 		v-model="canvasStore.showEditorDialog"
 		class="overscroll-none"
 		:isDirty="expandedEditor?.isDirty"
-		:options="{
-			title: 'HTML',
-			size: '7xl',
-		}">
-		<template #body-content>
+		title="HTML"
+		size="7xl">
+		<template #default>
 			<CodeEditor
 				:modelValue="getExpandedEditorContent()"
 				ref="expandedEditor"
@@ -102,6 +100,7 @@
 	</Dialog>
 	<AIPageGeneratorModal
 		v-model="showAIGeneratorDialog"
+		v-if="builderStore.isAIEnabled"
 		:pageId="route.params.pageId as string"
 		:mode="aiMode"
 		:blockContext="modifyBlockContext"
@@ -321,7 +320,7 @@ useShortcut([
 		key: "i",
 		ctrl: true,
 		description: "Edit block with AI",
-		group: "Block",
+		group: "Edit",
 		condition: () =>
 			builderStore.isAIEnabled &&
 			!blockController.isRoot() &&
@@ -333,6 +332,21 @@ useShortcut([
 				editWithAIFn?.(block);
 			}
 		},
+	},
+	{
+		key: "d",
+		ctrl: true,
+		shift: true,
+		description: "Delete Page",
+		group: "General",
+		handler: () => {
+			if (pageStore.activePage && !pageStore.activePage.is_standard) {
+				pageStore.deletePage(pageStore.activePage).then(() => {
+					router.push({ name: "home" });
+				});
+			}
+		},
+		condition: () => Boolean(pageStore.activePage && !pageStore.activePage.is_standard),
 	},
 ]);
 

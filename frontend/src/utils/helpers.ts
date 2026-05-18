@@ -30,7 +30,12 @@ function addPxToNumber(number: number, round: boolean = true): string {
 	return `${number}px`;
 }
 
-function HexToHSV(color: HashString): { h: number; s: number; v: number; a: number } {
+function HexToHSV(color: HashString): {
+	h: number;
+	s: number;
+	v: number;
+	a: number;
+} {
 	// Remove hash and normalize length
 	let hex = color.replace("#", "").trim();
 
@@ -963,7 +968,8 @@ function getBoxSpacing(
 ): string {
 	const nativeOnly = opts?.nativeOnly ?? false;
 	const cascading = opts?.cascading ?? false;
-	const base = String(block.getStyle(type, undefined, nativeOnly, cascading) ?? "0px");
+	const baseValue = block.getStyle(type, undefined, nativeOnly, cascading);
+	const base = String(baseValue ?? (nativeOnly && !cascading ? "" : "unset"));
 	const top = block.getStyle(`${type}Top`, undefined, nativeOnly, cascading) ?? base;
 	const bottom = block.getStyle(`${type}Bottom`, undefined, nativeOnly, cascading) ?? base;
 	const left = block.getStyle(`${type}Left`, undefined, nativeOnly, cascading) ?? base;
@@ -1300,7 +1306,14 @@ const getPropValue = (propName: string, block: Block, blockUid?: string | null):
 		const defaultValue = options?.defaultValue ?? null;
 
 		if (PARSEABLE_STANDARD_TYPES.includes(type)) {
-			return matchingProp.value ? JSON.parse(matchingProp.value) : defaultValue;
+			if (matchingProp.value) {
+				return JSON.parse(matchingProp.value);
+			} else {
+				if (typeof defaultValue === "string") {
+					return JSON.parse(defaultValue);
+				}
+				return defaultValue;
+			}
 		}
 		return matchingProp.value || defaultValue;
 	}
