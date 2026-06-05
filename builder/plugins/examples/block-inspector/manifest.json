@@ -1,0 +1,9 @@
+{
+	"id": "com.builder.block-inspector",
+	"name": "Block Inspector",
+	"apiVersion": "1.0",
+	"main": "main.js",
+	"ui": "ui.html",
+	"icon": "search-code",
+	"permissions": ["blocks:read", "viewport:read"]
+}

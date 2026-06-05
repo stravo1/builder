@@ -24,6 +24,28 @@
 					"
 					@click.stop="setActiveTab(option.value as LeftSidebarTabOption)"></Button>
 			</Tooltip>
+			<div
+				v-if="pluginStore.pinnedPlugins.length"
+				class="my-1 h-px w-5 bg-outline-gray-2"></div>
+			<div
+				v-for="plugin in pluginStore.pinnedPlugins"
+				:key="plugin.id"
+				class="group relative flex items-center justify-center"
+				@click.stop="runPinnedPlugin(plugin)">
+				<Tooltip :text="plugin.name" placement="right">
+					<button
+						class="flex h-8 w-8 items-center justify-center rounded-lg text-ink-gray-6 hover:bg-surface-gray-2"
+						@click.stop="runPinnedPlugin(plugin)">
+						<PluginIcon :plugin="plugin" size="md" />
+					</button>
+				</Tooltip>
+				<button
+					class="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-surface-gray-3 text-ink-gray-5 opacity-0 shadow-sm hover:bg-red-100 hover:text-red-600 group-hover:opacity-100"
+					@click.stop="pluginStore.togglePinnedPlugin(plugin.id)"
+					title="Unpin">
+					<span class="lucide-x h-2.5 w-2.5" />
+				</button>
+			</div>
 		</div>
 		<div
 			class="no-scrollbar relative min-h-full overflow-auto"
@@ -88,8 +110,12 @@ import PageScript from "@/components/PageScript.vue";
 import useBuilderStore from "@/stores/builderStore";
 import useCanvasStore from "@/stores/canvasStore";
 import usePageStore from "@/stores/pageStore";
+import PluginIcon from "@/components/PluginIcon.vue";
+import usePluginStore from "@/stores/pluginStore";
+import { fetchInstalledPlugins } from "@/data/builderPlugins";
+import type { PluginBundle } from "@/plugins/api/types";
 import { Tooltip } from "frappe-ui";
-import { inject, nextTick, Ref, ref, watch, watchEffect } from "vue";
+import { inject, nextTick, onMounted, Ref, ref, watch, watchEffect } from "vue";
 import { useRoute } from "vue-router";
 import BlockLayers from "./BlockLayers.vue";
 import BuilderAssets from "./BuilderAssets.vue";
@@ -101,10 +127,10 @@ const showVariableManager = ref(false);
 const miniSidebar = ref(null) as Ref<HTMLElement | null>;
 const pageLayers = ref<InstanceType<typeof BlockLayers> | null>(null);
 const componentLayers = ref<InstanceType<typeof BlockLayers> | null>(null);
-
 const canvasStore = useCanvasStore();
 const builderStore = useBuilderStore();
 const pageStore = usePageStore();
+const pluginStore = usePluginStore();
 
 const pageCanvas = inject("pageCanvas") as Ref<InstanceType<typeof BuilderCanvas> | null>;
 const fragmentCanvas = inject("fragmentCanvas") as Ref<InstanceType<typeof BuilderCanvas> | null>;
@@ -148,6 +174,25 @@ const setActiveTab = (tab: LeftSidebarTabOption) => {
 	}
 };
 
+async function runPinnedPlugin(plugin: PluginBundle) {
+	if (!pluginStore._pluginsLoaded) {
+		await loadPlugins();
+	}
+	pluginStore.runPlugin(plugin);
+}
+
+async function loadPlugins() {
+	try {
+		pluginStore.setPlugins(await fetchInstalledPlugins());
+	} catch (error) {
+		console.error("Failed to load plugins", error);
+	}
+}
+
+onMounted(async () => {
+	await loadPlugins();
+});
+
 watchEffect(() => {
 	if (pageLayers.value) {
 		builderStore.activeLayers = pageLayers.value;
@@ -163,8 +208,6 @@ watch(
 	},
 );
 
-// moved out of BlockLayers for performance
-// TODO: Find a better way to do this
 watch(
 	() => canvasStore.activeCanvas?.hoveredBlock,
 	() => {

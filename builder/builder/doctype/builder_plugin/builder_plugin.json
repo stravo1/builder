@@ -1,0 +1,116 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:plugin_id",
+ "creation": "2026-06-02 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "plugin_name",
+  "plugin_icon",
+  "enabled",
+  "section_break_files",
+  "main_script",
+  "ui_html",
+  "section_break_config",
+  "manifest",
+  "allowed_domains",
+  "plugin_id"
+ ],
+ "fields": [
+  {
+   "fieldname": "plugin_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Plugin Name",
+   "reqd": 1
+  },
+  {
+   "description": "PNG/WebP/SVG icon for the plugin sidebar. Overrides manifest icon when set.",
+   "fieldname": "plugin_icon",
+   "fieldtype": "Attach Image",
+   "label": "Plugin Icon"
+  },
+  {
+   "default": "0",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "section_break_files",
+   "fieldtype": "Section Break",
+   "label": "Plugin Files"
+  },
+  {
+   "fieldname": "main_script",
+   "fieldtype": "Code",
+   "label": "Main Script",
+   "options": "JS",
+   "reqd": 1
+  },
+  {
+   "fieldname": "ui_html",
+   "fieldtype": "Code",
+   "label": "UI HTML",
+   "options": "HTML"
+  },
+  {
+   "fieldname": "section_break_config",
+   "fieldtype": "Section Break",
+   "label": "Configuration"
+  },
+  {
+   "description": "Optional manifest override. plugin_id, name, apiVersion, and main are inferred from other fields when empty.",
+   "fieldname": "manifest",
+   "fieldtype": "JSON",
+   "label": "Manifest"
+  },
+  {
+   "description": "Comma-separated domains the plugin UI iframe may fetch from.",
+   "fieldname": "allowed_domains",
+   "fieldtype": "Small Text",
+   "label": "Allowed Domains"
+  },
+  {
+   "fieldname": "plugin_id",
+   "fieldtype": "Data",
+   "label": "Plugin ID",
+   "no_copy": 1,
+   "reqd": 1,
+   "unique": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-02 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Builder",
+ "name": "Builder Plugin",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Website Manager"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "plugin_name",
+ "track_changes": 1
+}

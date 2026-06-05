@@ -27,6 +27,7 @@ export default defineConfig({
 						"builder_project_folder",
 						"builder_settings",
 						"builder_variable",
+						"builder_plugin",
 						"user_font",
 					],
 				},
@@ -48,6 +49,11 @@ export default defineConfig({
 		allowedHosts: true,
 	},
 	optimizeDeps: {
-		include: ["frappe-ui > feather-icons", "engine.io-client", "interactjs", "highlight.js/lib/core"],
+		include: [
+			"frappe-ui > feather-icons",
+			"engine.io-client",
+			"interactjs",
+			"highlight.js/lib/core",
+		],
 	},
 });

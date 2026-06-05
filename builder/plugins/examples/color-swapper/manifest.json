@@ -1,0 +1,9 @@
+{
+	"id": "com.builder.color-swapper",
+	"name": "Color Swapper",
+	"apiVersion": "1.0",
+	"main": "main.js",
+	"ui": "ui.html",
+	"icon": "lucide-palette",
+	"permissions": ["blocks:read", "blocks:write", "selection:write"]
+}

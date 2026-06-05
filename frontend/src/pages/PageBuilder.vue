@@ -74,6 +74,9 @@
 		<BuilderRightPanel
 			v-show="builderStore.showRightPanel"
 			class="no-scrollbar absolute bottom-0 right-0 top-[var(--toolbar-height)] overflow-auto border-l-[1px] border-outline-gray-2 bg-surface-white"></BuilderRightPanel>
+		<PluginPanel
+			v-if="pluginStore.panelOpen"
+			:allowed-domains="pluginStore.activePlugin?.manifest.allowedDomains" />
 
 		<!-- Toolbar layer (top) - comes last in DOM -->
 		<BuilderToolbar class="absolute left-0 right-0 top-0"></BuilderToolbar>
@@ -124,6 +127,7 @@ import BuilderCommandPalette from "@/components/BuilderCommandPalette.vue";
 import BuilderLeftPanel from "@/components/BuilderLeftPanel.vue";
 import BuilderRightPanel from "@/components/BuilderRightPanel.vue";
 import BuilderToolbar from "@/components/BuilderToolbar.vue";
+import PluginPanel from "@/components/PluginPanel.vue";
 import Dialog from "@/components/Controls/Dialog.vue";
 import PageListModal from "@/components/Modals/PageListModal.vue";
 import { webPages } from "@/data/webPage";
@@ -131,6 +135,7 @@ import { sessionUser } from "@/router";
 import useBuilderStore from "@/stores/builderStore";
 import useCanvasStore from "@/stores/canvasStore";
 import usePageStore from "@/stores/pageStore";
+import usePluginStore from "@/stores/pluginStore";
 import { BuilderPage } from "@/types/doctypes";
 import { getUsersInfo } from "@/usersInfo";
 import blockController from "@/utils/blockController";
@@ -153,6 +158,7 @@ const router = useRouter();
 const builderStore = useBuilderStore();
 const pageStore = usePageStore();
 const canvasStore = useCanvasStore();
+const pluginStore = usePluginStore();
 const usageCount = ref(0);
 const componentUsedInPages = ref<BuilderPage[]>([]);
 const pageListDialog = ref(false);
@@ -433,9 +439,10 @@ onDeactivated(() => {
 	builderStore.realtime.doc_close("Builder Page", pageStore.activePage?.name as string);
 	builderStore.realtime.off("doc_viewers", () => {});
 	builderStore.viewers = [];
+	pluginStore.closePlugin();
 });
 
-onMounted(() => {
+onMounted(async () => {
 	builderStore.blockContextMenu = blockContextMenu.value;
 });
 

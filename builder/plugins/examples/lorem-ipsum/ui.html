@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+	</head>
+	<body class="pui">
+		<h2 class="pui-title">Lorem Ipsum</h2>
+		<p class="pui-desc">Add text blocks with placeholder content.</p>
+
+		<div class="pui-section">
+			<div class="pui-label">Heading</div>
+			<div class="pui-row">
+				<span class="pui-field-label">Words</span>
+				<input type="number" class="pui-input pui-input--narrow" id="headingWords" value="5" min="1" max="20" />
+			</div>
+			<button type="button" class="pui-btn pui-btn--primary" id="addHeading">Add Heading</button>
+		</div>
+
+		<div class="pui-section">
+			<div class="pui-label">Paragraphs</div>
+			<div class="pui-row">
+				<span class="pui-field-label">Count</span>
+				<input type="number" class="pui-input pui-input--narrow" id="paraCount" value="1" min="1" max="10" />
+			</div>
+			<div class="pui-row">
+				<span class="pui-field-label">Sentences each</span>
+				<input type="number" class="pui-input pui-input--narrow" id="sentCount" value="3" min="1" max="10" />
+			</div>
+			<button type="button" class="pui-btn pui-btn--primary" id="addParas">Add Paragraph(s)</button>
+		</div>
+
+		<div class="pui-status" id="status"></div>
+
+		<script>
+			var pluginId = null;
+
+			function send(msg) {
+				window.parent.postMessage({
+					type: "plugin-action",
+					pluginId: pluginId || "com.builder.lorem-ipsum",
+					payload: msg,
+				}, "*");
+			}
+
+			document.getElementById("addHeading").addEventListener("click", function () {
+				var words = parseInt(document.getElementById("headingWords").value, 10) || 5;
+				send({ action: "add-heading", wordCount: words });
+			});
+
+			document.getElementById("addParas").addEventListener("click", function () {
+				var count = parseInt(document.getElementById("paraCount").value, 10) || 1;
+				var sents = parseInt(document.getElementById("sentCount").value, 10) || 3;
+				send({ action: "add-paragraphs", count: count, sentenceCount: sents });
+			});
+
+			window.addEventListener("message", function (event) {
+				if (!event.data) return;
+				var data = event.data;
+				if (data.pluginId) pluginId = data.pluginId;
+				var p = data.payload;
+				if (!p) return;
+				var statusEl = document.getElementById("status");
+				if (p.type === "result") {
+					statusEl.textContent = p.message;
+					statusEl.className = "pui-status " + (p.success ? "pui-status--success" : "pui-status--error");
+				}
+			});
+		</script>
+	</body>
+</html>

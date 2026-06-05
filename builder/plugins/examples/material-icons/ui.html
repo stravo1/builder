@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html style="height: 100%">
+	<head>
+		<meta charset="utf-8" />
+	</head>
+	<body class="pui pui-material" style="height: 100%; margin: 0; overflow: hidden; padding: 10px 12px; box-sizing: border-box">
+		<h2 class="pui-title" style="margin-bottom: 2px">Material Icons</h2>
+		<p class="pui-desc" style="margin-bottom: 6px">Search and set size before inserting.</p>
+
+		<div class="pui-section" style="margin-bottom: 8px; flex-shrink: 0">
+			<div class="pui-label" style="margin-bottom: 4px">Size</div>
+			<div style="display: flex; align-items: center; gap: 8px; min-width: 0">
+				<span
+					id="sizePreview"
+					style="
+						display: flex;
+						align-items: center;
+						justify-content: center;
+						width: 36px;
+						height: 36px;
+						border-radius: 6px;
+						border: 1px solid var(--outline-gray-2);
+						background: var(--surface-gray-1);
+						color: var(--ink-gray-7);
+						flex-shrink: 0;
+					">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						id="sizePreviewSvg"
+						viewBox="0 -960 960 960"
+						fill="currentColor"
+						width="20"
+						height="20"
+						style="display: block">
+						<path
+							d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-350Z" />
+					</svg>
+				</span>
+				<input
+					type="range"
+					id="iconSizeRange"
+					min="8"
+					max="96"
+					value="24"
+					style="flex: 1; min-width: 0; height: 4px; accent-color: var(--ink-blue-3); cursor: pointer" />
+				<input
+					type="number"
+					id="iconSize"
+					class="pui-input pui-input--narrow"
+					value="24"
+					min="8"
+					max="128"
+					style="width: 48px; flex-shrink: 0" />
+				<span style="font-size: 11px; color: var(--ink-gray-5); flex-shrink: 0">px</span>
+			</div>
+		</div>
+
+		<input
+			type="search"
+			class="pui-search"
+			id="search"
+			placeholder="Search icons..."
+			autocomplete="off"
+			style="margin-bottom: 8px; flex-shrink: 0" />
+		<div class="pui-grid pui-grid--icons" id="grid"></div>
+		<div class="pui-status" id="status" style="margin-top: 6px"></div>
+
+		<script>
+			var pluginId = null;
+			var grid = document.getElementById("grid");
+			var search = document.getElementById("search");
+			var searchTimer = null;
+			var currentQuery = "";
+			var iconCache = {};
+			var allIconNames = null;
+			var namesLoadPromise = null;
+			var MATERIAL_CODEPOINTS_URL =
+				"https://cdn.jsdelivr.net/gh/google/material-design-icons@master/variablefont/MaterialSymbolsOutlined%5BFILL%2CGRAD%2Copsz%2Cwght%5D.codepoints";
+			var MATERIAL_SVG_BASE =
+				"https://cdn.jsdelivr.net/gh/google/material-design-icons@master/symbols/web/";
+			var sizeInput = document.getElementById("iconSize");
+			var sizeRange = document.getElementById("iconSizeRange");
+			var sizePreviewSvg = document.getElementById("sizePreviewSvg");
+			var statusEl = document.getElementById("status");
+
+			function fitIconGrid() {
+				var top = grid.getBoundingClientRect().top;
+				var statusH = statusEl ? statusEl.offsetHeight + 8 : 8;
+				var h = window.innerHeight - top - statusH;
+				grid.style.height = Math.max(160, h) + "px";
+			}
+
+			function send(msg) {
+				window.parent.postMessage(
+					{
+						type: "plugin-action",
+						pluginId: pluginId || "com.builder.material-icons",
+						payload: msg,
+					},
+					"*",
+				);
+			}
+
+			function getIconSize() {
+				var n = parseInt(sizeInput.value, 10);
+				if (isNaN(n)) return 24;
+				return Math.min(128, Math.max(8, n));
+			}
+
+			function setIconSize(px, syncRange) {
+				var size = Math.min(128, Math.max(8, px));
+				sizeInput.value = size;
+				if (syncRange !== false) {
+					sizeRange.value = Math.min(96, size);
+				}
+				var previewPx = Math.min(size, 22);
+				sizePreviewSvg.setAttribute("width", previewPx);
+				sizePreviewSvg.setAttribute("height", previewPx);
+				refreshGridPreviews();
+			}
+
+			function scaleSvg(svg, sizePx) {
+				var size = sizePx || getIconSize();
+				return svg.replace(/<svg\b([^>]*)>/i, function (_m, attrs) {
+					var cleaned = attrs
+						.replace(/\s(width|height)="[^"]*"/gi, "")
+						.replace(/\sstyle="[^"]*"/gi, "");
+					return (
+						'<svg' +
+						cleaned +
+						' width="' +
+						size +
+						'" height="' +
+						size +
+						'" style="display:block;width:100%;height:100%">'
+					);
+				});
+			}
+
+			function iconMarkup(svg, name) {
+				return (
+					'<span class="pui-icon-preview">' +
+					scaleSvg(svg, 20) +
+					'</span><span class="label">' +
+					name +
+					"</span>"
+				);
+			}
+
+			function refreshGridPreviews() {
+				var buttons = grid.querySelectorAll(".pui-icon-btn");
+				for (var i = 0; i < buttons.length; i++) {
+					var btn = buttons[i];
+					var name = btn.title;
+					if (name && iconCache[name]) {
+						btn.innerHTML = iconMarkup(iconCache[name], name);
+					}
+				}
+			}
+
+			function normalizeSearchQuery(query) {
+				return query.trim().toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
+			}
+
+			function normalizeMaterialSvg(svg) {
+				svg = svg.replace(/\sfill="[^"]*"/g, "");
+				if (/<svg[^>]*\bfill=/i.test(svg)) return svg;
+				return svg.replace(/<svg\b/i, '<svg fill="currentColor"');
+			}
+
+			function loadAllNames() {
+				if (allIconNames) return Promise.resolve(allIconNames);
+				if (namesLoadPromise) return namesLoadPromise;
+				namesLoadPromise = fetch(MATERIAL_CODEPOINTS_URL)
+					.then(function (r) {
+						if (!r.ok) throw new Error("Failed to load icon list");
+						return r.text();
+					})
+					.then(function (text) {
+						allIconNames = text
+							.split("\n")
+							.map(function (line) {
+								return line.trim();
+							})
+							.filter(function (line) {
+								return line && line.charAt(0) !== "#";
+							})
+							.map(function (line) {
+								return line.split(/\s+/)[0];
+							})
+							.sort();
+						return allIconNames;
+					});
+				return namesLoadPromise;
+			}
+
+			function searchNames(query, limit) {
+				return loadAllNames().then(function (names) {
+					var max = limit || 200;
+					var queryLower = query ? normalizeSearchQuery(query) : "";
+					var queryCompact = queryLower ? queryLower.replace(/_/g, "") : "";
+					var results = [];
+					for (var i = 0; i < names.length; i++) {
+						var name = names[i];
+						if (queryLower) {
+							var nameLower = name.toLowerCase();
+							if (
+								nameLower.indexOf(queryLower) === -1 &&
+								(!queryCompact || nameLower.replace(/_/g, "").indexOf(queryCompact) === -1)
+							) {
+								continue;
+							}
+						}
+						results.push(name);
+						if (results.length >= max) break;
+					}
+					return results;
+				});
+			}
+
+			function materialSvgUrl(name) {
+				return (
+					MATERIAL_SVG_BASE +
+					encodeURIComponent(name) +
+					"/materialsymbolsoutlined/" +
+					encodeURIComponent(name) +
+					"_24px.svg"
+				);
+			}
+
+			function fetchSvg(name) {
+				return fetch(materialSvgUrl(name)).then(function (r) {
+					if (!r.ok) throw new Error("Icon not found");
+					return r.text();
+				}).then(normalizeMaterialSvg);
+			}
+
+			function loadSvg(btn, name) {
+				if (iconCache[name]) {
+					btn.innerHTML = iconMarkup(iconCache[name], name);
+					return;
+				}
+				fetchSvg(name)
+					.then(function (svg) {
+						iconCache[name] = svg;
+						btn.innerHTML = iconMarkup(svg, name);
+					})
+					.catch(function () {});
+			}
+
+			function insertIcon(name, svg) {
+				send({ action: "insert-icon", name: name, svg: svg, size: getIconSize() });
+			}
+
+			function render(names) {
+				grid.innerHTML = "";
+				for (var i = 0; i < names.length; i++) {
+					var name = names[i];
+					var btn = document.createElement("button");
+					btn.type = "button";
+					btn.className = "pui-icon-btn";
+					btn.innerHTML =
+						'<span class="pui-icon-preview"><span class="placeholder"></span></span><span class="label">' +
+						name +
+						"</span>";
+					btn.title = name;
+					btn.addEventListener("click", (function (n) {
+						return function () {
+							if (iconCache[n]) {
+								insertIcon(n, iconCache[n]);
+							} else {
+								fetchSvg(n)
+									.then(function (svg) {
+										iconCache[n] = svg;
+										insertIcon(n, svg);
+									})
+									.catch(function () {});
+							}
+						};
+					})(name));
+					grid.appendChild(btn);
+					loadSvg(btn, name);
+				}
+				fitIconGrid();
+			}
+
+			function fetchIcons(query) {
+				currentQuery = query;
+				searchNames(query, 200)
+					.then(function (names) {
+						if (query !== currentQuery) return;
+						if (names.length) {
+							render(names);
+						} else {
+							grid.innerHTML = '<div class="pui-empty">No icons found.</div>';
+						}
+					})
+					.catch(function () {
+						grid.innerHTML = '<div class="pui-empty">Failed to load icons.</div>';
+					});
+			}
+
+			sizeInput.addEventListener("input", function () {
+				setIconSize(getIconSize(), true);
+			});
+			sizeInput.addEventListener("change", function () {
+				setIconSize(getIconSize(), true);
+			});
+			sizeRange.addEventListener("input", function () {
+				setIconSize(parseInt(sizeRange.value, 10), false);
+			});
+
+			search.addEventListener("input", function () {
+				var val = this.value.trim();
+				if (searchTimer) clearTimeout(searchTimer);
+				searchTimer = setTimeout(function () {
+					fetchIcons(val);
+				}, 250);
+			});
+
+			setIconSize(24);
+			fetchIcons("");
+			fitIconGrid();
+			window.addEventListener("resize", fitIconGrid);
+
+			window.addEventListener("message", function (event) {
+				if (!event.data) return;
+				var data = event.data;
+				if (data.pluginId) pluginId = data.pluginId;
+				var p = data.payload;
+				if (!p) return;
+				if (p.type === "result") {
+					statusEl.textContent = p.message;
+					statusEl.className = "pui-status " + (p.success ? "pui-status--success" : "pui-status--error");
+				}
+			});
+		</script>
+	</body>
+</html>

@@ -529,7 +529,7 @@ interface DialogAction {
 	label: string;
 	variant?: "solid" | "subtle" | "outline" | "ghost";
 	theme?: "gray" | "blue" | "green" | "red";
-	onClick?: () => void | Promise<void>;
+	onClick?: (checkboxChecked?: boolean) => void | Promise<void>;
 }
 
 interface DialogOptions {
@@ -539,6 +539,7 @@ interface DialogOptions {
 		name: string;
 		appearance?: "warning" | "info" | "danger" | "success";
 	};
+	checkboxLabel?: string;
 	actions?: DialogAction[];
 	size?: "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "5xl" | "6xl" | "7xl";
 }
@@ -550,12 +551,13 @@ function showDialog(options: DialogOptions): Promise<void> {
 			title: options.title || "",
 			message: options.message,
 			size: options.size || "md",
+			checkboxLabel: options.checkboxLabel,
 			actions: (options.actions || []).map((action) => ({
 				label: action.label,
 				variant: action.variant ?? "subtle",
 				theme: action.theme ?? "gray",
-				onClick: async ({ close }) => {
-					if (action.onClick) await action.onClick();
+				onClick: async ({ close, checkboxChecked }) => {
+					if (action.onClick) await action.onClick(checkboxChecked);
 					close();
 					resolve();
 				},

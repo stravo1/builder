@@ -172,3 +172,23 @@ export interface BuilderSettings extends DocType {
   /** AI API Key: Password */
   ai_api_key?: string;
 }
+
+// Last updated: 2026-06-02 00:00:00.000000
+export interface BuilderPlugin extends DocType {
+  /** Plugin Name: Data */
+  plugin_name: string;
+  /** Plugin Icon: Attach Image */
+  plugin_icon?: string;
+  /** Enabled: Check */
+  enabled: 0 | 1;
+  /** Main Script: Code */
+  main_script: string;
+  /** UI HTML: Code */
+  ui_html?: string;
+  /** Manifest: JSON */
+  manifest?: any;
+  /** Allowed Domains: Small Text */
+  allowed_domains?: string;
+  /** Plugin ID: Data */
+  plugin_id: string;
+}

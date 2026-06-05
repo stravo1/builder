@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html style="height: 100%">
+	<head>
+		<meta charset="utf-8" />
+	</head>
+	<body class="pui" style="height: 100%; margin: 0; overflow: hidden; padding: 10px 12px; box-sizing: border-box">
+		<h2 class="pui-title" style="margin-bottom: 2px">Lucide Icons</h2>
+		<p class="pui-desc" style="margin-bottom: 6px">Search and set size before inserting.</p>
+
+		<div class="pui-section" style="margin-bottom: 8px; flex-shrink: 0">
+			<div class="pui-label" style="margin-bottom: 4px">Size</div>
+			<div style="display: flex; align-items: center; gap: 8px; min-width: 0">
+				<span
+					id="sizePreview"
+					style="
+						display: flex;
+						align-items: center;
+						justify-content: center;
+						width: 36px;
+						height: 36px;
+						border-radius: 6px;
+						border: 1px solid var(--outline-gray-2);
+						background: var(--surface-gray-1);
+						color: var(--ink-gray-7);
+						flex-shrink: 0;
+					">
+					<svg
+						id="sizePreviewSvg"
+						xmlns="http://www.w3.org/2000/svg"
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						style="display: block">
+						<path
+							d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" />
+					</svg>
+				</span>
+				<input
+					type="range"
+					id="iconSizeRange"
+					min="8"
+					max="96"
+					value="24"
+					style="flex: 1; min-width: 0; height: 4px; accent-color: var(--ink-blue-3); cursor: pointer" />
+				<input
+					type="number"
+					id="iconSize"
+					class="pui-input pui-input--narrow"
+					value="24"
+					min="8"
+					max="128"
+					style="width: 48px; flex-shrink: 0" />
+				<span style="font-size: 11px; color: var(--ink-gray-5); flex-shrink: 0">px</span>
+			</div>
+		</div>
+
+		<input
+			type="search"
+			class="pui-search"
+			id="search"
+			placeholder="Search icons..."
+			autocomplete="off"
+			style="margin-bottom: 8px; flex-shrink: 0" />
+		<div class="pui-grid pui-grid--icons" id="grid"></div>
+		<div class="pui-status" id="status" style="margin-top: 6px"></div>
+
+		<script>
+			var pluginId = null;
+			var grid = document.getElementById("grid");
+			var search = document.getElementById("search");
+			var searchTimer = null;
+			var currentQuery = "";
+			var iconCache = {};
+			var allIconNames = null;
+			var namesLoadPromise = null;
+			var LUCIDE_TAGS_URL = "https://unpkg.com/lucide-static@latest/tags.json";
+			var LUCIDE_SVG_BASE = "https://unpkg.com/lucide-static@latest/icons/";
+			var sizeInput = document.getElementById("iconSize");
+			var sizeRange = document.getElementById("iconSizeRange");
+			var sizePreviewSvg = document.getElementById("sizePreviewSvg");
+			var statusEl = document.getElementById("status");
+
+			function fitIconGrid() {
+				var top = grid.getBoundingClientRect().top;
+				var statusH = statusEl ? statusEl.offsetHeight + 8 : 8;
+				var h = window.innerHeight - top - statusH;
+				grid.style.height = Math.max(160, h) + "px";
+			}
+
+			function send(msg) {
+				window.parent.postMessage(
+					{
+						type: "plugin-action",
+						pluginId: pluginId || "com.builder.lucide-icons",
+						payload: msg,
+					},
+					"*",
+				);
+			}
+
+			function getIconSize() {
+				var n = parseInt(sizeInput.value, 10);
+				if (isNaN(n)) return 24;
+				return Math.min(128, Math.max(8, n));
+			}
+
+			function setIconSize(px, syncRange) {
+				var size = Math.min(128, Math.max(8, px));
+				sizeInput.value = size;
+				if (syncRange !== false) {
+					sizeRange.value = Math.min(96, size);
+				}
+				var previewPx = Math.min(size, 22);
+				sizePreviewSvg.setAttribute("width", previewPx);
+				sizePreviewSvg.setAttribute("height", previewPx);
+				refreshGridPreviews();
+			}
+
+			function scaleSvg(svg, sizePx) {
+				var size = sizePx || getIconSize();
+				return svg.replace(/<svg\b([^>]*)>/i, function (_m, attrs) {
+					var cleaned = attrs.replace(/\s(width|height)="[^"]*"/gi, "");
+					return (
+						'<svg' +
+						cleaned +
+						' width="' +
+						size +
+						'" height="' +
+						size +
+						'" style="display:block;width:100%;height:100%">'
+					);
+				});
+			}
+
+			function iconMarkup(svg, name) {
+				return (
+					'<span class="pui-icon-preview">' +
+					scaleSvg(svg, 20) +
+					'</span><span class="label">' +
+					name +
+					"</span>"
+				);
+			}
+
+			function refreshGridPreviews() {
+				var buttons = grid.querySelectorAll(".pui-icon-btn");
+				for (var i = 0; i < buttons.length; i++) {
+					var btn = buttons[i];
+					var name = btn.title;
+					if (name && iconCache[name]) {
+						btn.innerHTML = iconMarkup(iconCache[name], name);
+					}
+				}
+			}
+
+			function normalizeSearchQuery(query) {
+				return query.trim().toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
+			}
+
+			function loadAllNames() {
+				if (allIconNames) return Promise.resolve(allIconNames);
+				if (namesLoadPromise) return namesLoadPromise;
+				namesLoadPromise = fetch(LUCIDE_TAGS_URL)
+					.then(function (r) {
+						if (!r.ok) throw new Error("Failed to load icon list");
+						return r.json();
+					})
+					.then(function (data) {
+						allIconNames = Object.keys(data).sort();
+						return allIconNames;
+					});
+				return namesLoadPromise;
+			}
+
+			function searchNames(query, limit) {
+				return loadAllNames().then(function (names) {
+					var max = limit || 200;
+					var queryLower = query ? normalizeSearchQuery(query) : "";
+					var queryCompact = queryLower ? queryLower.replace(/_/g, "") : "";
+					var results = [];
+					for (var i = 0; i < names.length; i++) {
+						var name = names[i];
+						if (queryLower) {
+							var nameLower = name.toLowerCase();
+							if (
+								nameLower.indexOf(queryLower) === -1 &&
+								(!queryCompact || nameLower.replace(/_/g, "").indexOf(queryCompact) === -1)
+							) {
+								continue;
+							}
+						}
+						results.push(name);
+						if (results.length >= max) break;
+					}
+					return results;
+				});
+			}
+
+			function fetchSvg(name) {
+				return fetch(LUCIDE_SVG_BASE + encodeURIComponent(name) + ".svg").then(function (r) {
+					if (!r.ok) throw new Error("Icon not found");
+					return r.text();
+				});
+			}
+
+			function loadSvg(btn, name) {
+				if (iconCache[name]) {
+					btn.innerHTML = iconMarkup(iconCache[name], name);
+					return;
+				}
+				fetchSvg(name)
+					.then(function (svg) {
+						iconCache[name] = svg;
+						btn.innerHTML = iconMarkup(svg, name);
+					})
+					.catch(function () {});
+			}
+
+			function insertIcon(name, svg) {
+				send({ action: "insert-icon", name: name, svg: svg, size: getIconSize() });
+			}
+
+			function render(names) {
+				grid.innerHTML = "";
+				for (var i = 0; i < names.length; i++) {
+					var name = names[i];
+					var btn = document.createElement("button");
+					btn.type = "button";
+					btn.className = "pui-icon-btn";
+					btn.innerHTML =
+						'<span class="pui-icon-preview"><span class="placeholder"></span></span><span class="label">' +
+						name +
+						"</span>";
+					btn.title = name;
+					btn.addEventListener("click", (function (n) {
+						return function () {
+							if (iconCache[n]) {
+								insertIcon(n, iconCache[n]);
+							} else {
+								fetchSvg(n)
+									.then(function (svg) {
+										iconCache[n] = svg;
+										insertIcon(n, svg);
+									})
+									.catch(function () {});
+							}
+						};
+					})(name));
+					grid.appendChild(btn);
+					loadSvg(btn, name);
+				}
+				fitIconGrid();
+			}
+
+			function fetchIcons(query) {
+				currentQuery = query;
+				searchNames(query, 200)
+					.then(function (names) {
+						if (query !== currentQuery) return;
+						if (names.length) {
+							render(names);
+						} else {
+							grid.innerHTML = '<div class="pui-empty">No icons found.</div>';
+						}
+					})
+					.catch(function () {
+						grid.innerHTML = '<div class="pui-empty">Failed to load icons.</div>';
+					});
+			}
+
+			sizeInput.addEventListener("input", function () {
+				setIconSize(getIconSize(), true);
+			});
+			sizeInput.addEventListener("change", function () {
+				setIconSize(getIconSize(), true);
+			});
+			sizeRange.addEventListener("input", function () {
+				setIconSize(parseInt(sizeRange.value, 10), false);
+			});
+
+			search.addEventListener("input", function () {
+				var val = this.value.trim();
+				if (searchTimer) clearTimeout(searchTimer);
+				searchTimer = setTimeout(function () {
+					fetchIcons(val);
+				}, 250);
+			});
+
+			setIconSize(24);
+			fetchIcons("");
+			fitIconGrid();
+			window.addEventListener("resize", fitIconGrid);
+
+			window.addEventListener("message", function (event) {
+				if (!event.data) return;
+				var data = event.data;
+				if (data.pluginId) pluginId = data.pluginId;
+				var p = data.payload;
+				if (!p) return;
+				if (p.type === "result") {
+					statusEl.textContent = p.message;
+					statusEl.className = "pui-status " + (p.success ? "pui-status--success" : "pui-status--error");
+				}
+			});
+		</script>
+	</body>
+</html>

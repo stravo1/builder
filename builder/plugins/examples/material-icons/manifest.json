@@ -1,0 +1,9 @@
+{
+	"id": "com.builder.material-icons",
+	"name": "Material Icons",
+	"apiVersion": "1.0",
+	"main": "main.js",
+	"ui": "ui.html",
+	"icon": "https://www.gstatic.com/images/icons/material/apps/fonts/1x/catalog/v5/favicon.svg",
+	"permissions": ["blocks:read", "blocks:write", "selection:write"]
+}

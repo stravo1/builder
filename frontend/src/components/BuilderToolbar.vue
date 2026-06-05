@@ -103,6 +103,7 @@
 						:icon="SparklesIcon"
 						:disabled="builderStore.readOnlyMode"></Button>
 				</Tooltip>
+				<PluginsMenu :disabled="builderStore.readOnlyMode" />
 				<Tooltip text="Toggle Dark Mode" :hoverDelay="0.6" arrow-class="mb-3">
 					<Button
 						variant="ghost"
@@ -154,6 +155,7 @@ import AuthenticatedUserIcon from "@/components/Icons/AuthenticatedUser.vue";
 import PlayIcon from "@/components/Icons/Play.vue";
 import SettingsGearIcon from "@/components/Icons/SettingsGear.vue";
 import PublishButton from "@/components/PublishButton.vue";
+
 import { webPages } from "@/data/webPage";
 import useBuilderStore from "@/stores/builderStore";
 import usePageStore from "@/stores/pageStore";
@@ -166,6 +168,7 @@ import { computed, defineAsyncComponent, inject, ref } from "vue";
 import SparklesIcon from "~icons/lucide/sparkles";
 import MainMenu from "./MainMenu.vue";
 import PageOptions from "./PageOptions.vue";
+import PluginsMenu from "./PluginsMenu.vue";
 
 const BuilderSettings = defineAsyncComponent(() => import("./BuilderSettings.vue"));
 

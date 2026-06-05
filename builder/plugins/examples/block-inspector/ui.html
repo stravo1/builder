@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+	</head>
+	<body class="pui">
+		<h2 class="pui-title">Block Inspector</h2>
+		<p class="pui-meta" id="summary">Waiting for plugin data...</p>
+		<p class="pui-muted" id="hover">Hover: none</p>
+		<pre class="pui-code" id="output">{}</pre>
+		<script>
+			window.addEventListener("message", function (event) {
+				if (!event.data) return;
+				var data = event.data;
+				if (data.type !== "plugin-message" || !data.payload) return;
+				var payload = data.payload;
+
+				if (payload.type === "inspection-result") {
+					document.getElementById("summary").textContent =
+						payload.selectedCount + " selected · " +
+						payload.childCount + " root children · scale " +
+						payload.viewport.scale.toFixed(2);
+					document.getElementById("output").textContent = JSON.stringify(payload, null, 2);
+				} else if (payload.type === "hover-update") {
+					document.getElementById("hover").textContent =
+						"Hover: " + (payload.blockId || "none");
+				}
+			});
+		</script>
+	</body>
+</html>

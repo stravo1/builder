@@ -6,12 +6,7 @@
 					ref="popoverContent"
 					class="fixed flex flex-col gap-1 overflow-hidden rounded-lg border border-outline-gray-2 bg-surface-white shadow-2xl"
 					:class="{ 'transition-all duration-300 ease-in-out': isTransitioning }"
-					:style="{
-						width: width + 'px',
-						minHeight: height + 'px',
-						left: popupLeft + 'px',
-						top: popupTop + 'px',
-					}">
+					:style="popupStyle">
 					<div
 						ref="headerRef"
 						class="flex cursor-grab select-none items-center justify-between px-4 py-2 pr-3 text-sm text-ink-gray-9"
@@ -27,9 +22,13 @@
 							<Button @click="togglePopup" icon="lucide-x" variant="subtle"></Button>
 						</div>
 					</div>
-					<div class="flex-1 px-3 pb-3">
+					<div class="flex min-h-0 flex-1 flex-col px-3 pb-3">
 						<slot name="content"></slot>
 					</div>
+					<div
+						v-if="resizable"
+						class="absolute bottom-0 right-0 z-10 h-4 w-4 cursor-nwse-resize"
+						@mousedown.prevent="startResize" />
 				</div>
 			</div>
 		</div>
@@ -38,7 +37,7 @@
 
 <script setup lang="ts">
 import { useEventListener } from "@vueuse/core";
-import { nextTick, onMounted, Ref, ref } from "vue";
+import { computed, nextTick, onMounted, Ref, ref } from "vue";
 
 const popover = ref(null) as Ref<HTMLElement | null>;
 
@@ -47,6 +46,9 @@ const props = withDefaults(
 		modelValue: boolean;
 		width?: number;
 		height?: number;
+		resizable?: boolean;
+		minWidth?: number;
+		minHeight?: number;
 		placement?:
 			| "top-left"
 			| "top-right"
@@ -68,6 +70,9 @@ const props = withDefaults(
 	{
 		width: 300,
 		height: 200,
+		resizable: false,
+		minWidth: 200,
+		minHeight: 150,
 		clickOutsideToClose: false,
 		placement: "top-left",
 		placementOffset: 0,
@@ -80,13 +85,28 @@ const popoverContent = ref(null) as Ref<HTMLElement | null>;
 const headerRef = ref<HTMLElement | null>(null);
 const popupLeft = ref(1500);
 const popupTop = ref(100);
+const winW = ref(props.width);
+const winH = ref(props.height);
 const isDragging = ref(false);
 const isTransitioning = ref(false);
+
+const popupStyle = computed(() => ({
+	width: (props.resizable ? winW.value : props.width) + "px",
+	minHeight: (props.resizable ? winH.value : props.height) + "px",
+	left: popupLeft.value + "px",
+	top: popupTop.value + "px",
+}));
 
 let startX = 0;
 let startY = 0;
 let startLeft = 0;
 let startTop = 0;
+
+// --- Resize state ---
+let resizeStartX = 0;
+let resizeStartY = 0;
+let resizeStartW = 0;
+let resizeStartH = 0;
 
 onMounted(async () => {
 	await nextTick();
@@ -136,7 +156,6 @@ const stopDrag = () => {
 		const clampedTop = Math.min(Math.max(popupTop.value, minTop), maxTop);
 		const clampedLeft = Math.min(Math.max(popupLeft.value, minLeft), maxLeft);
 
-		// transition if position needs adjustment
 		if (clampedTop !== popupTop.value || clampedLeft !== popupLeft.value) {
 			isTransitioning.value = true;
 			popupTop.value = clampedTop;
@@ -147,6 +166,25 @@ const stopDrag = () => {
 			}, 300);
 		}
 	}
+};
+
+// --- Resize ---
+const startResize = (event: MouseEvent) => {
+	resizeStartX = event.clientX;
+	resizeStartY = event.clientY;
+	resizeStartW = winW.value;
+	resizeStartH = winH.value;
+	document.addEventListener("mousemove", onResize);
+	document.addEventListener("mouseup", stopResize, { once: true });
+};
+
+const onResize = (event: MouseEvent) => {
+	winW.value = Math.max(props.minWidth, resizeStartW + (event.clientX - resizeStartX));
+	winH.value = Math.max(props.minHeight, resizeStartH + (event.clientY - resizeStartY));
+};
+
+const stopResize = () => {
+	document.removeEventListener("mousemove", onResize);
 };
 
 const handleClickOutside = (event: Event) => {

@@ -1,0 +1,9 @@
+{
+	"id": "com.builder.lucide-icons",
+	"name": "Lucide Icons",
+	"apiVersion": "1.0",
+	"main": "main.js",
+	"ui": "ui.html",
+	"icon": "https://lucide.dev/logo.dark.svg",
+	"permissions": ["blocks:read", "blocks:write", "selection:write"]
+}

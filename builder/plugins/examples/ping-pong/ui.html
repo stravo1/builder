@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+	</head>
+	<body class="pui">
+		<h2 class="pui-title">Ping Pong</h2>
+		<div class="pui-log" id="log"></div>
+		<input class="pui-input" id="msg" type="text" placeholder="Optional message..." />
+		<button type="button" class="pui-btn pui-btn--primary" id="btn">Send Ping</button>
+		<script>
+			var log = document.getElementById("log");
+			var btn = document.getElementById("btn");
+			var msg = document.getElementById("msg");
+			var pluginId = null;
+
+			function addEntry(dir, text) {
+				var el = document.createElement("div");
+				el.className = "pui-log-entry";
+				el.innerHTML = '<span class="dir ' + dir + '">' + (dir === "in" ? "recv" : "send") + "</span>" + text;
+				log.appendChild(el);
+				log.scrollTop = log.scrollHeight;
+			}
+
+			btn.addEventListener("click", function () {
+				var text = msg.value || "";
+				addEntry("out", "ping" + (text ? ": " + text : ""));
+				window.parent.postMessage({
+					type: "plugin-action",
+					pluginId: pluginId || "com.builder.ping-pong",
+					payload: { action: "ping", text: text },
+				}, "*");
+				msg.value = "";
+			});
+
+			window.addEventListener("message", function (event) {
+				if (!event.data) return;
+				var data = event.data;
+				if (!data) return;
+				if (data.pluginId) pluginId = data.pluginId;
+				var p = data.payload;
+				if (!p) return;
+				if (p.type === "hello") {
+					addEntry("in", p.text);
+				} else if (p.type === "pong") {
+					addEntry("in", "pong #" + p.count + " — " + p.blockCount + " root children" + (p.echo ? " — echo: " + p.echo : ""));
+				}
+			});
+		</script>
+	</body>
+</html>

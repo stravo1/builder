@@ -1,0 +1,9 @@
+{
+	"id": "com.builder.lorem-ipsum",
+	"name": "Lorem Ipsum",
+	"apiVersion": "1.0",
+	"main": "main.js",
+	"ui": "ui.html",
+	"icon": "lucide-text",
+	"permissions": ["blocks:read", "blocks:write", "selection:write"]
+}

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+	</head>
+	<body class="pui">
+		<h2 class="pui-title">Color Swapper</h2>
+		<p class="pui-desc">Pick a color or gradient, then apply to selected blocks.</p>
+
+		<div class="pui-section">
+			<div class="pui-label">Solids</div>
+			<div class="pui-grid" id="solids"></div>
+		</div>
+
+		<div class="pui-section">
+			<div class="pui-label">Pastels</div>
+			<div class="pui-grid" id="pastels"></div>
+		</div>
+
+		<div class="pui-section">
+			<div class="pui-label">Gradients</div>
+			<div id="gradients"></div>
+		</div>
+
+		<div class="pui-section">
+			<div class="pui-label">Custom</div>
+			<div class="pui-color-row">
+				<input type="color" id="customPicker" value="#6366f1" />
+				<input type="text" class="pui-input" id="customValue" placeholder="#hex or gradient css" />
+			</div>
+		</div>
+
+		<button type="button" class="pui-btn pui-btn--primary" id="applyBtn" disabled>Apply to Selected Blocks</button>
+		<div class="pui-status" id="status"></div>
+
+		<script>
+			var SOLIDS = [
+				"#1f2937", "#ef4444", "#f97316", "#eab308", "#22c55e",
+				"#3b82f6", "#6366f1", "#a855f7", "#ec4899", "#ffffff",
+			];
+			var PASTELS = [
+				"#fef3c7", "#fce7f3", "#dbeafe", "#d1fae5", "#ede9fe",
+				"#fef9c3", "#ffe4e6", "#e0e7ff", "#ccfbf1", "#f3f4f6",
+			];
+			var GRADIENTS = [
+				{ label: "Sunset", value: "linear-gradient(135deg, #f97316, #ec4899)" },
+				{ label: "Ocean", value: "linear-gradient(135deg, #3b82f6, #06b6d4)" },
+				{ label: "Forest", value: "linear-gradient(135deg, #22c55e, #14b8a6)" },
+				{ label: "Lavender", value: "linear-gradient(135deg, #a855f7, #6366f1)" },
+				{ label: "Peach", value: "linear-gradient(135deg, #fb923c, #f472b6)" },
+				{ label: "Midnight", value: "linear-gradient(135deg, #1e3a5f, #0f172a)" },
+				{ label: "Aurora", value: "linear-gradient(135deg, #34d399, #818cf8, #f472b6)" },
+			];
+
+			var selected = { value: "", property: "backgroundColor", source: null };
+			var pluginId = null;
+
+			function clearActive() {
+				document.querySelectorAll(".is-active").forEach(function (el) { el.classList.remove("is-active"); });
+			}
+
+			function selectColor(value, property, el) {
+				clearActive();
+				selected.value = value;
+				selected.property = property;
+				if (el) el.classList.add("is-active");
+				document.getElementById("customValue").value = value;
+				document.getElementById("applyBtn").disabled = false;
+			}
+
+			function buildSolids(container, colors) {
+				colors.forEach(function (color) {
+					var el = document.createElement("div");
+					el.className = "pui-swatch" + (color === "#ffffff" ? " pui-swatch--light-border" : "");
+					el.style.background = color;
+					el.addEventListener("click", function () { selectColor(color, "backgroundColor", el); });
+					container.appendChild(el);
+				});
+			}
+
+			buildSolids(document.getElementById("solids"), SOLIDS);
+			buildSolids(document.getElementById("pastels"), PASTELS);
+
+			var gradContainer = document.getElementById("gradients");
+			GRADIENTS.forEach(function (g) {
+				var el = document.createElement("div");
+				el.className = "pui-gradient-swatch";
+				el.style.background = g.value;
+				el.title = g.label;
+				el.addEventListener("click", function () { selectColor(g.value, "background", el); });
+				gradContainer.appendChild(el);
+			});
+
+			var customPicker = document.getElementById("customPicker");
+			var customValue = document.getElementById("customValue");
+			customPicker.addEventListener("input", function () {
+				clearActive();
+				customValue.value = customPicker.value;
+				selected.value = customPicker.value;
+				selected.property = "backgroundColor";
+				document.getElementById("applyBtn").disabled = false;
+			});
+			customValue.addEventListener("input", function () {
+				clearActive();
+				var v = customValue.value.trim();
+				selected.value = v;
+				selected.property = v.includes("gradient") ? "background" : "backgroundColor";
+				document.getElementById("applyBtn").disabled = !v;
+			});
+
+			document.getElementById("applyBtn").addEventListener("click", function () {
+				if (!selected.value) return;
+				window.parent.postMessage({
+					type: "plugin-action",
+					pluginId: pluginId || "com.builder.color-swapper",
+					payload: { action: "apply-color", value: selected.value, property: selected.property },
+				}, "*");
+			});
+
+			window.addEventListener("message", function (event) {
+				if (!event.data) return;
+				var data = event.data;
+				if (data.pluginId) pluginId = data.pluginId;
+				var p = data.payload;
+				if (!p) return;
+				var statusEl = document.getElementById("status");
+				if (p.type === "result") {
+					statusEl.textContent = p.message;
+					statusEl.className = "pui-status " + (p.updated > 0 ? "pui-status--success" : "pui-status--warn");
+				}
+			});
+		</script>
+	</body>
+</html>

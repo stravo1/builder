@@ -21,7 +21,9 @@ export function useBlockSelection(rootBlock: Ref<Block>) {
 
 	const selectBlock = (block: Block, multiSelect = false) => {
 		if (multiSelect) {
-			selectedBlockIds.value.add(block.blockId);
+			const next = new Set(selectedBlockIds.value);
+			next.add(block.blockId);
+			selectedBlockIds.value = next;
 		} else {
 			selectedBlockIds.value = new Set([block.blockId]);
 		}
@@ -29,7 +31,9 @@ export function useBlockSelection(rootBlock: Ref<Block>) {
 
 	const toggleBlockSelection = (block: Block) => {
 		if (selectedBlockIds.value.has(block.blockId)) {
-			selectedBlockIds.value.delete(block.blockId);
+			const next = new Set(selectedBlockIds.value);
+			next.delete(block.blockId);
+			selectedBlockIds.value = next;
 		} else {
 			selectBlock(block, true);
 		}
@@ -56,8 +60,10 @@ export function useBlockSelection(rootBlock: Ref<Block>) {
 		const start = Math.min(lastSelectedBlockIndex, newSelectedBlockIndex);
 		const end = Math.max(lastSelectedBlockIndex, newSelectedBlockIndex);
 		if (lastSelectedBlockParent === newSelectedBlockParent) {
+			const next = new Set(selectedBlockIds.value);
 			const blocks = lastSelectedBlockParent.children.slice(start, end + 1);
-			blocks.forEach((b) => selectedBlockIds.value.add(b.blockId));
+			blocks.forEach((b) => next.add(b.blockId));
+			selectedBlockIds.value = next;
 		}
 	};
 
