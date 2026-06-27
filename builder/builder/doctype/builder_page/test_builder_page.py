@@ -539,13 +539,87 @@ component.update({
 			self.assertRegex(
 				content,
 				r"client_script_[a-z0-9_]+\)\.call\("
-				r"document\.querySelector\('\[data-block-uid=\"[^\"]+\"\]'\), "
+				r'get_builder_block\("[^"]+"\), '
 				r'\{[^}]*"greeting": "hello from component data"[^}]*\}, '
 				r'\{[^}]*"title": "Overridden Title"[^}]*\}\)',
 			)
+			self.assertIn("function get_builder_block(uid)", content)
+			self.assertNotIn("data-builder-component-mount", content)
 		finally:
 			page.delete()
 			component.delete()
+
+	def test_component_mount_script_emission(self):
+		from builder.builder.doctype.builder_page.builder_page import get_block_html
+
+		static_component = frappe.get_doc(
+			{
+				"doctype": "Builder Component",
+				"block": Block(element="div", blockId="static-root").as_json(),
+			}
+		).insert()
+		reactive_component = frappe.get_doc(
+			{
+				"doctype": "Builder Component",
+				"block": Block(element="div", blockId="reactive-root").as_json(),
+				"component_props": {
+					"title": {
+						"label": "Title",
+						"isStandard": True,
+						"isDynamic": False,
+						"isPassedDown": True,
+						"isReactive": True,
+						"comesFrom": None,
+						"value": "Hello",
+						"propOptions": {"type": "string", "options": {"defaultValue": "Hello"}},
+					}
+				},
+			}
+		).insert()
+		js_component = frappe.get_doc(
+			{
+				"doctype": "Builder Component",
+				"block": Block(element="div", blockId="js-root").as_json(),
+				"component_js": 'this.dataset.mounted = "1";',
+			}
+		).insert()
+		css_component = frappe.get_doc(
+			{
+				"doctype": "Builder Component",
+				"block": Block(element="div", blockId="css-root").as_json(),
+				"component_css": "div { color: green; }",
+			}
+		).insert()
+
+		try:
+			static_html, _, _, _ = get_block_html(
+				[Block(blockId="static-instance", extendedFromComponent=static_component.name).as_dict()]
+			)
+			reactive_html, _, _, _ = get_block_html(
+				[Block(blockId="reactive-instance", extendedFromComponent=reactive_component.name).as_dict()]
+			)
+			js_html, _, _, _ = get_block_html(
+				[Block(blockId="js-instance", extendedFromComponent=js_component.name).as_dict()]
+			)
+			css_html, _, _, _ = get_block_html(
+				[Block(blockId="css-instance", extendedFromComponent=css_component.name).as_dict()]
+			)
+
+			self.assertNotIn("data-builder-component-mount", static_html)
+			self.assertIn("data-builder-component-mount", reactive_html)
+			self.assertIn("{% with reactive_props = [ 'title' ] %}", reactive_html)
+			self.assertIn("reactiveProps: {{ reactive_props | to_safe_json }}", reactive_html)
+			self.assertIn('uid: uid, el: el', reactive_html)
+			self.assertNotIn("data-builder-component-mount", js_html)
+			self.assertIn(').call(get_builder_block("{{ unique_hash }}")', js_html)
+			self.assertIn("{% with reactive_props = [  ] %}", js_html)
+			self.assertNotIn("data-builder-component-mount", css_html)
+			self.assertIn("div { color: green; }", css_html)
+		finally:
+			static_component.delete()
+			reactive_component.delete()
+			js_component.delete()
+			css_component.delete()
 
 	def test_reactivity_library_can_be_disabled_per_page(self):
 		page = frappe.get_doc(

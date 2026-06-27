@@ -25,6 +25,10 @@ from builder.builder.component_versions import (
 	pin_components_in_page_data,
 	resolve_component,
 )
+from builder.builder.doctype.builder_page_fragment.builder_page_fragment import (
+	delete_component_fragments,
+	refresh_component_fragments,
+)
 from builder.builder.doctype.builder_project_folder.builder_project_folder import is_system_activity
 from builder.builder.doctype.builder_snapshot.builder_snapshot import (
 	prune_snapshots,
@@ -246,6 +250,7 @@ class BuilderPage(WebsiteGenerator):
 					frappe._("Template pages can only be deleted in developer mode."),
 					frappe.PermissionError,
 				)
+		delete_component_fragments(self.name)
 		# clean up snapshots (reference_name is plain Data, so no link-guard removes them)
 		frappe.db.delete(
 			"Builder Snapshot", {"reference_doctype": "Builder Page", "reference_name": self.name}
@@ -279,6 +284,7 @@ class BuilderPage(WebsiteGenerator):
 			prune_snapshots("Builder Page", self.name, keep=KEEP_PUBLISH_SNAPSHOTS, snapshot_type="Publish")
 			self.blocks = self.draft_blocks
 			self.draft_blocks = None
+		refresh_component_fragments(self)
 		self.save()
 		capture("builder_page_published", "builder")
 		frappe.enqueue_doc(
@@ -294,6 +300,7 @@ class BuilderPage(WebsiteGenerator):
 	@frappe.whitelist()
 	def unpublish(self):
 		self.published = 0
+		delete_component_fragments(self.name)
 		self.save()
 		capture("builder_page_unpublished", "builder")
 
@@ -399,7 +406,7 @@ class BuilderPage(WebsiteGenerator):
 		context.update(page_data)
 
 		self.set_style_and_script(context)
-		context.enable_reactivity_library = self.enable_reactivity_library != 0
+		context.enable_reactivity_library = getattr(self, "enable_reactivity_library", 1) != 0
 		self.set_meta_tags(context=context, page_data=page_data)
 		self.set_favicon(context)
 		self.set_language(context)
@@ -705,12 +712,14 @@ def get_block_context(block: dict, props: dict, component_id: str | None) -> dic
 	"""
 	all_props = {name: info["value"] for name, info in props.items()}
 	passed_down_props = {name: info["value"] for name, info in props.items() if info["is_passed_down"]}
+	reactive_props = [name for name, info in props.items() if info["is_reactive"]]
 
 	return {
 		"block_id": block.get("blockId"),
 		"component_id": component_id,
 		"all_props": all_props,
 		"passed_down_props": passed_down_props,
+		"reactive_props": reactive_props,
 	}
 
 
@@ -733,6 +742,7 @@ def process_block_props(block: dict, data_key: dict | None, props_stack: dict) -
 	for prop_name, prop_config in block.get("props", {}).items():
 		is_standard = prop_config.get("isStandard", False)
 		is_passed_down = prop_config.get("isPassedDown", False)
+		is_reactive = prop_config.get("isReactive", False)
 
 		value = interpret_prop_value(prop_config, data_key)
 
@@ -740,7 +750,12 @@ def process_block_props(block: dict, data_key: dict | None, props_stack: dict) -
 		if is_standard:
 			props_stack.setdefault(prop_name, []).append(prop_config)
 
-		props[prop_name] = {"value": value, "is_standard": is_standard, "is_passed_down": is_passed_down}
+		props[prop_name] = {
+			"value": value,
+			"is_standard": is_standard,
+			"is_passed_down": is_passed_down,
+			"is_reactive": is_reactive,
+		}
 
 	return props
 
@@ -869,7 +884,7 @@ def build_tag_classes(block: dict, state: dict, ancestor_font: str | None = None
 
 def generate_and_apply_styles(block: dict, state: dict, ancestor_font: str | None = None) -> str:
 	"""Generate a unique style class and append all styles to the style tag."""
-	style_class = f"fb-{frappe.generate_hash(length=8)}"
+	style_class = f"fb-{block.get('blockId') or frappe.generate_hash(length=8)}"
 	style_tag = state["style_tag"]
 	font_map = state["font_map"]
 
@@ -1055,7 +1070,67 @@ def get_visibility_condition_key(block: dict, data_key: dict | None) -> str | No
 		return key
 
 
-def create_client_script_tag(state: dict, script_id: str, script: dict) -> bs.Tag:
+def create_component_mount_tag(state: dict, script_id: str | None = None) -> bs.Tag:
+	ensure_builder_block_helper(state)
+	script_tag = state["soup"].new_tag("script")
+	script_tag["data-builder-component-mount"] = ""
+	script_option = f", script: client_script_{script_id}" if script_id else ""
+	fallback_script = (
+		f"(client_script_{script_id}).call("
+		f"el, "
+		f"{{{{ component.component_data | to_safe_json }}}}, "
+		f"{{{{ props | to_safe_json }}}}"
+		f");"
+		if script_id
+		else ""
+	)
+	script_tag.string = (
+		f"(function() {{"
+		f"var uid=\"{{{{ unique_hash }}}}\",el=get_builder_block(uid);"
+		f"if (window.builder && window.builder.mountComponent) {{"
+		f"window.builder.mountComponent({{"
+		f"page: {{{{ page_name | to_safe_json }}}}, "
+		f"blockId: {{{{ block_id | to_safe_json }}}}, "
+		f"uid: uid, "
+		f"el: el, "
+		f"props: {{{{ props | to_safe_json }}}}, "
+		f"reactiveProps: {{{{ reactive_props | to_safe_json }}}}, "
+		f"componentData: {{{{ component.component_data | to_safe_json }}}}"
+		f"{script_option}"
+		f"}});"
+		f"}} else {{"
+		f"{fallback_script}"
+		f"}}"
+		f"}})();"
+	)
+	return script_tag
+
+
+def ensure_builder_block_helper(state: dict):
+	if state.get("has_builder_block_helper"):
+		return
+	state["global_script_tag"].append(
+		"function get_builder_block(uid){return document.querySelector('[data-block-uid=\"'+uid+'\"]')}\n"
+	)
+	state["has_builder_block_helper"] = True
+
+
+def create_component_script_call_tag(state: dict, script_id: str) -> bs.Tag:
+	ensure_builder_block_helper(state)
+	script_tag = state["soup"].new_tag("script")
+	script_tag.string = (
+		f"(client_script_{script_id}).call("
+		f"get_builder_block(\"{{{{ unique_hash }}}}\"), "
+		f"{{{{ component.component_data | to_safe_json }}}}, "
+		f"{{{{ props | to_safe_json }}}}"
+		f");"
+	)
+	return script_tag
+
+
+def create_client_script_tag(
+	state: dict, script_id: str, script: dict, mount_component: bool = False
+) -> bs.Tag:
 	"""Register a client script globally (once) and return its per-block tag."""
 	if script["type"] == "JavaScript":
 		if script_id not in state["used_block_scripts"]:
@@ -1064,20 +1139,17 @@ def create_client_script_tag(state: dict, script_id: str, script: dict) -> bs.Ta
 			)
 			state["used_block_scripts"].add(script_id)
 
-		script_tag = state["soup"].new_tag("script")
-		invocation = (
-			f"(client_script_{script_id}).call("
-			f"document.querySelector('[data-block-uid=\"{{{{ unique_hash }}}}\"]'), "
-			f"{{{{ component.component_data | to_safe_json }}}}, "
-			f"{{{{ props | to_safe_json }}}}"
-			f");"
-		)
-		script_tag.string = invocation
-		return script_tag
+		if mount_component:
+			return create_component_mount_tag(state, script_id)
+		return create_component_script_call_tag(state, script_id)
 
 	style_tag = state["soup"].new_tag("style")
 	style_tag.string = f'[data-block-uid="{{{{ unique_hash }}}}"] {{ {script["script"]} }}'
 	return style_tag
+
+
+def has_reactive_props(block: dict) -> bool:
+	return any(prop.get("isReactive") for prop in (block.get("props") or {}).values())
 
 
 def attach_client_script(tag: bs.Tag, block: dict, state: dict):
@@ -1092,12 +1164,19 @@ def attach_client_script(tag: bs.Tag, block: dict, state: dict):
 	}
 
 	if not scripts:
+		if block.get("_component_id") and has_reactive_props(block):
+			tag.attrs["data-block-uid"] = "{{ unique_hash }}"
+			tag.append(create_component_mount_tag(state))
 		return
 
 	tag.attrs["data-block-uid"] = "{{ unique_hash }}"
+	mount_component = block.get("_component_id") and has_reactive_props(block)
 
 	for script_id, script in reversed(list(scripts.items())):
-		tag.append(create_client_script_tag(state, script_id, script))
+		tag.append(create_client_script_tag(state, script_id, script, mount_component))
+
+	if mount_component and not any(script["type"] == "JavaScript" for script in scripts.values()):
+		tag.append(create_component_mount_tag(state))
 
 
 def append_child_with_context(parent: bs.Tag, child: bs.Tag, context: dict):
@@ -1114,9 +1193,11 @@ def append_child_with_context(parent: bs.Tag, child: bs.Tag, context: dict):
 
 	all_props_literal = to_jinja_literal(context["all_props"])
 	passed_down_literal = to_jinja_literal(context["passed_down_props"])
+	reactive_props_literal = to_jinja_literal(context["reactive_props"])
 
 	parent.append(f"{{% with props = {all_props_literal} | combine(passed_down_props) %}}")
 	parent.append(f"{{% with passed_down_props = passed_down_props | combine({passed_down_literal}) %}}")
+	parent.append(f"{{% with reactive_props = {reactive_props_literal} %}}")
 
 	if context.get("visibility_key"):
 		parent.append(f"{{% if {context['visibility_key']} %}}")
@@ -1133,6 +1214,7 @@ def append_child_with_context(parent: bs.Tag, child: bs.Tag, context: dict):
 	if context.get("visibility_key"):
 		parent.append("{% endif %}")
 
+	parent.append("{% endwith %}")
 	parent.append("{% endwith %}")
 	parent.append("{% endwith %}")
 
@@ -1211,6 +1293,7 @@ def wrap_html_with_context(html: str, context: dict) -> str:
 	"""
 	all_props_literal = to_jinja_literal(context["all_props"])
 	passed_down_literal = to_jinja_literal(context["passed_down_props"])
+	reactive_props_literal = to_jinja_literal(context["reactive_props"])
 
 	# Set props contexts
 	if context.get("component_id"):
@@ -1220,6 +1303,9 @@ def wrap_html_with_context(html: str, context: dict) -> str:
 		)
 	html = f"{{% with props = {all_props_literal} %}}{html}{{% endwith %}}"
 	html = f"{{% with passed_down_props = {passed_down_literal} %}}{html}{{% endwith %}}"
+	html = f"{{% with reactive_props = {reactive_props_literal} %}}{html}{{% endwith %}}"
+	html = f"{{% with block_id = {to_jinja_literal(context.get('block_id'))} %}}{html}{{% endwith %}}"
+	html = f"{{% with unique_hash = {to_jinja_literal(context.get('block_id'))} %}}{html}{{% endwith %}}"
 
 	return html
 
@@ -1236,6 +1322,8 @@ def extend_block_with_component(block: dict) -> tuple[dict, str | None]:
 
 	component_block = frappe.parse_json(component.get("block") or "{}")
 	if component_block:
+		component_block["blockId"] = block.get("blockId") or component_block.get("blockId")
+		component_block["_component_id"] = component_id
 		if component.get("component_props"):
 			component_block["props"] = frappe.parse_json(component["component_props"]) or {}
 

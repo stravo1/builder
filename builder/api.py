@@ -12,6 +12,7 @@ from frappe.apps import get_apps as get_permitted_apps
 from frappe.core.doctype.file.file import get_local_image
 from frappe.core.doctype.file.utils import delete_file
 from frappe.model.document import Document
+from frappe.rate_limiter import rate_limit
 from frappe.utils.caching import redis_cache
 from frappe.utils.safe_exec import NamespaceDict, get_safe_globals
 from PIL import Image
@@ -19,6 +20,9 @@ from werkzeug.wrappers import Response
 
 from builder import builder_analytics
 from builder.builder.doctype.builder_page.builder_page import BuilderPageRenderer
+from builder.builder.doctype.builder_page_fragment.builder_page_fragment import (
+	render_component_fragment as _render_component_fragment,
+)
 from builder.builder.doctype.builder_snapshot import builder_snapshot
 from builder.utils import compact_json, has_page_read, has_page_write
 
@@ -51,6 +55,18 @@ def get_page_preview_html(page: str, **kwarg) -> Response:
 		queue="short",
 	)
 	return response
+
+
+@frappe.whitelist(allow_guest=True)
+@rate_limit(key="builder_component_fragment", limit=120, seconds=60)
+def render_component_fragment(
+	page: str,
+	block_id: str,
+	props: dict | str | None = None,
+	route_variables: dict | str | None = None,
+) -> dict:
+	page_doc = frappe.get_cached_doc("Builder Page", page)
+	return _render_component_fragment(page_doc, block_id, props, route_variables)
 
 
 @frappe.whitelist()

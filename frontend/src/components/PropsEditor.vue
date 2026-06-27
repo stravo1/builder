@@ -39,8 +39,9 @@
 											class="h-4 w-4 text-ink-gray-4" />
 									</div>
 									<div class="flex max-w-full flex-col gap-1">
-										<p class="text-sm-medium">
+										<p class="flex items-center gap-1 text-sm-medium">
 											{{ value.label || name }}
+											<LucideZap v-if="value.isReactive" class="h-3 w-3 text-ink-gray-4" />
 										</p>
 										<p class="max-w-24 truncate text-ellipsis text-xs text-ink-gray-4">
 											{{
