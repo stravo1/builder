@@ -1,6 +1,10 @@
 <template>
 	<component :is="block.getTag()" ref="component" :key="editor" class="__text_block__">
-		<div v-html="textContent" v-show="!editor && textContent" @click="handleClick"></div>
+		<div
+			v-html="textContent"
+			v-show="!editor && textContent"
+			@click="handleClick"
+			class="bg-clip-[inherit] bg-inherit [-webkit-background-clip:inherit] [background-image:inherit]"></div>
 		<TextBlockBubbleMenu
 			v-if="editor"
 			:block="block"
@@ -60,7 +64,6 @@ const props = withDefaults(
 		componentData?: Record<string, any> | null;
 		defaultProps?: Record<string, any> | null;
 		breakpoint?: string;
-		parentBlockUid?: string | null;
 	}>(),
 	{
 		preview: false,
@@ -68,7 +71,6 @@ const props = withDefaults(
 		componentData: null,
 		defaultProps: null,
 		breakpoint: "desktop",
-		parentBlockUid: null,
 	},
 );
 

@@ -2,7 +2,7 @@
 	<div class="flex h-[88vh] max-h-[800px] overflow-hidden">
 		<div class="flex w-48 shrink-0 flex-col gap-5 bg-surface-gray-1 p-4 px-2">
 			<span class="text-xl-semibold px-2 text-ink-gray-9">Settings</span>
-			<div class="flex flex-col" v-for="(item, index) in settingsSidebarItems" :key="index">
+			<div class="flex flex-col gap-0.5" v-for="(item, index) in settingsSidebarItems" :key="index">
 				<span class="text-base-medium mb-2 px-2 text-ink-gray-5">
 					{{ item.title }}
 				</span>
@@ -27,7 +27,9 @@
 				variant="subtle"
 				@click="$emit('close')"
 				class="absolute right-5 top-5"></Button>
-			<component :is="selectedItemDoc?.component" v-if="settingsLoaded" class="pb-16" />
+			<KeepAlive v-if="settingsLoaded">
+				<component :is="selectedItemDoc?.component" class="pb-16" />
+			</KeepAlive>
 			<div v-else class="flex items-center justify-center">
 				<span class="text-ink-gray-5">Loading...</span>
 			</div>
@@ -40,8 +42,9 @@ import PageCode from "@/components/Settings/PageCode.vue";
 import PageRobots from "@/components/Settings/PageRobots.vue";
 import builderProjectFolder from "@/data/builderProjectFolder";
 import { builderSettings } from "@/data/builderSettings";
+import useBuilderStore from "@/stores/builderStore";
 import usePageStore from "@/stores/pageStore";
-import { computed, onActivated, onMounted, ref, watch } from "vue";
+import { computed, onActivated, onMounted, provide, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import GlobalAI from "./Settings/GlobalAI.vue";
 import GlobalAnalytics from "./Settings/GlobalAnalytics.vue";
@@ -60,8 +63,13 @@ const props = defineProps<{
 
 const route = useRoute();
 const pageStore = usePageStore();
+const builderStore = useBuilderStore();
 const emit = defineEmits(["close"]);
-const selectedItem = ref<string>(props.initialTab || (props.onlyGlobal ? "global_general" : "page_general"));
+const selectedItem = ref<string>(
+	props.initialTab ||
+		builderStore.settingsActiveTab ||
+		(props.onlyGlobal ? "global_general" : "page_general"),
+);
 const settingsLoaded = ref(false);
 
 onMounted(async () => {
@@ -108,7 +116,7 @@ const pageSettings = {
 			label: "Analytics",
 			value: "page_analytics",
 			component: PageAnalytics,
-			title: "Page Views",
+			title: "Page Analytics",
 			icon: "lucide-chart-bar",
 		},
 	],
@@ -155,7 +163,7 @@ const globalSettings = {
 			label: "Analytics",
 			value: "global_analytics",
 			component: GlobalAnalytics,
-			title: "Site Views",
+			title: "Site Analytics",
 			icon: "lucide-chart-bar",
 		},
 		{
@@ -180,7 +188,16 @@ if (!props.onlyGlobal) settingsSidebarItems.unshift(pageSettings);
 
 const selectItem = (value: string) => {
 	selectedItem.value = value;
+	builderStore.settingsActiveTab = value;
 };
+
+// the remembered tab may not exist here (e.g. page tabs are hidden in onlyGlobal mode); fall back
+// locally without persisting so the editor keeps its last page-level selection
+if (!selectedItemDoc.value) {
+	selectedItem.value = props.onlyGlobal ? "global_general" : "page_general";
+}
+
+provide("selectSettingsTab", selectItem);
 
 watch(
 	() => props.initialTab,

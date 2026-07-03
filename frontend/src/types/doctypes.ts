@@ -151,8 +151,6 @@ export interface BuilderPage extends DocType {
   authenticated_access: 0 | 1;
   /** Disable Indexing: Check */
   disable_indexing: 0 | 1;
-  /** Include Reactivity Library: Check */
-  enable_reactivity_library: 0 | 1;
   /** Project Folder: Link (Builder Project Folder) */
   project_folder?: string;
   /** Head HTML: Code */
@@ -187,16 +185,10 @@ export interface BuilderComponent extends DocType {
   component_name?: string;
   /** Block: JSON */
   block?: any;
-  /** Component Props: JSON */
-  component_props?: any;
   /** For Web Page: Link (Builder Page) */
   for_web_page?: string;
   /** Component ID: Data */
   component_id?: string;
   /** Component Data Script: Code */
   component_data_script?: string;
-  /** Component JavaScript: Code */
-  component_js?: string;
-  /** Component CSS: Code */
-  component_css?: string;
 }

@@ -22,7 +22,6 @@
 			:isChildOfComponent="block.isExtendedFromComponent() || isChildOfComponent"
 			:key="child.blockId"
 			:repeater-index="repeaterIndex"
-			:parent-block-uid="uidToUse"
 			v-for="child in block.getChildren().filter((child) => child.isVisible(breakpoint))" />
 	</component>
 	<teleport
@@ -48,12 +47,12 @@ import useBuilderStore from "@/stores/builderStore";
 import useCanvasStore from "@/stores/canvasStore";
 import useComponentStore from "@/stores/componentStore";
 import usePageStore from "@/stores/pageStore";
+import componentController from "@/utils/componentController.js";
 import { setFont } from "@/utils/fontManager";
 import { extractComponentId, getDataForKey, getParentProps, getPropValue } from "@/utils/helpers";
-import type { ComponentClientScriptEmulator } from "@/utils/scriptSandbox";
+import type { BlockClientScriptEmulator } from "@/utils/scriptSandbox";
 import { useDraggableBlock } from "@/utils/useDraggableBlock";
 import {
-	type ComputedRef,
 	computed,
 	inject,
 	nextTick,
@@ -69,7 +68,6 @@ import BlockEditor from "./BlockEditor.vue";
 import BlockHTML from "./BlockHTML.vue";
 import DataLoaderBlock from "./DataLoaderBlock.vue";
 import TextBlock from "./TextBlock.vue";
-import componentController from "@/utils/componentController.js";
 
 const builderStore = useBuilderStore();
 const canvasStore = useCanvasStore();
@@ -91,7 +89,6 @@ const props = withDefaults(
 		componentData?: Record<string, any> | null;
 		defaultProps?: Record<string, any> | null;
 		repeaterIndex?: string | number | null;
-		parentBlockUid?: string | null;
 	}>(),
 	{
 		isChildOfComponent: false,
@@ -102,17 +99,19 @@ const props = withDefaults(
 		componentData: null,
 		defaultProps: null,
 		repeaterIndex: null,
-		parentBlockUid: null,
 	},
 );
 
-const editedComponentId = inject<ComputedRef<string | null>>(
-	"editedComponentId",
-	computed(() => null),
+const editingComponentId = computed(() =>
+	canvasStore.fragmentData.fragmentType === "component" &&
+	!props.block.getParentBlock() &&
+	props.block === canvasStore.fragmentData.block
+		? canvasStore.fragmentData.fragmentId
+		: null,
 );
 
 const resolvedComponentData = computed(() => {
-	if (editedComponentId.value && !props.block.getParentBlock()) {
+	if (editingComponentId.value && !props.block.getParentBlock()) {
 		return componentController.getComponentDataPreview();
 	}
 	const componentId = extractComponentId(props.block);
@@ -279,8 +278,8 @@ const attributes = computed(() => {
 });
 
 const canvasProps = !props.preview ? (inject("canvasProps") as CanvasProps) : null;
-const emulateComponentClientScript = inject<ComponentClientScriptEmulator>(
-	"emulateComponentClientScript",
+const emulateBlockClientScript = inject<BlockClientScriptEmulator>(
+	"emulateBlockClientScript",
 	() => () => {},
 );
 
@@ -519,38 +518,38 @@ watch(resolvedComponentData, () => {
 	componentDataReady.value = true;
 });
 
-const componentClientScriptDoc = computed(() => {
-	if (editedComponentId.value && !props.block.getParentBlock()) {
-		return {
-			component_js: componentController.componentJavaScript.value,
-			component_css: componentController.componentCSS.value,
-		};
-	}
-	if (!props.block.extendedFromComponent) return null;
-	return props.block.componentVersion
-		? componentStore.getComponentVersionDoc(props.block.componentVersion)
-		: componentStore.getComponent(props.block.extendedFromComponent);
+const blockClientScript = computed(() => {
+	const clientScript = props.block.extendedFromComponent
+		? props.block.referenceComponent?.clientScript
+		: props.block.clientScript;
+	return {
+		javascript: clientScript?.js || "",
+		css: clientScript?.css || "",
+	};
 });
 
 watch(
 	[
 		target,
-		componentClientScriptDoc,
+		blockClientScript,
 		resolvedComponentData,
 		allResolvedProps,
 		() => builderSettings.doc?.execute_block_scripts_in_editor,
 		() => pageStore.settingPage,
 		componentDataReady,
 	],
-	([element, componentDoc, componentData, resolvedProps, , settingPage, dataReady], _, onCleanup) => {
-		if (!element || !componentDoc) return;
-		const cleanup = emulateComponentClientScript({
+	([element, clientScript, componentData, resolvedProps, , settingPage, dataReady], _, onCleanup) => {
+		if (!element || !clientScript) return;
+		const waitsForComponentData = Boolean(props.block.extendedFromComponent);
+		const cleanup = emulateBlockClientScript({
 			key: uidToUse,
 			element,
 			breakpoint: props.breakpoint,
-			css: componentDoc.component_css ?? "",
+			css: clientScript.css ?? "",
 			javascript:
-				settingPage || (!editedComponentId.value && !dataReady) ? "" : (componentDoc.component_js ?? ""),
+				settingPage || (waitsForComponentData && !editingComponentId.value && !dataReady)
+					? ""
+					: (clientScript.javascript ?? ""),
 			componentData: componentData ?? {},
 			props: resolvedProps,
 		});

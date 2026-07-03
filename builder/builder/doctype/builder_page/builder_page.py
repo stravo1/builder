@@ -2,8 +2,10 @@
 # For license information, please see license.txt
 
 import copy
+import hashlib
 import re
 from typing import Any
+from urllib.parse import quote_plus
 
 import bs4 as bs
 import frappe
@@ -124,7 +126,6 @@ class BuilderPage(WebsiteGenerator):
 		disable_indexing: DF.Check
 		draft_blocks: DF.LongText | None
 		dynamic_route: DF.Check
-		enable_reactivity_library: DF.Check
 		favicon: DF.AttachImage | None
 		head_html: DF.Code | None
 		is_standard: DF.Check
@@ -211,7 +212,6 @@ class BuilderPage(WebsiteGenerator):
 			or self.has_value_changed("published")
 			or self.has_value_changed("published_at")
 			or self.has_value_changed("disable_indexing")
-			or self.has_value_changed("enable_reactivity_library")
 			or self.has_value_changed("blocks")
 		):
 			self.clear_route_cache()
@@ -362,6 +362,16 @@ class BuilderPage(WebsiteGenerator):
 
 		if context.preview:
 			context.disable_auto_dark_mode = 0
+			# /builder_assets/variables.css is a rendered route, not a real file, so
+			# the preview/PDF generator can't fetch it. Inline the variables instead.
+			from builder.builder.doctype.builder_variable.builder_variable import get_variables_css
+
+			context.inline_variables_css = get_variables_css()
+			# Honour the dark/light mode the editor previews in (canvasDarkMode), so the
+			# initial server render matches it instead of falling back to the OS scheme.
+			scheme = frappe.form_dict.get("prefers_color_scheme")
+			if scheme in ("dark", "light"):
+				context.prefers_color_scheme = scheme
 		else:
 			context.disable_auto_dark_mode = frappe.get_cached_value(
 				"Builder Settings", "Builder Settings", "disable_auto_dark_mode"
@@ -383,7 +393,7 @@ class BuilderPage(WebsiteGenerator):
 		context.has_dual_mode_image = has_dual_mode_image
 
 		self.set_custom_font(context, fonts)
-		context.fonts = fonts
+		context.font_urls = get_google_font_urls(fonts)
 		context.__content = content
 		context.style = render_template(style, page_data)
 		context.editor_link = f"/{builder_path}/page/{self.name}"
@@ -406,7 +416,6 @@ class BuilderPage(WebsiteGenerator):
 		context.update(page_data)
 
 		self.set_style_and_script(context)
-		context.enable_reactivity_library = getattr(self, "enable_reactivity_library", 1) != 0
 		self.set_meta_tags(context=context, page_data=page_data)
 		self.set_favicon(context)
 		self.set_language(context)
@@ -850,6 +859,10 @@ def create_html_tag(block: dict, state: dict, ancestor_font: str | None = None) 
 	for key, value in block.get("customAttributes", {}).items():
 		tag[key] = value
 
+	# Stamp the live blockId so duplicated blocks each get their own tracking id.
+	if tag.get("data-track") and block.get("blockId"):
+		tag["data-track"] = block.get("blockId")
+
 	classes = build_tag_classes(block, state, ancestor_font=ancestor_font)
 	tag.attrs["class"] = " ".join(classes)
 
@@ -1070,62 +1083,31 @@ def get_visibility_condition_key(block: dict, data_key: dict | None) -> str | No
 		return key
 
 
-def create_component_mount_tag(state: dict, script_id: str | None = None) -> bs.Tag:
-	ensure_builder_block_helper(state)
-	script_tag = state["soup"].new_tag("script")
-	script_tag["data-builder-component-mount"] = ""
-	script_option = f", script: client_script_{script_id}" if script_id else ""
-	fallback_script = (
-		f"(client_script_{script_id}).call("
-		f"el, "
-		f"{{{{ component.component_data | to_safe_json }}}}, "
-		f"{{{{ props | to_safe_json }}}}"
-		f");"
-		if script_id
-		else ""
-	)
-	script_tag.string = (
-		f"(function() {{"
-		f"var uid=\"{{{{ unique_hash }}}}\",el=get_builder_block(uid);"
-		f"if (window.builder && window.builder.mountComponent) {{"
-		f"window.builder.mountComponent({{"
-		f"page: {{{{ page_name | to_safe_json }}}}, "
-		f"blockId: {{{{ block_id | to_safe_json }}}}, "
-		f"uid: uid, "
-		f"el: el, "
-		f"props: {{{{ props | to_safe_json }}}}, "
-		f"reactiveProps: {{{{ reactive_props | to_safe_json }}}}, "
-		f"componentData: {{{{ component.component_data | to_safe_json }}}}"
-		f"{script_option}"
-		f"}});"
-		f"}} else {{"
-		f"{fallback_script}"
-		f"}}"
-		f"}})();"
-	)
-	return script_tag
+def escape_raw_text_end_tag(content: str, tag: str) -> str:
+	pattern = rf"</{re.escape(tag)}(?=[\t\n\f\r />])"
+	return re.sub(pattern, lambda match: match.group().replace("/", r"\/", 1), content, flags=re.IGNORECASE)
 
 
-def ensure_builder_block_helper(state: dict):
-	if state.get("has_builder_block_helper"):
-		return
-	state["global_script_tag"].append(
-		"function get_builder_block(uid){return document.querySelector('[data-block-uid=\"'+uid+'\"]')}\n"
-	)
-	state["has_builder_block_helper"] = True
+def create_client_script_tag(state: dict, script_id: str, script: dict) -> bs.Tag:
+	"""Register a client script globally (once) and return its per-block tag."""
+	if script["type"] == "JavaScript":
+		if script_id not in state["used_block_scripts"]:
+			block_script = escape_raw_text_end_tag(script["script"], "script")
+			state["global_script_tag"].append(
+				f"async function client_script_{script_id}(component_data, props) {{{block_script}}}\n"
+			)
+			state["used_block_scripts"].add(script_id)
 
-
-def create_component_script_call_tag(state: dict, script_id: str) -> bs.Tag:
-	ensure_builder_block_helper(state)
-	script_tag = state["soup"].new_tag("script")
-	script_tag.string = (
-		f"(client_script_{script_id}).call("
-		f"get_builder_block(\"{{{{ unique_hash }}}}\"), "
-		f"{{{{ component.component_data | to_safe_json }}}}, "
-		f"{{{{ props | to_safe_json }}}}"
-		f");"
-	)
-	return script_tag
+		script_tag = state["soup"].new_tag("script")
+		invocation = (
+			f"(client_script_{script_id}).call("
+			f"document.querySelector('[data-block-uid=\"{{{{ unique_hash }}}}\"]'), "
+			f"{{{{ (component.component_data if component is defined else {{}}) | to_safe_json }}}}, "
+			f"{{{{ (props if props is defined else {{}}) | to_safe_json }}}}"
+			f");"
+		)
+		script_tag.string = invocation
+		return script_tag
 
 
 def create_client_script_tag(
@@ -1144,7 +1126,8 @@ def create_client_script_tag(
 		return create_component_script_call_tag(state, script_id)
 
 	style_tag = state["soup"].new_tag("style")
-	style_tag.string = f'[data-block-uid="{{{{ unique_hash }}}}"] {{ {script["script"]} }}'
+	block_style = escape_raw_text_end_tag(script["script"], "style")
+	style_tag.string = f"@scope {{ {block_style} }}"
 	return style_tag
 
 
@@ -1154,14 +1137,14 @@ def has_reactive_props(block: dict) -> bool:
 
 def attach_client_script(tag: bs.Tag, block: dict, state: dict):
 	"""Attach client-side JavaScript/CSS to the block."""
-	component_scripts = block.get("componentClientScripts") or []
-	scripts = {
-		str(component_script["name"]): {
-			"script": component_script["script"],
-			"type": component_script["type"],
-		}
-		for component_script in component_scripts
-	}
+	client_script = block.get("clientScript")
+	if client_script is None:
+		client_script = {"js": block.get("blockClientScript")}
+	scripts = [
+		{"script": client_script.get("js"), "type": "JavaScript"},
+		{"script": client_script.get("css"), "type": "CSS"},
+	]
+	scripts = [script for script in scripts if script["script"]]
 
 	if not scripts:
 		if block.get("_component_id") and has_reactive_props(block):
@@ -1172,11 +1155,9 @@ def attach_client_script(tag: bs.Tag, block: dict, state: dict):
 	tag.attrs["data-block-uid"] = "{{ unique_hash }}"
 	mount_component = block.get("_component_id") and has_reactive_props(block)
 
-	for script_id, script in reversed(list(scripts.items())):
-		tag.append(create_client_script_tag(state, script_id, script, mount_component))
-
-	if mount_component and not any(script["type"] == "JavaScript" for script in scripts.values()):
-		tag.append(create_component_mount_tag(state))
+	for script in scripts:
+		script_id = hashlib.sha256(script["script"].encode()).hexdigest()[:16]
+		tag.append(create_client_script_tag(state, script_id, script))
 
 
 def append_child_with_context(parent: bs.Tag, child: bs.Tag, context: dict):
@@ -1231,6 +1212,19 @@ def set_dynamic_content_placeholders(block: dict, data_key: dict | None = None):
 	dynamic_values = [block_data_key] if block_data_key else []
 	dynamic_values += block.get("dynamicValues", []) or []
 
+	# A binding can be recorded in both dataKey and dynamicValues (same property + type).
+	# Applying it twice nests the placeholder inside its own fallback (`{{ ... else '{{ ... }}' }}`),
+	# which leaks the raw expression when the value is falsy. Keep only the first per (property, type).
+	seen = set()
+	deduped = []
+	for dv in dynamic_values:
+		sig = (dv.get("property"), dv.get("type")) if isinstance(dv, dict) else (dv, "key")
+		if sig in seen:
+			continue
+		seen.add(sig)
+		deduped.append(dv)
+	dynamic_values = deduped
+
 	for dynamic_value_doc in dynamic_values:
 		original_key = dynamic_value_doc.get("key", "")
 
@@ -1247,8 +1241,15 @@ def set_dynamic_content_placeholders(block: dict, data_key: dict | None = None):
 
 		if value_type == "attribute":
 			attributes = block.setdefault("attributes", {})
-			current_value = attributes.get(property_name, "")
-			attributes[property_name] = f"{{{{ {key} or '{escape_single_quotes(current_value)}' }}}}"
+			custom_attributes = block.setdefault("customAttributes", {})
+			if property_name in custom_attributes:
+				current_value = custom_attributes.get(property_name, "") or ""
+				custom_attributes[property_name] = (
+					f"{{{{ {key} if {key} or {key} in ['', 0] else '{escape_single_quotes(str(current_value))}' }}}}"
+				)
+			else:
+				current_value = attributes.get(property_name, "")
+				attributes[property_name] = f"{{{{ {key} or '{escape_single_quotes(current_value)}' }}}}"
 
 		elif value_type == "style":
 			attributes = block.setdefault("attributes", {})
@@ -1322,45 +1323,11 @@ def extend_block_with_component(block: dict) -> tuple[dict, str | None]:
 
 	component_block = frappe.parse_json(component.get("block") or "{}")
 	if component_block:
-		component_block["blockId"] = block.get("blockId") or component_block.get("blockId")
-		component_block["_component_id"] = component_id
-		if component.get("component_props"):
-			component_block["props"] = frappe.parse_json(component["component_props"]) or {}
-
 		extend_block(component_block, block)
-
-		component_scripts = []
-		component_script_base = get_component_script_base(component_id, component_version)
-		if component.get("component_css"):
-			component_scripts.append(
-				{
-					"name": f"{component_script_base}_css",
-					"script": component["component_css"],
-					"type": "CSS",
-				}
-			)
-		if component.get("component_js"):
-			component_scripts.append(
-				{
-					"name": f"{component_script_base}_js",
-					"script": component["component_js"],
-					"type": "JavaScript",
-				}
-			)
-
-		if component_scripts:
-			component_block["componentClientScripts"] = component_scripts
 
 		return component_block, component_id
 
 	return block, None
-
-
-def get_component_script_base(component_id: str, component_version: str | None) -> str:
-	parts = [frappe.scrub(component_id)]
-	if component_version:
-		parts.append(frappe.scrub(component_version))
-	return "_".join(parts)
 
 
 def wrap_with_media_query(style_string, device):
@@ -1403,6 +1370,11 @@ def append_state_style(style_obj, style_tag, style_class, device="desktop"):
 			css_property = camel_case_to_kebab_case(property)
 			style_string = f".{style_class}:{state} {{ {css_property}: {value}; }}"
 			style_tag.append(wrap_with_media_query(style_string, device))
+
+
+def get_font_family(font: str) -> str:
+	"""Return the first family from a CSS font stack (e.g. 'Inter, sans-serif' -> 'Inter')."""
+	return font.split(",")[0].strip().strip("'\"")
 
 
 def set_fonts(styles, font_map, inherited_font=None):
@@ -1448,8 +1420,8 @@ def set_fonts(styles, font_map, inherited_font=None):
 			# fontWeight is set but fontFamily is not — use explicitly passed ancestor font
 			font = inherited_font
 		if font:
-			# Remove quotes if present
-			font = font.strip("'\"")
+			# Use the first family from a fallback list, e.g. "Inter, sans-serif" -> "Inter"
+			font = get_font_family(font)
 
 			# Skip if it is a system font
 			if font.lower() in system_fonts:
@@ -1472,13 +1444,33 @@ def set_fonts(styles, font_map, inherited_font=None):
 				font_map[font] = {"weights": [weight]}
 
 
+def normalize_font_weights(font_map: dict) -> None:
+	"""Make each font's weights render-ready for the Google Fonts request: numeric,
+	deduped, sorted, and always including 400 so the regular face is loaded."""
+	for options in font_map.values():
+		weights = {int(weight) for weight in options.get("weights", [])}
+		weights.add(400)
+		options["weights"] = sorted(weights)
+
+
+def get_google_font_urls(font_map: dict) -> list[str]:
+	"""Build one combined Google Fonts stylesheet URL per font family."""
+	normalize_font_weights(font_map)
+	urls = []
+	for font, options in font_map.items():
+		family = quote_plus(font)
+		weights = ";".join(str(weight) for weight in options["weights"])
+		urls.append(f"https://fonts.googleapis.com/css2?family={family}:wght@{weights}&display=swap")
+	return urls
+
+
 def set_fonts_from_html(soup, font_map):
 	# get font-family from inline styles
 	for tag in soup.find_all(style=True):
 		styles = tag.attrs.get("style").split(";")
 		for style in styles:
 			if "font-family" in style:
-				font = style.split(":")[1].strip().strip("'\"")
+				font = get_font_family(style.split(":")[1])
 				if font:
 					font_map[font] = {"weights": [400]}
 

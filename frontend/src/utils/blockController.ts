@@ -119,9 +119,10 @@ const blockController = {
 		if (key !== "visibilityCondition") {
 			let keyValue = "__initial__" as StyleValue | undefined;
 			canvasStore.activeCanvas?.selectedBlocks.forEach((block) => {
+				let blockKey = block[key] ?? block.referenceComponent?.[key];
 				if (keyValue === "__initial__") {
-					keyValue = block[key];
-				} else if (keyValue !== block[key]) {
+					keyValue = blockKey;
+				} else if (keyValue !== blockKey) {
 					keyValue = "Mixed";
 				}
 			});
@@ -188,11 +189,26 @@ const blockController = {
 	setCustomAttributes: (customAttributes: BlockAttributeMap) => {
 		canvasStore.activeCanvas?.selectedBlocks.forEach((block) => {
 			Object.keys(block.customAttributes).forEach((key) => {
-				if (!customAttributes[key]) {
+				if (!(key in customAttributes)) {
 					delete block.customAttributes[key];
+					block.removeDynamicValue(key, "attribute");
 				}
 			});
 			Object.assign(block.customAttributes, customAttributes);
+		});
+	},
+	isClickTrackingEnabled: () => {
+		return Boolean(blockController.getCustomAttributes()?.["data-track"]);
+	},
+	toggleClickTracking: (enabled: boolean) => {
+		// Store a marker only; the live blockId is stamped onto data-track at render time.
+		canvasStore.activeCanvas?.selectedBlocks.forEach((block) => {
+			if (enabled) {
+				block.customAttributes["data-track"] = "true";
+			} else {
+				delete block.customAttributes["data-track"];
+				block.removeDynamicValue("data-track", "attribute");
+			}
 		});
 	},
 	getParentBlock: () => {

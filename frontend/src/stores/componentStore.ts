@@ -7,7 +7,7 @@ import useCanvasStore from "@/stores/canvasStore";
 import usePageStore from "@/stores/pageStore";
 import { BuilderComponent } from "@/types/doctypes";
 import getBlockTemplate from "@/utils/blockTemplate";
-import { alert, confirm, getBlockInstance, getBlockObject, parseJSONWithFallback } from "@/utils/helpers";
+import { alert, confirm, getBlockInstance, getBlockObject } from "@/utils/helpers";
 import { createDocumentResource, createResource, toast } from "frappe-ui";
 import { defineStore } from "pinia";
 import { markRaw } from "vue";
@@ -82,9 +82,8 @@ const useComponentStore = defineStore("componentStore", {
 			const canvasStore = useCanvasStore();
 			canvasStore.editOnCanvas(
 				componentBlock,
-				(block: Block) => {
-					this.saveComponent(block, componentName);
-				},
+				"component",
+				(block: Block) => this.saveComponent(block, componentName),
 				"Save Component",
 				component.component_name,
 				component.name,
@@ -94,15 +93,17 @@ const useComponentStore = defineStore("componentStore", {
 		saveComponent(block: Block, componentName: string) {
 			const pageStore = usePageStore();
 			const doc = this.getComponentDraft(componentName);
-			if (!doc) return;
+			if (!doc) {
+				toast.error("Failed to save component", {
+					description: "Component draft is unavailable.",
+				});
+				throw new Error(`Missing draft for component ${componentName}`);
+			}
 			return webComponent.setValue
 				.submit({
 					name: componentName,
 					block: getBlockObject(block),
-					component_props: doc?.component_props || {},
 					component_data_script: doc?.component_data_script || "",
-					component_js: doc?.component_js || "",
-					component_css: doc?.component_css || "",
 				})
 				.then(async (data: BuilderComponent) => {
 					this.setComponentMap(data);
@@ -135,6 +136,7 @@ const useComponentStore = defineStore("componentStore", {
 				})
 				.catch((error: any) => {
 					toast.error("Failed to save component");
+					throw error;
 				});
 		},
 		isComponentUsed(componentName: string) {
@@ -190,7 +192,6 @@ const useComponentStore = defineStore("componentStore", {
 			}
 		},
 		setComponentMap(componentDoc: BuilderComponent) {
-			componentDoc.component_props = parseJSONWithFallback(componentDoc.component_props, {});
 			this.componentDocMap.set(componentDoc.name, componentDoc);
 			this.componentMap.set(componentDoc.name, markRaw(getBlockInstance(componentDoc.block)));
 		},
@@ -227,7 +228,6 @@ const useComponentStore = defineStore("componentStore", {
 				const doc = await getVersionedDoc(versionName);
 				if (doc?.block) {
 					const versionedDoc = { ...doc } as BuilderComponent;
-					versionedDoc.component_props = parseJSONWithFallback(versionedDoc.component_props, {});
 					this.componentVersionMap.set(versionName, versionedDoc);
 				} else {
 					// pruned/missing version — show the live component instead
