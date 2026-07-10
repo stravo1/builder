@@ -23,7 +23,6 @@ declare type BlockProps = Record<
 		comesFrom: "props" | "dataScript" | "componentData" | null;
 		value: string?;
 		isStandard?: boolean; // always true as used only in components
-		isReactive?: boolean;
 		propOptions?: BlockPropOptions;
 	}
 >;

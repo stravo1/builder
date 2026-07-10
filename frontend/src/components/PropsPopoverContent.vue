@@ -36,13 +36,6 @@
 				:model-value="String(standardPropOptions.isRequired)"
 				@update:model-value="(val) => (standardPropOptions.isRequired = val === 'true')" />
 		</div>
-		<div class="flex items-center justify-between gap-2">
-			<InputLabel class="w-1/3 min-w-[88px] shrink-0">Reactive</InputLabel>
-			<OptionToggle
-				:options="toggleOptions"
-				:model-value="String(isReactive)"
-				@update:model-value="(val) => (isReactive = val === 'true')" />
-		</div>
 		<component
 			:is="standardPropTypeComponent"
 			:options="standardPropOptions.options || {}"
@@ -115,7 +108,6 @@ const TOGGLE_OPTIONS: { label: string; value: string }[] = [
 
 const label = ref(props.propDetails?.label ?? "");
 const key = ref(props.propName ?? "");
-const isReactive = ref(Boolean(props.propDetails?.isReactive));
 const standardPropOptions = reactive<BlockPropOptions>(getInitialStandardPropOptions());
 const standardPropDependencyMap = reactive<{ [key: string]: any }>(getInitialDependencies());
 const optionsComponentRef = ref<any>(null);
@@ -252,7 +244,6 @@ const resetState = async (params: ResetParams) => {
 		key.value = props.propName ?? "";
 		label.value = details?.label ?? "";
 	}
-	isReactive.value = Boolean(details?.isReactive);
 
 	resetStandardState(keepProps, keepType);
 
@@ -267,7 +258,6 @@ function buildPropValue(): BlockProps[string] {
 		isPassedDown: true,
 		comesFrom: null,
 		value: null,
-		isReactive: isReactive.value,
 		propOptions: {
 			...standardPropOptions,
 			dependencies: standardPropDependencyMap,

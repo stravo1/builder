@@ -18,6 +18,7 @@ export type ComponentDocDraft = Omit<
 const EMPTY_DRAFT: ComponentDocDraft = {
 	component_name: "",
 	component_data_script: "",
+	is_reactive: 1,
 	component_data_preview: {},
 };
 
@@ -39,6 +40,7 @@ function cloneComponentDocFields(
 ): ComponentDocDraft {
 	return {
 		component_data_script: doc.component_data_script ?? "",
+		is_reactive: doc.is_reactive ?? 1,
 		component_data_preview: parseJSONWithFallback(preview, {}),
 	};
 }
@@ -77,17 +79,29 @@ const componentDataScript = computed(() => {
 	return componentDocDraft.component_data_script ?? "";
 });
 
+const componentIsReactive = computed(() => {
+	if (!currentComponentId.value) return true;
+	return Boolean(componentDocDraft.is_reactive ?? 1);
+});
+
 const componentController = {
 	currentComponentId,
 	componentDataPreview,
 	componentProps,
 	componentDataScript,
+	componentIsReactive,
 
 	getComponentDataScript: () => componentDataScript.value,
 
 	setComponentDataScript: (script: string) => {
 		if (!currentComponentId.value) return;
 		componentDocDraft.component_data_script = script;
+		markCanvasDirty(true);
+	},
+
+	setComponentIsReactive: (isReactive: boolean) => {
+		if (!currentComponentId.value) return;
+		componentDocDraft.is_reactive = isReactive ? 1 : 0;
 		markCanvasDirty(true);
 	},
 

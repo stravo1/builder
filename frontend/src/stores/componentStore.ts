@@ -104,6 +104,7 @@ const useComponentStore = defineStore("componentStore", {
 					name: componentName,
 					block: getBlockObject(block),
 					component_data_script: doc?.component_data_script || "",
+					is_reactive: doc?.is_reactive ?? 1,
 				})
 				.then(async (data: BuilderComponent) => {
 					this.setComponentMap(data);

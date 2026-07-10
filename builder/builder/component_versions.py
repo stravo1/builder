@@ -35,6 +35,7 @@ COMPONENT_VERSION_KEEP = 50
 COMPONENT_VERSION_FIELDS = [
 	"block",
 	"component_data_script",
+	"is_reactive",
 ]
 
 
@@ -120,6 +121,7 @@ def ensure_component_version(
 		data = {
 			"block": compact_json(block),
 			"component_data_script": values.component_data_script,
+			"is_reactive": values.is_reactive,
 		}
 		data_json = compact_json(data)
 
@@ -197,6 +199,7 @@ def resolve_component(component_id: str, pinned_version: str | None = None) -> d
 	return {
 		"block": values.block,
 		"component_data_script": values.component_data_script,
+		"is_reactive": values.is_reactive,
 	}
 
 

@@ -28,6 +28,7 @@ class BuilderComponent(Document):
 		component_id: DF.Data | None
 		component_name: DF.Data | None
 		for_web_page: DF.Link | None
+		is_reactive: DF.Check
 	# end: auto-generated types
 
 	def before_insert(self):

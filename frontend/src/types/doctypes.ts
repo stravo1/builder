@@ -191,4 +191,6 @@ export interface BuilderComponent extends DocType {
   component_id?: string;
   /** Component Data Script: Code */
   component_data_script?: string;
+  /** Reactive Component: Check */
+  is_reactive?: 0 | 1;
 }

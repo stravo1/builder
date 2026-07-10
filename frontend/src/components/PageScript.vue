@@ -24,6 +24,12 @@
 					:autofocus="false"
 					:readonly="true" />
 			</div>
+			<Switch
+				v-if="mode == 'component'"
+				size="sm"
+				label="Reactive Component"
+				:modelValue="componentIsReactive"
+				@update:modelValue="(val: boolean) => componentController.setComponentIsReactive(val)" />
 			<div
 				class="box-border h-full overflow-y-auto pb-12"
 				v-if="mode == 'component' || mode == 'blockTemplate'">
@@ -153,7 +159,7 @@ import useCanvasStore from "@/stores/canvasStore.js";
 import usePageStore from "@/stores/pageStore";
 import { BuilderPage } from "@/types/doctypes";
 import componentController from "@/utils/componentController";
-import { toast } from "frappe-ui";
+import { Switch, toast } from "frappe-ui";
 import { useTelemetry } from "frappe-ui/frappe";
 import { computed, defineComponent, ref, watch } from "vue";
 import CodeEditor from "./Controls/CodeEditor.vue";
@@ -167,7 +173,7 @@ const pageStore = usePageStore();
 const builderStore = useBuilderStore();
 const canvasStore = useCanvasStore();
 
-const { currentComponentId, componentDataPreview, componentDataScript } = componentController;
+const { currentComponentId, componentDataPreview, componentDataScript, componentIsReactive } = componentController;
 
 const showDialog = ref(false);
 const activeBlockClientScript = ref<"js" | "css">("js");

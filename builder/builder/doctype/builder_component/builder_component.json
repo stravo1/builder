@@ -12,7 +12,8 @@
   "block",
   "for_web_page",
   "component_id",
-  "component_data_script"
+  "component_data_script",
+  "is_reactive"
  ],
  "fields": [
   {
@@ -47,6 +48,13 @@
     "label": "Component Data Script",
     "options": "Python",
     "description": "Server-side Python script that populates component data. Receives props as input. Use: data.events = frappe.get_list('Event')"
+   },
+   {
+    "fieldname": "is_reactive",
+    "fieldtype": "Check",
+    "label": "Reactive Component",
+    "default": "1",
+    "description": "Allow this component to be mounted and re-rendered on the client. Turn off for static components to skip the hydration overhead."
    }
   ],
  "index_web_pages_for_search": 1,
