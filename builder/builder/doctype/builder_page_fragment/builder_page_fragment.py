@@ -1,14 +1,18 @@
 # Copyright (c) 2026, Frappe Technologies Pvt Ltd and contributors
 # For license information, please see license.txt
 
-import copy
 import hashlib
+import re
 
 import frappe
 from frappe.model.document import Document
 from frappe.utils.jinja import render_template
 
+from builder.builder.component_versions import resolve_component
 from builder.utils import clean_data, compact_json
+
+MAX_KNOWN_SCRIPT_IDS = 500
+SCRIPT_ID_PATTERN = re.compile(r"^[0-9a-f]{16}$")
 
 
 class BuilderPageFragment(Document):
@@ -52,16 +56,7 @@ def refresh_component_fragments(page):
 	delete_component_fragments(page.name)
 	blocks_hash = get_blocks_hash(blocks)
 
-	from builder.builder.doctype.builder_page.builder_page import (
-		extend_block_with_component,
-		has_reactive_props,
-	)
-
 	for block in iter_component_instance_blocks(blocks):
-		component_block, _component_id = extend_block_with_component(copy.deepcopy(block))
-		if not has_reactive_props(component_block):
-			continue
-
 		frappe.get_doc(
 			{
 				"doctype": "Builder Page Fragment",
@@ -80,6 +75,7 @@ def render_component_fragment(
 	block_id: str,
 	props: dict | str | None = None,
 	route_variables: dict | str | None = None,
+	known_script_ids: list[str] | str | None = None,
 ) -> dict:
 	if not page.published:
 		frappe.throw(frappe._("Page is not published"), frappe.PermissionError)
@@ -108,6 +104,7 @@ def render_component_fragment(
 	route_variables = frappe.parse_json(route_variables or "{}")
 	if not isinstance(route_variables, dict):
 		frappe.throw(frappe._("Route variables must be a JSON object"), frappe.ValidationError)
+	known_script_ids = parse_known_script_ids(known_script_ids)
 
 	from builder.builder.doctype.builder_page.builder_page import get_block_html
 
@@ -115,7 +112,12 @@ def render_component_fragment(
 	block = frappe.parse_json(fragment.block_json)
 	apply_fragment_prop_values(block, props)
 
-	content, style, _, _ = get_block_html([block])
+	client_scripts = {}
+	content, style, _, _, _ = get_block_html(
+		[block],
+		client_scripts=client_scripts,
+		include_script_definitions=False,
+	)
 	context = frappe._dict(page_data)
 	context.page_name = page.name
 	context.page_data = clean_data(page_data)
@@ -130,8 +132,25 @@ def render_component_fragment(
 			{"block_id": block_id},
 		)
 		rendered_style = ""
+		client_scripts = {}
 
-	return {"html": html, "style": rendered_style}
+	scripts = [
+		{"id": script_id, "source": source}
+		for script_id, source in client_scripts.items()
+		if script_id not in known_script_ids
+	]
+	return {"html": html, "style": rendered_style, "scripts": scripts}
+
+
+def parse_known_script_ids(value: list[str] | str | None) -> set[str]:
+	value = [] if value is None or value == "" else frappe.parse_json(value)
+	if not isinstance(value, list):
+		frappe.throw(frappe._("Known script IDs must be a JSON array"), frappe.ValidationError)
+	if len(value) > MAX_KNOWN_SCRIPT_IDS:
+		frappe.throw(frappe._("Too many known script IDs"), frappe.ValidationError)
+	if any(not isinstance(script_id, str) or not SCRIPT_ID_PATTERN.fullmatch(script_id) for script_id in value):
+		frappe.throw(frappe._("Invalid known script ID"), frappe.ValidationError)
+	return set(value)
 
 
 def get_blocks_hash(blocks: str | list | None) -> str:
@@ -142,8 +161,11 @@ def iter_component_instance_blocks(blocks: list[dict]):
 	for block in blocks or []:
 		if not block:
 			continue
-		if block.get("extendedFromComponent") and block.get("blockId"):
-			yield block
+		component_id = block.get("extendedFromComponent")
+		if component_id and block.get("blockId"):
+			component = resolve_component(component_id, block.get("componentVersion"))
+			if component and component.get("is_reactive", 1):
+				yield block
 		yield from iter_component_instance_blocks(block.get("children") or [])
 
 

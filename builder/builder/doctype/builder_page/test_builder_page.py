@@ -2,6 +2,8 @@
 # See license.txt
 
 
+import hashlib
+
 import frappe
 from frappe.desk.form.load import getdoc
 from frappe.tests.utils import FrappeTestCase
@@ -603,19 +605,13 @@ component.update({
 
 		try:
 			content = get_response_content("/component-client-script-args-test")
-			self.assertIn("component_data, props", content)
+			self.assertIn("component_data,props", content)
 			self.assertIn('"greeting": "hello from component data"', content)
 			self.assertIn('"title": "Overridden Title"', content)
-			self.assertNotIn("/assets/builder/js/reactivity.js", content)
-			self.assertRegex(
-				content,
-				r"client_script_[a-z0-9_]+\)\.call\("
-				r'get_builder_block\("[^"]+"\), '
-				r'\{[^}]*"greeting": "hello from component data"[^}]*\}, '
-				r'\{[^}]*"title": "Overridden Title"[^}]*\}\)',
-			)
-			self.assertIn("function get_builder_block(uid)", content)
-			self.assertNotIn("data-builder-component-mount", content)
+			self.assertIn("/assets/builder/js/reactivity.js", content)
+			self.assertIn("window.builder.clientScripts", content)
+			self.assertIn("document.querySelector", content)
+			self.assertIn("data-builder-component-mount", content)
 		finally:
 			page.delete()
 			component.delete()
@@ -649,10 +645,132 @@ component.update({
 			self.assertNotIn(css, content)
 			self.assertIn(r"<\/script>Block Script", content)
 			self.assertIn(r"<\/style>Block Style", content)
-			self.assertEqual(content.count("async function client_script_"), 1)
-			self.assertEqual(content.count(").call(document.querySelector"), 2)
+			self.assertEqual(content.count("async function(component_data,props)"), 1)
+			self.assertEqual(content.count("data-builder-script-invocation"), 2)
 		finally:
 			page.delete()
+
+	def test_fragment_render_collects_scripts_without_definitions(self):
+		from builder.builder.doctype.builder_page.builder_page import get_block_html
+
+		javascript = 'this.dataset.fragment = "ready";'
+		scripts = {}
+		html, _, _, _, _ = get_block_html(
+			[Block(element="div", blockId="fragment-script", clientScript={"js": javascript}).as_dict()],
+			client_scripts=scripts,
+			include_script_definitions=False,
+		)
+
+		script_id = hashlib.sha256(javascript.encode()).hexdigest()[:16]
+		self.assertEqual(scripts, {script_id: javascript})
+		self.assertNotIn(javascript, html)
+		self.assertNotIn("window.builder.clientScripts=", html)
+		self.assertIn(f'window.builder.clientScripts["{script_id}"].call(', html)
+		self.assertIn("data-builder-script-invocation", html)
+
+	def test_reactivity_runtime_is_loaded_for_reactive_components(self):
+		prop = {
+			"isStandard": True,
+			"isPassedDown": True,
+			"value": "Initial",
+			"propOptions": {"type": "string", "options": {"defaultValue": ""}},
+		}
+		component = frappe.get_doc(
+			{
+				"doctype": "Builder Component",
+				"block": Block(
+					element="div",
+					blockId="reactive-root",
+					props={"title": prop},
+				).as_json(),
+			}
+		).insert()
+		body = Block(element="div", originalElement="body")
+		body.attach_children(
+			Block(
+				blockId="reactive-instance",
+				extendedFromComponent=component.name,
+				props={"title": prop},
+			)
+		)
+		page = frappe.get_doc(
+			{
+				"doctype": "Builder Page",
+				"page_title": "Automatic Reactivity Runtime Test",
+				"published": 1,
+				"route": "/automatic-reactivity-runtime-test",
+				"blocks": body.as_json(wrap_in_array=True),
+			}
+		).insert()
+
+		try:
+			content = get_response_content("/automatic-reactivity-runtime-test")
+			self.assertIn("/assets/builder/js/reactivity.js", content)
+			self.assertIn("data-builder-component-mount", content)
+		finally:
+			page.delete()
+			component.delete()
+
+	def test_reactivity_runtime_is_loaded_for_non_reactive_components(self):
+		"""Components must always mount so `.refresh()` works even without reactive props."""
+		component = frappe.get_doc(
+			{
+				"doctype": "Builder Component",
+				"block": Block(element="div", blockId="static-root").as_json(),
+			}
+		).insert()
+		body = Block(element="div", originalElement="body")
+		body.attach_children(
+			Block(blockId="static-instance", extendedFromComponent=component.name)
+		)
+		page = frappe.get_doc(
+			{
+				"doctype": "Builder Page",
+				"page_title": "Non Reactive Mount Test",
+				"published": 1,
+				"route": "/non-reactive-mount-test",
+				"blocks": body.as_json(wrap_in_array=True),
+			}
+		).insert()
+
+		try:
+			content = get_response_content("/non-reactive-mount-test")
+			self.assertIn("/assets/builder/js/reactivity.js", content)
+			self.assertIn("data-builder-component-mount", content)
+		finally:
+			page.delete()
+			component.delete()
+
+	def test_static_component_skips_mount_when_reactivity_disabled(self):
+		"""Components with is_reactive=0 must render as plain static HTML with no mount tag."""
+		component = frappe.get_doc(
+			{
+				"doctype": "Builder Component",
+				"block": Block(element="div", blockId="static-root").as_json(),
+				"is_reactive": 0,
+			}
+		).insert()
+		body = Block(element="div", originalElement="body")
+		body.attach_children(
+			Block(blockId="static-opt-out-instance", extendedFromComponent=component.name)
+		)
+		page = frappe.get_doc(
+			{
+				"doctype": "Builder Page",
+				"page_title": "Reactivity Opt Out Test",
+				"published": 1,
+				"route": "/reactivity-opt-out-test",
+				"blocks": body.as_json(wrap_in_array=True),
+			}
+		).insert()
+
+		try:
+			content = get_response_content("/reactivity-opt-out-test")
+			self.assertNotIn("/assets/builder/js/reactivity.js", content)
+			self.assertNotIn("data-builder-component-mount", content)
+		finally:
+			page.delete()
+			component.delete()
 
 	def test_legacy_block_client_script_fallback(self):
 		javascript = 'this.dataset.legacy = "supported";'
@@ -1360,7 +1478,7 @@ component.update({
 				],
 			}
 		]
-		_, _, font_map, _ = get_block_html(blocks)
+		_, _, font_map, _, _ = get_block_html(blocks)
 		self.assertIn("Newsreader", font_map)
 		self.assertIn(700, font_map["Newsreader"]["weights"])
 
@@ -1376,7 +1494,7 @@ component.update({
 				"children": [],
 			}
 		]
-		_, _, font_map, _ = get_block_html(blocks)
+		_, _, font_map, _, _ = get_block_html(blocks)
 		self.assertNotIn("InterVar", font_map)
 		self.assertNotIn("intervar", font_map)
 
@@ -1441,8 +1559,8 @@ component.update({
 		def normalize(text):
 			return re.sub(r"[0-9a-f]{8,}", "H", text)
 
-		html_full, css_full, _, _ = get_block_html(full)
-		html_stripped, css_stripped, _, _ = get_block_html(stripped)
+		html_full, css_full, _, _, _ = get_block_html(full)
+		html_stripped, css_stripped, _, _, _ = get_block_html(stripped)
 
 		self.assertIn("Hello World!", html_stripped)
 		self.assertEqual(normalize(html_full), normalize(html_stripped))
@@ -1467,7 +1585,7 @@ component.update({
 				],
 			}
 		]
-		html_dynamic, _, _, _ = get_block_html(dynamic)
+		html_dynamic, _, _, _, _ = get_block_html(dynamic)
 		self.assertIn("logo", html_dynamic)
 
 		with_unset_style = [
@@ -1479,7 +1597,7 @@ component.update({
 				"children": [],
 			}
 		]
-		_, css_unset, _, _ = get_block_html(with_unset_style)
+		_, css_unset, _, _, _ = get_block_html(with_unset_style)
 		self.assertIn("color: red", css_unset)
 		self.assertNotIn("display:", css_unset)
 		self.assertNotIn("None", css_unset)

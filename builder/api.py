@@ -64,9 +64,16 @@ def render_component_fragment(
 	block_id: str,
 	props: dict | str | None = None,
 	route_variables: dict | str | None = None,
+	known_script_ids: list[str] | str | None = None,
 ) -> dict:
 	page_doc = frappe.get_cached_doc("Builder Page", page)
-	return _render_component_fragment(page_doc, block_id, props, route_variables)
+	return _render_component_fragment(
+		page_doc,
+		block_id,
+		props,
+		route_variables,
+		known_script_ids,
+	)
 
 
 @frappe.whitelist()
