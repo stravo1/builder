@@ -106,11 +106,16 @@ def render_component_fragment(
 		frappe.throw(frappe._("Route variables must be a JSON object"), frappe.ValidationError)
 	known_script_ids = parse_known_script_ids(known_script_ids)
 
-	from builder.builder.doctype.builder_page.builder_page import get_block_html
+	from builder.builder.doctype.builder_page.builder_page import (
+		extend_block_with_component,
+		get_block_html,
+	)
 
 	page_data = page._get_page_data(route_variables=route_variables, for_render=True)
 	block = frappe.parse_json(fragment.block_json)
-	apply_fragment_prop_values(block, props)
+	resolved_block, _ = extend_block_with_component(block)
+	apply_fragment_prop_values(resolved_block, props)
+	block["props"] = resolved_block.get("props", {})
 
 	client_scripts = {}
 	content, style, _, _, _ = get_block_html(
