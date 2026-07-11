@@ -1544,6 +1544,8 @@ def extend_block(block, overridden_block):
 		dynamicValues.append(dv)
 	block["dynamicValues"] = dynamicValues
 
+	block["blockId"] = overridden_block["blockId"]
+
 	if overridden_block.get("element"):
 		block["element"] = overridden_block["element"]
 
