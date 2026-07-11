@@ -1218,8 +1218,8 @@ def append_child_with_context(parent: bs.Tag, child: bs.Tag, context: dict):
 	"""Append child tag with proper Jinja context wrapping."""
 	# Generate unique hash for this block instance
 	# This is unique for each block irrespective of loops or components
-	parent.append("{% with unique_hash = (loop.index if loop is defined else 0) | hash %}")
 	parent.append(f"{{% with block_id = '{context['block_id']}' %}}")
+	parent.append("{% with unique_hash = compute_hash(block_id, loop.index if loop is defined else 0, length=8) %}")
 
 	if context.get("default_props"):
 		props_str = ", ".join([f"'{var}': {var}" for var in context["default_props"]])

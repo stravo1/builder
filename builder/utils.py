@@ -1,3 +1,4 @@
+import hashlib
 import inspect
 import os
 import re
@@ -700,9 +701,22 @@ def combine(a, b):
 	return res
 
 
-def hash(s):
-	return f"{frappe.generate_hash(length=6)}-{s}"
+def compute_hash(*args: str, length: int = 16, algorithm: str = "sha256") -> str:
+    hasher = hashlib.new(algorithm)
 
+    for arg in args:
+        data = str(arg).encode("utf-8")
+        hasher.update(len(data).to_bytes(8, "big"))
+        hasher.update(data)
+
+    digest = hasher.hexdigest()
+
+    if length > len(digest):
+        raise ValueError(
+            f"Requested length ({length}) exceeds maximum digest length ({len(digest)}) for {algorithm}."
+        )
+
+    return digest[:length]
 
 def to_safe_json(data):
 	return frappe.as_json(data or {}).replace("</", r"<\/")
