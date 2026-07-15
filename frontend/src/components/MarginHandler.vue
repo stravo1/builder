@@ -18,7 +18,7 @@
 				v-show="canvasProps.scale > 0.5"
 				:style="{
 					borderWidth: handleBorderWidth,
-					bottom: topHandle.bottom,
+					top: topHandle.top,
 					left: topHandle.left,
 					height: topHandle.height + 'px',
 					width: topHandle.width + 'px',
@@ -66,7 +66,7 @@
 				v-show="canvasProps.scale > 0.5"
 				:style="{
 					borderWidth: handleBorderWidth,
-					right: leftHandle.right,
+					left: leftHandle.left,
 					top: leftHandle.top,
 					height: leftHandle.height + 'px',
 					width: leftHandle.width + 'px',
@@ -167,7 +167,7 @@ const topHandle = computed(() => {
 	return {
 		width,
 		height,
-		bottom: `clamp(0px, calc(4px * ${canvasProps.scale}), 12px)`,
+		top: `clamp(-16px, calc(-8px * ${canvasProps.scale}), 2px)`,
 		left: `calc(50% - ${width / 2}px)`,
 	};
 });
@@ -187,7 +187,7 @@ const leftHandle = computed(() => {
 	return {
 		width,
 		height,
-		right: `clamp(0px, calc(4px * ${canvasProps.scale}), 12px)`,
+		left: `clamp(-16px, calc(-8px * ${canvasProps.scale}), 2px)`,
 		top: `calc(50% - ${height / 2}px)`,
 	};
 });
