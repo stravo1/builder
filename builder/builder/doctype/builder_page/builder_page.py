@@ -667,7 +667,11 @@ def get_block_html(blocks: str | list) -> tuple[str, str, dict, bool]:
 
 
 def build_tag(
-	block: dict, state: dict, data_key: dict | None = None, ancestor_font: str | None = None
+	block: dict,
+	state: dict,
+	data_key: dict | None = None,
+	ancestor_font: str | None = None,
+	ancestor_groups: list[str] | None = None,
 ) -> bs.Tag:
 	"""
 	Transforms a single block to an HTML tag.
@@ -692,12 +696,22 @@ def build_tag(
 		or ancestor_font
 	)
 
-	tag = create_html_tag(block, state, ancestor_font=resolved_font)
+	# a block's group styles target its ancestors' groups, so its own group only
+	# applies from its children downwards
+	ancestor_groups = ancestor_groups or []
+	own_group = group_class_name(block.get("groupName") or "")
+	child_groups = [*ancestor_groups, own_group] if own_group else ancestor_groups
+
+	tag = create_html_tag(block, state, ancestor_font=resolved_font, ancestor_groups=ancestor_groups)
 
 	if is_repeater_block(block):
-		render_repeater_children(tag, block, data_key, state, ancestor_font=resolved_font)
+		render_repeater_children(
+			tag, block, data_key, state, ancestor_font=resolved_font, ancestor_groups=child_groups
+		)
 	else:
-		render_children(tag, block, data_key, state, ancestor_font=resolved_font)
+		render_children(
+			tag, block, data_key, state, ancestor_font=resolved_font, ancestor_groups=child_groups
+		)
 
 	attach_client_script(tag, block, state)
 
@@ -805,7 +819,9 @@ def get_dynamic_props_template(
 	return f"{{{{ {key} if {key} is defined else '{fallback}' }}}}"
 
 
-def create_html_tag(block: dict, state: dict, ancestor_font: str | None = None) -> bs.Tag:
+def create_html_tag(
+	block: dict, state: dict, ancestor_font: str | None = None, ancestor_groups: list[str] | None = None
+) -> bs.Tag:
 	"""Create HTML tag element with attributes, classes, and styling."""
 	soup = state["soup"]
 
@@ -852,7 +868,7 @@ def create_html_tag(block: dict, state: dict, ancestor_font: str | None = None) 
 	if tag.get("data-track") and block.get("blockId"):
 		tag["data-track"] = block.get("blockId")
 
-	classes = build_tag_classes(block, state, ancestor_font=ancestor_font)
+	classes = build_tag_classes(block, state, ancestor_font=ancestor_font, ancestor_groups=ancestor_groups)
 	tag.attrs["class"] = " ".join(classes)
 
 	add_inner_html_content(tag, block, state)
@@ -864,7 +880,9 @@ def create_html_tag(block: dict, state: dict, ancestor_font: str | None = None) 
 	return tag
 
 
-def build_tag_classes(block: dict, state: dict, ancestor_font: str | None = None) -> list[str]:
+def build_tag_classes(
+	block: dict, state: dict, ancestor_font: str | None = None, ancestor_groups: list[str] | None = None
+) -> list[str]:
 	"""Build list of CSS classes for the tag."""
 	classes = block.get("classes", [])
 	if isinstance(classes, str):
@@ -878,7 +896,9 @@ def build_tag_classes(block: dict, state: dict, ancestor_font: str | None = None
 		classes.insert(0, "__text_block__")
 
 	if block.get("baseStyles"):
-		style_class = generate_and_apply_styles(block, state, ancestor_font=ancestor_font)
+		style_class = generate_and_apply_styles(
+			block, state, ancestor_font=ancestor_font, ancestor_groups=ancestor_groups
+		)
 		classes.insert(0, style_class)
 
 	group_class = group_class_name(block.get("groupName") or "")
@@ -888,7 +908,9 @@ def build_tag_classes(block: dict, state: dict, ancestor_font: str | None = None
 	return classes
 
 
-def generate_and_apply_styles(block: dict, state: dict, ancestor_font: str | None = None) -> str:
+def generate_and_apply_styles(
+	block: dict, state: dict, ancestor_font: str | None = None, ancestor_groups: list[str] | None = None
+) -> str:
 	"""Generate a unique style class and append all styles to the style tag."""
 	style_class = f"fb-{frappe.generate_hash(length=8)}"
 	style_tag = state["style_tag"]
@@ -913,16 +935,20 @@ def generate_and_apply_styles(block: dict, state: dict, ancestor_font: str | Non
 	# Base and raw
 	append_style(styles["base"]["regular"], style_tag, style_class)
 	append_style(styles["raw"]["regular"], style_tag, style_class)
-	append_state_style(styles["raw"]["state"], style_tag, style_class)
-	append_state_style(styles["base"]["state"], style_tag, style_class)
+	append_state_style(styles["raw"]["state"], style_tag, style_class, ancestor_groups=ancestor_groups)
+	append_state_style(styles["base"]["state"], style_tag, style_class, ancestor_groups=ancestor_groups)
 
 	# Tablet
 	append_style(styles["tablet"]["regular"], style_tag, style_class, device="tablet")
-	append_state_style(styles["tablet"]["state"], style_tag, style_class, device="tablet")
+	append_state_style(
+		styles["tablet"]["state"], style_tag, style_class, device="tablet", ancestor_groups=ancestor_groups
+	)
 
 	# Mobile
 	append_style(styles["mobile"]["regular"], style_tag, style_class, device="mobile")
-	append_state_style(styles["mobile"]["state"], style_tag, style_class, device="mobile")
+	append_state_style(
+		styles["mobile"]["state"], style_tag, style_class, device="mobile", ancestor_groups=ancestor_groups
+	)
 
 	return style_class
 
@@ -946,7 +972,12 @@ def is_repeater_block(block: dict) -> bool:
 
 
 def render_children(
-	tag: bs.Tag, block: dict, data_key: dict | None, state: dict, ancestor_font: str | None = None
+	tag: bs.Tag,
+	block: dict,
+	data_key: dict | None,
+	state: dict,
+	ancestor_font: str | None = None,
+	ancestor_groups: list[str] | None = None,
 ):
 	"""Render (non-repeater) children."""
 	for child in block.get("children", []) or []:
@@ -955,14 +986,21 @@ def render_children(
 		child_context = get_block_context(child, child_props, component_id)
 		child_context["visibility_key"] = get_visibility_condition_key(child, data_key)
 
-		child_tag = build_tag(child, state, data_key, ancestor_font=ancestor_font)
+		child_tag = build_tag(
+			child, state, data_key, ancestor_font=ancestor_font, ancestor_groups=ancestor_groups
+		)
 
 		append_child_with_context(tag, child_tag, child_context)
 		cleanup_props_stack(child_props, state["standard_props_stack"])
 
 
 def render_repeater_children(
-	tag: bs.Tag, block: dict, data_key: dict | None, state: dict, ancestor_font: str | None = None
+	tag: bs.Tag,
+	block: dict,
+	data_key: dict | None,
+	state: dict,
+	ancestor_font: str | None = None,
+	ancestor_groups: list[str] | None = None,
 ):
 	"""Render children for repeater blocks (with for loops)."""
 	loop_info = get_loop_info(block, data_key, state["standard_props_stack"])
@@ -979,7 +1017,9 @@ def render_repeater_children(
 		data_key_key = block.get("dataKey").get("key")
 		child_context["default_props"] = extract_loop_variables(data_key_key, state["standard_props_stack"])
 
-	child_tag = build_tag(child, state, loop_info["data_key"], ancestor_font=ancestor_font)
+	child_tag = build_tag(
+		child, state, loop_info["data_key"], ancestor_font=ancestor_font, ancestor_groups=ancestor_groups
+	)
 
 	append_child_with_context(tag, child_tag, child_context)
 	cleanup_props_stack(child_props, state["standard_props_stack"])
@@ -1325,8 +1365,8 @@ def append_style(style_obj, style_tag, style_class, device="desktop"):
 	style_tag.append(wrap_with_media_query(style_string, device))
 
 
-def append_state_style(style_obj, style_tag, style_class, device="desktop"):
-	for key, value in style_obj.items():
+def append_state_style(style_obj, style_tag, style_class, device="desktop", ancestor_groups=None):
+	for key, value in sort_by_group_proximity(style_obj, ancestor_groups):
 		if ":" in key:
 			state, property = key.split(":", 1)
 			css_property = camel_case_to_kebab_case(property)
@@ -1337,6 +1377,24 @@ def append_state_style(style_obj, style_tag, style_class, device="desktop"):
 			style_tag.append(wrap_with_media_query(style_string, device))
 
 
+def sort_by_group_proximity(style_obj, ancestor_groups=None):
+	"""Order group styles outermost-first so the nearest ancestor's rule is emitted last.
+
+	Group rules all share a specificity, so the closest enclosing group only wins
+	by coming later in the stylesheet.
+	"""
+	ancestor_groups = ancestor_groups or []
+
+	def depth(item):
+		group_state = parse_group_state(item[0].split(":", 1)[0])
+		if not group_state:
+			return -1
+		group_class = group_state[1]
+		return ancestor_groups.index(group_class) if group_class in ancestor_groups else -1
+
+	return sorted(style_obj.items(), key=depth)
+
+
 def build_state_selector(state, style_class):
 	"""Selector for a state style, scoped to an ancestor group when the state names one."""
 	if state.startswith("group-"):
@@ -1344,7 +1402,9 @@ def build_state_selector(state, style_class):
 		if not group_state:
 			return None
 		css_state, group_class = group_state
-		return f".{group_class}:{css_state} .{style_class}"
+		# :where() keeps the group prefix at zero specificity so a block's own
+		# state style still outranks any state inherited from an ancestor
+		return f":where(.{group_class}:{css_state}) .{style_class}"
 	# anything that isn't a plain pseudo-class would emit a broken rule
 	if not PSEUDO_CLASS_PATTERN.match(state):
 		return None

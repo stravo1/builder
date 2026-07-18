@@ -1262,8 +1262,50 @@ component.update({
 
 			child_class = re.search(r'<span class="(fb-[a-z0-9]+)[ "]', content).group(1)
 			self.assertTrue(f".{child_class}:hover {{ color: red; }}" in content)
-			self.assertTrue(f".fb-group-card:hover .{child_class} {{ color: blue; }}" in content)
-			self.assertTrue(f".fb-group-card:focus .{child_class} {{ color: green; }}" in content)
+			self.assertTrue(f":where(.fb-group-card:hover) .{child_class} {{ color: blue; }}" in content)
+			self.assertTrue(f":where(.fb-group-card:focus) .{child_class} {{ color: green; }}" in content)
+		finally:
+			page.delete()
+
+	def test_nested_group_states_resolve_nearest_first(self):
+		body = Block(element="div", originalElement="body")
+		outer = Block(element="div", groupName="yo", baseStyles={"padding": "10px"})
+		inner = Block(element="div", groupName="hi", baseStyles={"padding": "5px"})
+		target = Block(
+			element="span",
+			baseStyles={
+				"hover:rotate": "30deg",
+				"group-hover/yo:rotate": "50deg",
+				"group-hover/hi:rotate": "100deg",
+			},
+		)
+		inner.attach_children(target)
+		outer.attach_children(inner)
+		body.attach_children(outer)
+
+		page = frappe.get_doc(
+			{
+				"doctype": "Builder Page",
+				"page_title": "Nested Group Test",
+				"published": 1,
+				"route": "/nested-group-test",
+				"blocks": body.as_json(wrap_in_array=True),
+			}
+		).insert()
+
+		try:
+			content = get_response_content("/nested-group-test")
+			target_class = re.search(r'<span class="(fb-[a-z0-9]+)[ "]', content).group(1)
+
+			self_rule = f".{target_class}:hover {{ rotate: 30deg; }}"
+			outer_rule = f":where(.fb-group-yo:hover) .{target_class} {{ rotate: 50deg; }}"
+			inner_rule = f":where(.fb-group-hi:hover) .{target_class} {{ rotate: 100deg; }}"
+
+			for rule in (self_rule, outer_rule, inner_rule):
+				self.assertIn(rule, content)
+
+			# nearer group must come later so it wins the cascade against the outer one
+			self.assertLess(content.index(outer_rule), content.index(inner_rule))
 		finally:
 			page.delete()
 
