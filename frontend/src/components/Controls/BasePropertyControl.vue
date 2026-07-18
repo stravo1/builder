@@ -264,7 +264,9 @@ const toDropdownOption = (variant: PropertyVariant) => ({
 
 const dropdownOptions = computed(() => {
 	const options = [] as DropdownOptions;
-	const unsetVariants = (props.variants || []).filter((variant) => !getRawVariantValue(variant.name));
+	const unsetVariants = (props.variants || []).filter(
+		(variant) => !variant.unavailable && !getRawVariantValue(variant.name),
+	);
 
 	options.push(...unsetVariants.filter((variant) => !variant.group).map(toDropdownOption));
 

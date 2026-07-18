@@ -79,6 +79,8 @@ declare interface PropertyVariant {
 	state?: string;
 	/** identifies this variant's source under a shared state header */
 	sourceLabel?: string;
+	/** still shown when set, but no longer offered for assignment */
+	unavailable?: boolean;
 }
 
 declare interface BlockComponent {

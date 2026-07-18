@@ -61,9 +61,18 @@ const ownStateVariants = computed(() =>
 	})),
 );
 
+// Groups that can still be assigned come from the ancestors; groups already
+// styled on this block are shown regardless, so a renamed or deleted ancestor
+// group can still be cleared instead of being stranded on the block.
+const availableGroupNames = computed(() => blockController.getAncestorGroupNames());
+
+const groupNames = computed(() => [
+	...new Set([...availableGroupNames.value, ...blockController.getStyledGroupNames(props.propertyKey)]),
+]);
+
 // styles driven by an ancestor block's state, keyed by that ancestor's group name
 const groupStateVariants = computed(() =>
-	blockController.getAncestorGroupNames().flatMap((groupName) =>
+	groupNames.value.flatMap((groupName) =>
 		props.enabledStates.map((state) => ({
 			name: getGroupStateVariantName(groupName, state),
 			property: `${getGroupStateVariantName(groupName, state)}:${props.propertyKey}`,
@@ -72,6 +81,7 @@ const groupStateVariants = computed(() =>
 			group: groupName,
 			state,
 			sourceLabel: groupName,
+			unavailable: !availableGroupNames.value.includes(groupName),
 		})),
 	),
 );

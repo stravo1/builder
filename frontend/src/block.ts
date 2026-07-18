@@ -23,6 +23,7 @@ import {
 	setBoxSpacing,
 	uploadBuilderAsset,
 } from "@/utils/helpers";
+import { parseGroupStateKey } from "@/utils/groupStates";
 import { Editor } from "@tiptap/vue-3";
 import { clamp } from "@vueuse/core";
 import { computed, nextTick, reactive } from "vue";
@@ -300,6 +301,24 @@ class Block implements BlockOptions {
 		} else {
 			delete this.groupName;
 		}
+	}
+	// Group names this block has state styles for on the given property — the
+	// block is the source of truth for display, so a renamed or removed ancestor
+	// group stays clearable. { "group-hover/card:rotate", "group-focus/nav:rotate" }
+	// -> ["card", "nav"] for propertyKey "rotate".
+	getStyledGroupNames(propertyKey: string, breakpoint?: string): Array<string> {
+		const canvasStore = useCanvasStore();
+		const currentBreakpoint = breakpoint || canvasStore.activeCanvas?.activeBreakpoint || "desktop";
+		const styleMap = this.getStyleMapForBreakpoint(currentBreakpoint);
+		const groupNames = [] as Array<string>;
+
+		Object.keys(styleMap).forEach((key) => {
+			const parsed = parseGroupStateKey(key);
+			if (parsed?.property === propertyKey && !groupNames.includes(parsed.groupName)) {
+				groupNames.push(parsed.groupName);
+			}
+		});
+		return groupNames;
 	}
 	getAncestorGroupNames(): Array<string> {
 		const groupNames = [] as Array<string>;

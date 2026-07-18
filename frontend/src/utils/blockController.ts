@@ -176,6 +176,15 @@ const blockController = {
 	setGroupName: (groupName: string) => {
 		canvasStore.activeCanvas?.selectedBlocks.forEach((block) => block.setGroupName(groupName));
 	},
+	getStyledGroupNames: (propertyKey: string) => {
+		const groupNames = [] as string[];
+		canvasStore.activeCanvas?.selectedBlocks.forEach((block) => {
+			block.getStyledGroupNames(propertyKey).forEach((name) => {
+				if (!groupNames.includes(name)) groupNames.push(name);
+			});
+		});
+		return groupNames;
+	},
 	getAncestorGroupNames: () => {
 		if (!blockController.isBlockSelected()) return [];
 		const blocks = blockController.getSelectedBlocks();
