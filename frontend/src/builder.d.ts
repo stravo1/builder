@@ -55,6 +55,7 @@ declare interface BlockOptions {
 	tabletStyles?: BlockStyleMap;
 	attributes?: BlockAttributeMap;
 	classes?: Array<string>;
+	groupName?: string;
 	children?: Array<Block | BlockOptions>;
 	dynamicValues?: Array<BlockDataKey>;
 	draggable?: boolean;
@@ -63,6 +64,21 @@ declare interface BlockOptions {
 	clientScript?: BlockClientScript;
 	blockClientScript?: string;
 	[key: string]: any;
+}
+
+declare interface PropertyVariant {
+	name: string;
+	property: string;
+	/** label shown on the rendered variant control row */
+	label: string;
+	/** label shown in the dropdown, when it should differ from the row label */
+	menuLabel?: string;
+	/** nests the variant under a labelled submenu in the dropdown */
+	group?: string;
+	/** variants sharing a state collapse under a single state header */
+	state?: string;
+	/** identifies this variant's source under a shared state header */
+	sourceLabel?: string;
 }
 
 declare interface BlockComponent {

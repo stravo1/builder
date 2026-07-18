@@ -13,6 +13,7 @@
 <script lang="ts" setup>
 import BasePropertyControl from "@/components/Controls/BasePropertyControl.vue";
 import blockController from "@/utils/blockController";
+import { getGroupStateVariantName, stateLabels } from "@/utils/groupStates";
 import type { Component } from "vue";
 import { computed } from "vue";
 
@@ -38,7 +39,7 @@ const props = withDefaults(
 		labelPlacement?: "left" | "top";
 		enableStates?: boolean;
 		enabledStates?: string[];
-		variants?: Array<{ name: string; property: string; label: string }>;
+		variants?: Array<PropertyVariant>;
 		getVariantValue?: (variantName: string) => string | number | boolean;
 		setVariantValue?: (variantName: string, value: string | number | boolean | null) => void;
 		getControlAttrs?: (variant: string | null) => Record<string, unknown>;
@@ -50,19 +51,32 @@ const props = withDefaults(
 	},
 );
 
-const stateLabels: Record<string, string> = {
-	hover: "On Hover",
-	active: "On Active",
-	focus: "On Focus",
-};
-
-const stateVariants = computed(() =>
+const ownStateVariants = computed(() =>
 	props.enabledStates.map((state) => ({
 		name: state,
 		property: `${state}:${props.propertyKey}`,
 		label: stateLabels[state] || state,
+		state,
+		sourceLabel: "Self",
 	})),
 );
+
+// styles driven by an ancestor block's state, keyed by that ancestor's group name
+const groupStateVariants = computed(() =>
+	blockController.getAncestorGroupNames().flatMap((groupName) =>
+		props.enabledStates.map((state) => ({
+			name: getGroupStateVariantName(groupName, state),
+			property: `${getGroupStateVariantName(groupName, state)}:${props.propertyKey}`,
+			label: stateLabels[state] || state,
+			menuLabel: stateLabels[state] || state,
+			group: groupName,
+			state,
+			sourceLabel: groupName,
+		})),
+	),
+);
+
+const stateVariants = computed(() => [...ownStateVariants.value, ...groupStateVariants.value]);
 
 const allVariants = computed(() => [
 	...(props.enableStates ? stateVariants.value : []),

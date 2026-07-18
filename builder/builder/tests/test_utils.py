@@ -22,6 +22,8 @@ from builder.utils import (
 	process_block_assets,
 	remove_unsafe_fields,
 	sanitize_style_value,
+	group_class_name,
+	parse_group_state,
 	split_styles,
 )
 
@@ -203,6 +205,29 @@ class TestBuilderUtils(FrappeTestCase):
 
 		self.assertEqual(result["regular"], {"color": "red", "margin": "10px"})
 		self.assertEqual(result["state"], {"hover:color": "blue", "focus:border": "1px solid black"})
+
+	def test_split_styles_treats_group_states_as_state_styles(self):
+		styles = {"color": "red", "group-hover/card:color": "blue"}
+		result = split_styles(styles)
+
+		self.assertEqual(result["regular"], {"color": "red"})
+		self.assertEqual(result["state"], {"group-hover/card:color": "blue"})
+
+	def test_group_class_name(self):
+		self.assertEqual(group_class_name("card"), "fb-group-card")
+		self.assertEqual(group_class_name("Card"), "fb-group-card")
+		self.assertEqual(group_class_name(" my card "), "fb-group-my-card")
+		self.assertEqual(group_class_name("card!!"), "fb-group-card")
+		self.assertEqual(group_class_name(""), "")
+		self.assertEqual(group_class_name("!!"), "")
+
+	def test_parse_group_state(self):
+		self.assertEqual(parse_group_state("group-hover/card"), ("hover", "fb-group-card"))
+		self.assertEqual(parse_group_state("group-focus/my card"), ("focus", "fb-group-my-card"))
+		self.assertEqual(parse_group_state("group-hover/my-card"), ("hover", "fb-group-my-card"))
+		self.assertIsNone(parse_group_state("hover"))
+		self.assertIsNone(parse_group_state("group-hover/"))
+		self.assertIsNone(parse_group_state("group-hover/!!"))
 
 	def test_copy_assets_from_blocks(self):
 		# Create a temporary directory for testing

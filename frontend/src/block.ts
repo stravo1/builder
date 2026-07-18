@@ -18,7 +18,7 @@ import {
 	getNumberFromPx,
 	getTextContent,
 	handleBase64Attribute,
-	kebabToCamelCase,
+	normalizeStyleKey,
 	parseAndSetBackground,
 	setBoxSpacing,
 	uploadBuilderAsset,
@@ -73,6 +73,7 @@ class Block implements BlockOptions {
 	referenceBlockId?: string;
 	isRepeaterBlock?: boolean;
 	visibilityCondition?: BlockVisibilityCondition;
+	groupName?: string;
 	elementBeforeConversion?: string;
 	parentBlock: Block | null;
 	activeState?: string | null = null;
@@ -181,6 +182,7 @@ class Block implements BlockOptions {
 		this.blockName = options.blockName;
 		delete this.attributes.style;
 		this.classes = options.classes || [];
+		this.groupName = options.groupName;
 
 		if (this.isRoot()) {
 			this.blockId = "root";
@@ -288,6 +290,29 @@ class Block implements BlockOptions {
 	getComponentClasses() {
 		return this.referenceComponent?.classes || [];
 	}
+	getGroupName() {
+		return this.groupName || this.referenceComponent?.groupName || "";
+	}
+	setGroupName(name: string) {
+		const groupName = name.trim();
+		if (groupName) {
+			this.groupName = groupName;
+		} else {
+			delete this.groupName;
+		}
+	}
+	getAncestorGroupNames(): Array<string> {
+		const groupNames = [] as Array<string>;
+		let ancestor = this.getParentBlock();
+		while (ancestor) {
+			const groupName = ancestor.getGroupName();
+			if (groupName && !groupNames.includes(groupName)) {
+				groupNames.push(groupName);
+			}
+			ancestor = ancestor.getParentBlock();
+		}
+		return groupNames;
+	}
 	getChildren() {
 		return this.children;
 	}
@@ -381,7 +406,7 @@ class Block implements BlockOptions {
 	setStyle(style: styleProperty, value: StyleValue) {
 		const canvasStore = useCanvasStore();
 		let styleObj = this.baseStyles;
-		style = kebabToCamelCase(style as string) as styleProperty;
+		style = normalizeStyleKey(style as string) as styleProperty;
 		if (canvasStore.activeCanvas?.activeBreakpoint === "mobile") {
 			styleObj = this.mobileStyles;
 		} else if (canvasStore.activeCanvas?.activeBreakpoint === "tablet") {
@@ -408,7 +433,7 @@ class Block implements BlockOptions {
 		delete this.tabletStyles[style];
 	}
 	setBaseStyle(style: styleProperty, value: StyleValue) {
-		style = kebabToCamelCase(style as string) as styleProperty;
+		style = normalizeStyleKey(style as string) as styleProperty;
 		this.baseStyles[style] = value;
 	}
 	getStyle(

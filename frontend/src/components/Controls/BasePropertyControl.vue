@@ -57,28 +57,36 @@
 		</div>
 
 		<!-- Variant controls -->
-		<VariantControl
-			v-for="(variant, index) in visibleVariants"
-			:key="variant.name"
-			:data-variant="variant.name"
-			:label="variant.label"
-			:labelPlacement="labelPlacement"
-			:component="props.component"
-			:controlAttrs="resolveControlAttrs(variant.name)"
-			:events="props.events"
-			:modelValue="getDisplayVariantValue(variant.name)"
-			:defaultValue="defaultValue"
-			:placeholder="placeholderValue"
-			:enableSlider="enableSlider"
-			:isLast="index === visibleVariants.length - 1"
-			@update:modelValue="(v: any) => updateVariantValue(variant.name, v)"
-			@keydown="(e: KeyboardEvent) => handleKeyDown(e, variant.name)"
-			@labelMousedown="(e: MouseEvent) => handleSliderMouseDown(e, variant.name)"
-			@clear="clearVariant(variant.name)">
-			<template v-for="(_, name) in $slots" :key="name" #[name]="slotData">
-				<slot :name="name" v-bind="{ ...slotData, variant: variant.name }" />
-			</template>
-		</VariantControl>
+		<template v-for="(row, index) in variantRows" :key="row.key">
+			<VariantControl
+				v-if="row.type === 'header'"
+				:label="row.label"
+				:labelPlacement="labelPlacement"
+				hideControl
+				:isLast="false"
+				@clear="clearState(row.state)" />
+			<VariantControl
+				v-else
+				:data-variant="row.variant.name"
+				:label="row.label"
+				:labelPlacement="labelPlacement"
+				:component="props.component"
+				:controlAttrs="resolveControlAttrs(row.variant.name)"
+				:events="props.events"
+				:modelValue="getDisplayVariantValue(row.variant.name)"
+				:defaultValue="defaultValue"
+				:placeholder="placeholderValue"
+				:enableSlider="enableSlider"
+				:isLast="index === variantRows.length - 1"
+				@update:modelValue="(v: any) => updateVariantValue(row.variant.name, v)"
+				@keydown="(e: KeyboardEvent) => handleKeyDown(e, row.variant.name)"
+				@labelMousedown="(e: MouseEvent) => handleSliderMouseDown(e, row.variant.name)"
+				@clear="clearVariant(row.variant.name)">
+				<template v-for="(_, name) in $slots" :key="name" #[name]="slotData">
+					<slot :name="name" v-bind="{ ...slotData, variant: row.variant.name }" />
+				</template>
+			</VariantControl>
+		</template>
 	</div>
 </template>
 
@@ -90,6 +98,7 @@ import PropertyLabel from "@/components/Controls/PropertyLabel.vue";
 import VariantControl from "@/components/Controls/VariantControl.vue";
 import blockController from "@/utils/blockController";
 import { extractNumberAndUnit, normalizeValueWithUnits, removeDefaultUnit } from "@/utils/helpers";
+import { Button, type DropdownOptions } from "frappe-ui";
 import type { Component } from "vue";
 import { computed, ref, useAttrs } from "vue";
 
@@ -123,7 +132,7 @@ const props = withDefaults(
 		defaultValue?: string | number;
 		allowDynamicValue?: boolean;
 		labelPlacement?: "left" | "top";
-		variants?: Array<{ name: string; property: string; label: string }>;
+		variants?: Array<PropertyVariant>;
 		getVariantValue?: (variant: string) => string | number | boolean;
 		setVariantValue?: (variant: string, value: string | number | boolean | null) => void;
 		getControlAttrs?: (variant: string | null) => Record<string, unknown>;
@@ -236,23 +245,42 @@ const updateVariantValue = (
 
 const clearVariant = (variantName: string) => props.setVariantValue?.(variantName, null);
 
+// clearing a state header drops every source under it
+const clearState = (state: string) =>
+	visibleVariants.value
+		.filter((variant) => variant.state === state)
+		.forEach((variant) => clearVariant(variant.name));
+
 const showDynamicValueModal = ref(false);
 
+const toDropdownOption = (variant: PropertyVariant) => ({
+	label: variant.menuLabel || variant.label,
+	onClick: () => {
+		if (props.setVariantValue) {
+			props.setVariantValue(variant.name, rawModelValue.value as string);
+		}
+	},
+});
+
 const dropdownOptions = computed(() => {
-	const options = [];
-	if (props.variants?.length) {
-		options.push(
-			...props.variants
-				.filter((variant) => !getRawVariantValue(variant.name))
-				.map((variant) => ({
-					label: variant.label,
-					onClick: () => {
-						if (props.setVariantValue) {
-							props.setVariantValue(variant.name, rawModelValue.value as string);
-						}
-					},
-				})),
-		);
+	const options = [] as DropdownOptions;
+	const unsetVariants = (props.variants || []).filter((variant) => !getRawVariantValue(variant.name));
+
+	options.push(...unsetVariants.filter((variant) => !variant.group).map(toDropdownOption));
+
+	const groupNames = [
+		...new Set(
+			unsetVariants.map((variant) => variant.group).filter((group): group is string => Boolean(group)),
+		),
+	];
+	if (groupNames.length) {
+		options.push({
+			group: "Groups",
+			options: groupNames.map((groupName) => ({
+				label: groupName,
+				submenu: unsetVariants.filter((variant) => variant.group === groupName).map(toDropdownOption),
+			})),
+		});
 	}
 
 	if (props.allowDynamicValue) {
@@ -269,6 +297,53 @@ const dropdownOptions = computed(() => {
 const visibleVariants = computed(() => {
 	if (!props.variants?.length) return [];
 	return props.variants.filter((variant) => getRawVariantValue(variant.name));
+});
+
+type VariantRow =
+	| { type: "header"; key: string; label: string; state: string }
+	| { type: "variant"; key: string; label: string; variant: PropertyVariant };
+
+const visibleStates = computed(() => [
+	...new Set(visibleVariants.value.map((variant) => variant.state).filter((s): s is string => Boolean(s))),
+]);
+
+// Once any state is driven by an ancestor group, every state gets a header and
+// its rows are labelled by source — mixing the two styles would leave a bare
+// "On Active" row looking like it belonged to the state above it.
+const useStateHeaders = computed(() =>
+	visibleStates.value.some(
+		(state) =>
+			visibleVariants.value.filter((variant) => variant.state === state).length > 1 ||
+			visibleVariants.value.some((variant) => variant.state === state && variant.group),
+	),
+);
+
+const variantRows = computed(() => {
+	const rows = [] as VariantRow[];
+	const asRow = (variant: PropertyVariant, label: string): VariantRow => ({
+		type: "variant",
+		key: variant.name,
+		label,
+		variant,
+	});
+
+	visibleVariants.value
+		.filter((variant) => !variant.state)
+		.forEach((variant) => rows.push(asRow(variant, variant.label)));
+
+	visibleStates.value.forEach((state) => {
+		const stateVariants = visibleVariants.value.filter((variant) => variant.state === state);
+
+		if (!useStateHeaders.value) {
+			stateVariants.forEach((variant) => rows.push(asRow(variant, variant.label)));
+			return;
+		}
+
+		rows.push({ type: "header", key: `state-${state}`, label: stateVariants[0].label, state });
+		stateVariants.forEach((variant) => rows.push(asRow(variant, variant.sourceLabel || variant.label)));
+	});
+
+	return rows;
 });
 
 const adjustNumericValue = (step: number, initialValue: number | null = null, variantName?: string) => {

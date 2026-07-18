@@ -170,6 +170,20 @@ const blockController = {
 		if (!block) return;
 		block.classes = classes;
 	},
+	getGroupName: () => {
+		return blockController.isBlockSelected() ? blockController.getFirstSelectedBlock().getGroupName() : "";
+	},
+	setGroupName: (groupName: string) => {
+		canvasStore.activeCanvas?.selectedBlocks.forEach((block) => block.setGroupName(groupName));
+	},
+	getAncestorGroupNames: () => {
+		if (!blockController.isBlockSelected()) return [];
+		const blocks = blockController.getSelectedBlocks();
+		// only offer groups every selected block can actually resolve
+		return blocks
+			.map((block) => block.getAncestorGroupNames())
+			.reduce((shared, groupNames) => shared.filter((name) => groupNames.includes(name)));
+	},
 	getRawStyles: () => {
 		return blockController.isBlockSelected() && blockController.getFirstSelectedBlock().getRawStyles();
 	},

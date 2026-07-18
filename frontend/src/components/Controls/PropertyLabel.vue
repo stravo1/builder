@@ -21,13 +21,13 @@
 
 <script lang="ts" setup>
 import InputLabel from "@/components/Controls/InputLabel.vue";
-import { Dropdown } from "frappe-ui";
+import { Dropdown, type DropdownOptions } from "frappe-ui";
 import { ref } from "vue";
 
 const props = defineProps<{
 	label: string;
 	showDropdown?: boolean;
-	dropdownOptions?: Array<{ label: string; onClick: () => void }>;
+	dropdownOptions?: DropdownOptions;
 	enableSlider?: boolean;
 	containerClass?: string;
 }>();

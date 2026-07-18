@@ -2,6 +2,8 @@
 # See license.txt
 
 
+import re
+
 import frappe
 from frappe.desk.form.load import getdoc
 from frappe.tests.utils import FrappeTestCase
@@ -1222,6 +1224,78 @@ component.update({
 			)
 			self.assertTrue("--builder-image-dim: brightness(0.85) contrast(1.05)" in content)
 			self.assertTrue("img { filter: var(--builder-image-dim, none) }" in content)
+		finally:
+			page.delete()
+
+	def test_group_state_styles(self):
+		body = Block(
+			element="div",
+			originalElement="body",
+		)
+		card = Block(element="div", groupName="card", baseStyles={"padding": "10px"})
+		child = Block(
+			element="span",
+			baseStyles={
+				"color": "black",
+				"hover:color": "red",
+				"group-hover/card:color": "blue",
+				"group-focus/card:color": "green",
+			},
+		)
+		card.attach_children(child)
+		body.attach_children(card)
+
+		page = frappe.get_doc(
+			{
+				"doctype": "Builder Page",
+				"page_title": "Group State Test",
+				"published": 1,
+				"route": "/group-state-test",
+				"blocks": body.as_json(wrap_in_array=True),
+			}
+		).insert()
+
+		try:
+			content = get_response_content("/group-state-test")
+			card_html = get_html_for(content, "tag", "div", index=1, only_content=False)
+			self.assertTrue("fb-group-card" in card_html)
+
+			child_class = re.search(r'<span class="(fb-[a-z0-9]+)[ "]', content).group(1)
+			self.assertTrue(f".{child_class}:hover {{ color: red; }}" in content)
+			self.assertTrue(f".fb-group-card:hover .{child_class} {{ color: blue; }}" in content)
+			self.assertTrue(f".fb-group-card:focus .{child_class} {{ color: green; }}" in content)
+		finally:
+			page.delete()
+
+	def test_malformed_state_styles_are_skipped(self):
+		body = Block(element="div", originalElement="body")
+		# keys left behind by older builds must not emit broken selectors
+		child = Block(
+			element="span",
+			baseStyles={
+				"color": "black",
+				"hover:color": "red",
+				"groupHover/hi:color": "blue",
+				"groupHover:color": "green",
+			},
+		)
+		body.attach_children(child)
+
+		page = frappe.get_doc(
+			{
+				"doctype": "Builder Page",
+				"page_title": "Malformed State Test",
+				"published": 1,
+				"route": "/malformed-state-test",
+				"blocks": body.as_json(wrap_in_array=True),
+			}
+		).insert()
+
+		try:
+			content = get_response_content("/malformed-state-test")
+			child_class = re.search(r'<span class="(fb-[a-z0-9]+)[ "]', content).group(1)
+			self.assertTrue(f".{child_class}:hover {{ color: red; }}" in content)
+			self.assertNotIn("groupHover", content)
 		finally:
 			page.delete()
 

@@ -154,6 +154,7 @@ declare module 'vue' {
     TransformPreview: typeof import('./src/components/TransformPreview.vue')['default']
     VariableManager: typeof import('./src/components/Modals/VariableManager.vue')['default']
     VariantControl: typeof import('./src/components/Controls/VariantControl.vue')['default']
+    VariantStateHeader: typeof import('./src/components/Controls/VariantStateHeader.vue')['default']
     VersionHistory: typeof import('./src/components/VersionHistory.vue')['default']
     VisibilityInput: typeof import('./src/components/VisibilityInput.vue')['default']
     WebPagePresetPicker: typeof import('./src/components/WebPagePresetPicker.vue')['default']

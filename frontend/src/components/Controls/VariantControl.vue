@@ -49,7 +49,7 @@
 				{{ label }}
 			</InputLabel>
 		</div>
-		<div class="relative w-full min-w-0">
+		<div v-if="!hideControl" class="relative w-full min-w-0">
 			<component
 				:is="component"
 				v-bind="controlAttrs"
@@ -75,10 +75,12 @@ import type { Component } from "vue";
 defineProps<{
 	label: string;
 	labelPlacement: "left" | "top";
-	component: Component;
+	component?: Component;
 	controlAttrs?: Record<string, unknown>;
 	events?: Record<string, unknown>;
-	modelValue: string | number | boolean;
+	/** renders the row as a clearable marker only — used for state headers */
+	hideControl?: boolean;
+	modelValue?: string | number | boolean;
 	defaultValue?: string | number | boolean;
 	placeholder?: string | number | boolean;
 	enableSlider?: boolean;

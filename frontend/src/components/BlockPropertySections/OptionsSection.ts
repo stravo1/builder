@@ -23,6 +23,22 @@ const optionsSectionProperties = [
 		condition: () => !blockController.multipleBlocksSelected(),
 	},
 	{
+		component: InlineInput,
+		getProps: () => {
+			return {
+				label: "Group",
+				modelValue: blockController.getGroupName(),
+				description:
+					"Name this block as a group so its children can respond to its hover, focus and active states.",
+			};
+		},
+		searchKeyWords: "Group, Group Name, GroupName, Hover, Parent, Ancestor",
+		events: {
+			"update:modelValue": (val: string) => blockController.setGroupName(val || ""),
+		},
+		condition: () => !blockController.multipleBlocksSelected(),
+	},
+	{
 		component: VisibilityInput,
 		getProps: () => {
 			return {

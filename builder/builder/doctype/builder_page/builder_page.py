@@ -47,8 +47,12 @@ from builder.utils import (
 	get_builder_page_preview_file_paths,
 	is_component_used,
 	sanitize_style_value,
+	group_class_name,
+	parse_group_state,
 	split_styles,
 )
+
+PSEUDO_CLASS_PATTERN = re.compile(r"^[a-z][a-z-]*$")
 
 MOBILE_BREAKPOINT = 576
 TABLET_BREAKPOINT = 768
@@ -877,6 +881,10 @@ def build_tag_classes(block: dict, state: dict, ancestor_font: str | None = None
 		style_class = generate_and_apply_styles(block, state, ancestor_font=ancestor_font)
 		classes.insert(0, style_class)
 
+	group_class = group_class_name(block.get("groupName") or "")
+	if group_class:
+		classes.insert(0, group_class)
+
 	return classes
 
 
@@ -1322,8 +1330,25 @@ def append_state_style(style_obj, style_tag, style_class, device="desktop"):
 		if ":" in key:
 			state, property = key.split(":", 1)
 			css_property = camel_case_to_kebab_case(property)
-			style_string = f".{style_class}:{state} {{ {css_property}: {value}; }}"
+			selector = build_state_selector(state, style_class)
+			if not selector:
+				continue
+			style_string = f"{selector} {{ {css_property}: {value}; }}"
 			style_tag.append(wrap_with_media_query(style_string, device))
+
+
+def build_state_selector(state, style_class):
+	"""Selector for a state style, scoped to an ancestor group when the state names one."""
+	if state.startswith("group-"):
+		group_state = parse_group_state(state)
+		if not group_state:
+			return None
+		css_state, group_class = group_state
+		return f".{group_class}:{css_state} .{style_class}"
+	# anything that isn't a plain pseudo-class would emit a broken rule
+	if not PSEUDO_CLASS_PATTERN.match(state):
+		return None
+	return f".{style_class}:{state}"
 
 
 def get_font_family(font: str) -> str:

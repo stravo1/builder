@@ -111,6 +111,14 @@ function kebabToCamelCase(str: string) {
 	});
 }
 
+// converts hover:border-color to hover:borderColor, leaving the state prefix
+// alone — it may itself contain dashes (eg. group-hover/card:border-color)
+function normalizeStyleKey(style: string) {
+	const separatorIndex = style.lastIndexOf(":");
+	if (separatorIndex === -1) return kebabToCamelCase(style);
+	return `${style.slice(0, separatorIndex)}:${kebabToCamelCase(style.slice(separatorIndex + 1))}`;
+}
+
 function toKebabCase(str: string) {
 	return str
 		.replace(/([a-z])([A-Z])/g, "$1-$2")
@@ -914,6 +922,7 @@ export {
 	isTargetEditable,
 	kebabToCamelCase,
 	mapToObject,
+	normalizeStyleKey,
 	normalizeValueWithUnits,
 	openInDesk,
 	parseAndSetBackground,

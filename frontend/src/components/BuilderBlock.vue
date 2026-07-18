@@ -49,6 +49,7 @@ import useComponentStore from "@/stores/componentStore";
 import usePageStore from "@/stores/pageStore";
 import componentController from "@/utils/componentController.js";
 import { setFont } from "@/utils/fontManager";
+import { isGroupStateKey } from "@/utils/groupStates";
 import { extractComponentId, getDataForKey, getParentProps, getPropValue } from "@/utils/helpers";
 import type { BlockClientScriptEmulator } from "@/utils/scriptSandbox";
 import { useDraggableBlock } from "@/utils/useDraggableBlock";
@@ -374,7 +375,7 @@ const styles = computed(() => {
 	}
 
 	Object.keys(styleMap).forEach((key) => {
-		if (key.startsWith("hover:")) {
+		if (key.startsWith("hover:") || isGroupStateKey(key)) {
 			// state style preview on hover
 			// if (!isHovered.value) {
 			// 	delete styleMap[key];

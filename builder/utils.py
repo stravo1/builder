@@ -105,6 +105,7 @@ class Block:
 	referenceBlockId: str | None = None
 	isRepeaterBlock: bool = False
 	visibilityCondition: str | VisibilityCondition | None = None
+	groupName: str | None = None
 	elementBeforeConversion: str | None = None
 	customAttributes: ClassVar[dict] = {}
 	dynamicValues: ClassVar[list[BlockDataKey]] = []
@@ -176,6 +177,7 @@ class Block:
 			"referenceBlockId": self.referenceBlockId,
 			"isRepeaterBlock": self.isRepeaterBlock,
 			"visibilityCondition": self.visibilityCondition,
+			"groupName": self.groupName,
 			"elementBeforeConversion": self.elementBeforeConversion,
 			"customAttributes": self.customAttributes,
 			"dynamicValues": self.dynamicValues,
@@ -522,6 +524,26 @@ def split_styles(styles):
 		"regular": {k: v for k, v in styles.items() if ":" not in k},
 		"state": {k: v for k, v in styles.items() if ":" in k},
 	}
+
+
+GROUP_STATE_PATTERN = re.compile(r"^group-([a-zA-Z-]+)/(.+)$")
+
+
+def group_class_name(group_name):
+	"""Class applied to a named group block, so descendants can target its states."""
+	slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", group_name.strip()).strip("-").lower()
+	return f"fb-group-{slug}" if slug else ""
+
+
+def parse_group_state(state):
+	"""Split a `group-<state>/<group name>` prefix into (state, group class)."""
+	match = GROUP_STATE_PATTERN.match(state)
+	if not match:
+		return None
+
+	css_state, group_name = match.groups()
+	group_class = group_class_name(group_name)
+	return (css_state, group_class) if group_class else None
 
 
 def copy_assets_from_blocks(blocks, assets_path, target_app="builder"):
