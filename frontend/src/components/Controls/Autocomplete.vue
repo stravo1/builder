@@ -4,12 +4,14 @@
 		v-model:open="isOpen"
 		open-on-click
 		open-on-focus
+		:disabled="disabled"
 		:reset-search-term-on-blur="false">
 		<div class="group/autocomplete relative" ref="containerRef">
 			<div
 				class="group form-input flex h-7 flex-1 items-center gap-2 rounded bg-surface-gray-2 p-0 text-sm text-ink-gray-8 transition-colors focus-within:bg-surface-base focus-within:ring-2 focus-within:ring-outline-gray-3"
 				:class="{
 					'can-show-arrows': canShowArrows,
+					'cursor-not-allowed opacity-50 focus-within:bg-surface-gray-2 focus-within:ring-0': disabled,
 				}">
 				<div v-if="$slots.prefix" class="flex items-center pl-2">
 					<slot name="prefix" />
@@ -20,6 +22,7 @@
 					autocomplete="off"
 					@focus="
 						() => {
+							if (disabled) return false;
 							emit('focus');
 							return false;
 						}
@@ -28,6 +31,7 @@
 					@keydown.enter="handleEnter"
 					:display-value="getDisplayValue"
 					:placeholder="placeholder"
+					:disabled="disabled"
 					class="h-full w-full flex-1 border-none bg-transparent px-0 text-base placeholder:text-ink-gray-4 focus:outline-none focus:ring-0"
 					:class="{
 						'pl-2': !$slots.prefix,
@@ -45,7 +49,7 @@
 						@decrement="decrementValue" />
 
 					<button
-						v-if="hasValue"
+						v-if="hasValue && !disabled"
 						class="mr-2 flex-shrink-0 cursor-pointer text-ink-gray-4 hover:text-ink-gray-5"
 						tabindex="-1"
 						@click.stop="clearSelection"
@@ -105,6 +109,7 @@
 							:icon-left="actionButton.icon"
 							variant="ghost"
 							class="w-full justify-start rounded-none text-sm"
+							:disabled="disabled"
 							@click="actionButton.handler">
 							{{ actionButton.label }}
 						</Button>
@@ -165,6 +170,10 @@ const props = withDefaults(defineProps<Props>(), {
 	allowArbitraryValue: true,
 });
 
+defineOptions({
+	name: "BuilderAutocomplete",
+});
+
 const emit = defineEmits<{
 	"update:modelValue": [value: string | null];
 	focus: [];
@@ -195,7 +204,10 @@ const attrs = useAttrs();
 
 const { hasNumber, incrementValue, decrementValue } = useNumberInput({
 	getValue: () => props.modelValue,
-	setValue: (v) => emit("update:modelValue", v),
+	setValue: (v) => {
+		if (props.disabled) return;
+		emit("update:modelValue", v);
+	},
 	getAttrs: () => attrs,
 });
 
@@ -206,7 +218,7 @@ const isStrictNumber = computed(() => {
 	return /^\d*\.?\d+(px|%|em|rem)?$/.test(props.modelValue.trim());
 });
 
-const canShowArrows = computed(() => hasNumber.value && isStrictNumber.value);
+const canShowArrows = computed(() => !props.disabled && hasNumber.value && isStrictNumber.value);
 
 const displayOptions = computed(() => {
 	let options = allOptions.value;
@@ -223,6 +235,7 @@ const displayOptions = computed(() => {
 const selectedValue = computed({
 	get: () => props.modelValue,
 	set: (value) => {
+		if (props.disabled) return;
 		emit("update:modelValue", value ?? null);
 		isOpen.value = false;
 	},
@@ -243,11 +256,15 @@ const refreshOptions = async (query = "") => {
 	}
 };
 
-const clearSelection = () => emit("update:modelValue", null);
+const clearSelection = () => {
+	if (props.disabled) return;
+	emit("update:modelValue", null);
+};
 
 const getInputValue = (event: Event) => (event.target as HTMLInputElement)?.value?.trim();
 
 const submitArbitraryValue = (inputValue: string) => {
+	if (props.disabled) return;
 	if (!inputValue) return;
 	const matchingOption = allOptions.value.find((opt) => opt.label.toLowerCase() === inputValue.toLowerCase());
 	emit("update:modelValue", matchingOption?.value ?? inputValue);
@@ -255,6 +272,7 @@ const submitArbitraryValue = (inputValue: string) => {
 };
 
 const handleEnter = (event: KeyboardEvent) => {
+	if (props.disabled) return;
 	if (!props.allowArbitraryValue) return;
 	const highlightedItem = containerRef.value?.querySelector("[data-highlighted]");
 	const inputValue = getInputValue(event);
@@ -273,6 +291,7 @@ const handleEnter = (event: KeyboardEvent) => {
 };
 
 const handleBlur = (event: FocusEvent) => {
+	if (props.disabled) return;
 	const relatedTarget = event.relatedTarget as HTMLElement;
 	if (relatedTarget && containerRef.value?.contains(relatedTarget)) {
 		emit("blur");
@@ -291,6 +310,10 @@ watch(
 );
 
 watch(isOpen, (val) => {
+	if (val && props.disabled) {
+		isOpen.value = false;
+		return;
+	}
 	if (val && props.referenceElementSelector) {
 		nextTick(() => {
 			fixedPositionStyles.value = getFixedPositionStyles();

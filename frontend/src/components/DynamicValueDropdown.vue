@@ -7,6 +7,7 @@
 			:modelValue="autocompleteValue"
 			:getOptions="getOptions"
 			:showInputAsOption="true"
+			:disabled="disabled"
 			@update:modelValue="handleModelValueUpdate" />
 
 		<div
@@ -19,6 +20,7 @@
 		<button
 			v-if="dynamicValue?.key"
 			class="absolute right-1 top-1 cursor-pointer p-1 text-ink-gray-4 hover:text-ink-gray-5"
+			:class="{ 'pointer-events-none opacity-50': disabled }"
 			tabindex="-1"
 			@click.stop="clearDynamicValue">
 			<span class="lucide-x size-3.5" />
@@ -47,6 +49,7 @@ type Option = {
 const props = defineProps<{
 	modelValue: string;
 	dynamicValue?: DynamicValue;
+	disabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -108,6 +111,7 @@ const getOptions = async (query: string) => {
 };
 
 const handleModelValueUpdate = (value: string | null) => {
+	if (props.disabled) return;
 	if (value == null) {
 		clearDynamicValue();
 		emit("update:modelValue", "");
@@ -125,6 +129,7 @@ const handleModelValueUpdate = (value: string | null) => {
 };
 
 const clearDynamicValue = () => {
+	if (props.disabled) return;
 	emit("clearDynamicValue");
 	emit("update:modelValue", "");
 };

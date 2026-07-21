@@ -5,6 +5,7 @@
 				<BuilderInput
 					placeholder="Property"
 					:modelValue="key"
+					:disabled="resolveRowKeyInputDisabled(key as string, value, index)"
 					@update:modelValue="(val: string) => replaceKey(key, val)" />
 			</div>
 			<DynamicValueDropdown
@@ -12,6 +13,7 @@
 				class="min-w-0 flex-1"
 				:modelValue="value"
 				:dynamicValue="getDynamicValueForKey(key)"
+				:disabled="resolveRowValueInputDisabled(key as string, value, index)"
 				@update:modelValue="(val: string) => updateObjectValue(key, val)"
 				@setDynamicValue="(val) => setDynamicValueForKey(key, val.key, val.comesFrom)"
 				@clearDynamicValue="() => clearDynamicValueForKey(key)" />
@@ -19,15 +21,17 @@
 				<BuilderInput
 					placeholder="Value"
 					:modelValue="value"
+					:disabled="resolveRowValueInputDisabled(key as string, value, index)"
 					@update:modelValue="(val: string) => updateObjectValue(key, val)" />
 			</div>
 			<Button
 				class="flex-shrink-0 text-xs"
 				variant="subtle"
 				icon="lucide-x"
+				:disabled="resolveRowRemoveButtonDisabled(key as string, value, index)"
 				@click="deleteObjectKey(key as string)"></Button>
 		</div>
-		<Button variant="outline" label="Add" @click="addObjectKey"></Button>
+		<Button variant="outline" label="Add" :disabled="isAddButtonDisabled" @click="addObjectKey"></Button>
 		<p class="rounded-sm bg-surface-gray-1 p-2 text-xs text-ink-gray-7" v-show="description">
 			<span v-html="description"></span>
 		</p>
@@ -37,17 +41,55 @@
 import DynamicValueDropdown from "@/components/DynamicValueDropdown.vue";
 import blockController from "@/utils/blockController";
 import { mapToObject, replaceMapKey } from "@/utils/helpers";
-import { nextTick, ref } from "vue";
+import { computed, nextTick, ref } from "vue";
+
+type ObjectEditorRow = {
+	key: string;
+	value: string;
+	index: number;
+	obj: Record<string, string>;
+};
+
+type RowDisabledResolver = boolean | ((row: ObjectEditorRow) => boolean);
 
 const props = defineProps<{
 	obj: Record<string, string>;
 	description?: string;
 	allowDynamicValues?: boolean;
+	disabled?: boolean;
+	isRowKeyInputDisabled?: RowDisabledResolver;
+	isRowValueInputDisabled?: RowDisabledResolver;
+	isRowRemoveButtonDisabled?: RowDisabledResolver;
+	disableAddButton?: boolean;
 }>();
 
 const emit = defineEmits({
 	"update:obj": (obj: Record<string, string>) => true,
 });
+
+const isAddButtonDisabled = computed(() => props.disabled || props.disableAddButton);
+
+const resolveRowDisabled = (
+	resolver: RowDisabledResolver | undefined,
+	key: string,
+	value: string,
+	index: number,
+) => {
+	if (props.disabled) return true;
+	if (typeof resolver === "function") return resolver({ key, value, index, obj: props.obj });
+	return Boolean(resolver);
+};
+
+const getRowIndex = (key: string) => Object.keys(props.obj).indexOf(key);
+
+const resolveRowKeyInputDisabled = (key: string, value: string, index: number = getRowIndex(key)) =>
+	resolveRowDisabled(props.isRowKeyInputDisabled, key, value, index);
+
+const resolveRowValueInputDisabled = (key: string, value: string, index: number = getRowIndex(key)) =>
+	resolveRowDisabled(props.isRowValueInputDisabled, key, value, index);
+
+const resolveRowRemoveButtonDisabled = (key: string, value: string, index: number = getRowIndex(key)) =>
+	resolveRowDisabled(props.isRowRemoveButtonDisabled, key, value, index);
 
 const getDynamicValueForKey = (key: string) => {
 	const block = blockController.getFirstSelectedBlock();
@@ -62,6 +104,7 @@ const getDynamicValueForKey = (key: string) => {
 };
 
 const setDynamicValueForKey = (attrKey: string, dynamicKey: string, comesFrom: BlockDataKey["comesFrom"]) => {
+	if (resolveRowValueInputDisabled(attrKey, props.obj[attrKey])) return;
 	blockController.getSelectedBlocks().forEach((block) => {
 		block.setDynamicValue(attrKey, "attribute", dynamicKey, comesFrom);
 	});
@@ -69,12 +112,14 @@ const setDynamicValueForKey = (attrKey: string, dynamicKey: string, comesFrom: B
 };
 
 const clearDynamicValueForKey = (attrKey: string) => {
+	if (resolveRowValueInputDisabled(attrKey, props.obj[attrKey])) return;
 	blockController.getSelectedBlocks().forEach((block) => {
 		block.removeDynamicValue(attrKey, "attribute");
 	});
 };
 
 const migrateDynamicValueKey = (oldKey: string, newKey: string) => {
+	if (resolveRowKeyInputDisabled(oldKey, props.obj[oldKey])) return;
 	if (!props.allowDynamicValues || oldKey === newKey) return;
 	blockController.getSelectedBlocks().forEach((block) => {
 		const dataKeyObj = block
@@ -87,6 +132,7 @@ const migrateDynamicValueKey = (oldKey: string, newKey: string) => {
 };
 
 const addObjectKey = async () => {
+	if (isAddButtonDisabled.value) return;
 	const map = new Map(Object.entries(props.obj));
 	map.set("", "");
 	emit("update:obj", mapToObject(map));
@@ -99,18 +145,21 @@ const addObjectKey = async () => {
 };
 
 const updateObjectValue = (key: string, value: string) => {
+	if (resolveRowValueInputDisabled(key, props.obj[key])) return;
 	const map = new Map(Object.entries(props.obj));
 	map.set(key, value);
 	emit("update:obj", mapToObject(map));
 };
 
 const replaceKey = (oldKey: string, newKey: string) => {
+	if (resolveRowKeyInputDisabled(oldKey, props.obj[oldKey])) return;
 	const map = new Map(Object.entries(props.obj));
 	migrateDynamicValueKey(oldKey, newKey);
 	emit("update:obj", mapToObject(replaceMapKey(map, oldKey, newKey)));
 };
 
 const deleteObjectKey = (key: string) => {
+	if (resolveRowRemoveButtonDisabled(key, props.obj[key])) return;
 	const map = new Map(Object.entries(props.obj));
 	map.delete(key);
 	if (props.allowDynamicValues) {
@@ -124,6 +173,7 @@ const deleteObjectKey = (key: string) => {
 const objectEditor = ref<HTMLElement | null>(null);
 
 const pasteObj = (e: ClipboardEvent) => {
+	if (props.disabled || isAddButtonDisabled.value) return;
 	const text = e.clipboardData?.getData("text/plain");
 	if (text) {
 		if (!text.includes(":")) return;
