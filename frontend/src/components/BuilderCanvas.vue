@@ -342,6 +342,7 @@ let frameScope: EffectScope | null = null;
 let addFrameWheelTarget: ((target: EventTarget) => () => void) | null = null;
 let removeFrameWheelTarget: (() => void) | null = null;
 let unregisterFontDocument: (() => void) | null = null;
+let pageScriptJavaScriptHasRun = false;
 
 function onFrameReady(frameDoc: Document) {
 	canvasProps.frameDocument = frameDoc;
@@ -377,6 +378,7 @@ function onFrameDispose() {
 	unregisterFontDocument?.();
 	unregisterFontDocument = null;
 	canvasProps.frameDocument = null;
+	pageScriptJavaScriptHasRun = false;
 }
 
 onUnmounted(() => {
@@ -574,11 +576,14 @@ watch(
 
 watch(
 	[() => canvasProps.scriptsRunning, () => pageStore.activePageScripts],
-	(_, [wasRunning]) => {
+	() => {
 		if (!props.runPageScripts || pageStore.settingPage) return;
-		// Only a canvas that has been running has anything to take back. Skipping the
-		// remount on the way in keeps the blocks, and their images, on screen.
-		if (wasRunning) blockEpoch.value += 1;
+		// CSS leaves cleanly when the injected style is removed. JavaScript can move or
+		// rewrite blocks, so only a frame that actually ran JavaScript needs a remount.
+		if (pageScriptJavaScriptHasRun) {
+			blockEpoch.value += 1;
+			pageScriptJavaScriptHasRun = false;
+		}
 		nextTick(runPageScriptsInFrame);
 	},
 	{ deep: true },
@@ -588,6 +593,13 @@ function runPageScriptsInFrame() {
 	const frameDocument = canvasProps.frameDocument;
 	if (!frameDocument) return;
 	applyPageScripts(frameDocument, pageStore.activePageScripts, canvasProps.scriptsRunning);
+	pageScriptJavaScriptHasRun = canvasProps.scriptsRunning && hasRunnablePageJavaScript();
+}
+
+function hasRunnablePageJavaScript() {
+	return pageStore.activePageScripts.some(
+		(script) => script.script_type !== "CSS" && Boolean(script.script?.trim()),
+	);
 }
 
 function registerBlockStateStyles(key: string, css: string) {
@@ -596,7 +608,7 @@ function registerBlockStateStyles(key: string, css: string) {
 }
 
 function escapeAttributeValue(value: string) {
-	return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+	return value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
 }
 
 function emulateBlockClientScript(script: BlockClientScriptRuntime) {
