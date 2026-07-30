@@ -66,6 +66,7 @@
 					class="canvas relative flex bg-surface-base shadow-xl contain-layout"
 					:data-breakpoint="breakpoint.device"
 					:style="{
+						minHeight: `${containerHeight}px`,
 						...canvasStyles,
 						background: canvasProps.background,
 						width: `${breakpoint.width}px`,

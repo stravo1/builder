@@ -8,7 +8,7 @@
 	<Teleport v-if="frameBody" :to="frameBody">
 		<div
 			ref="canvasRoot"
-			class="canvas-root flex w-max items-stretch gap-40"
+			class="canvas-root flex w-max items-start gap-40"
 			:class="{ 'scheme-dark': dark }"
 			:data-builder-canvas="canvasId"
 			:style="{ minHeight: `${minHeight}px`, colorScheme: dark ? 'dark' : 'light' }">
