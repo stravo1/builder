@@ -41,6 +41,7 @@ const height = ref(1);
 let currentDocument: Document | null = null;
 let contentObserver: ResizeObserver | null = null;
 let headObserver: MutationObserver | null = null;
+let sizeUpdateFrame: number | null = null;
 let styleSyncFrame: number | null = null;
 
 // srcdoc frames resolve relative URLs against about:srcdoc, so the base tag keeps
@@ -87,7 +88,7 @@ function syncDocumentChrome(doc: Document) {
 	doc.body.style.display = "contents";
 }
 
-function updateSize() {
+function measureSize() {
 	if (!canvasRoot.value) return;
 	const nextWidth = Math.max(1, Math.ceil(canvasRoot.value.scrollWidth));
 	const nextHeight = Math.max(1, Math.ceil(canvasRoot.value.scrollHeight));
@@ -97,7 +98,19 @@ function updateSize() {
 	emit("resize", nextWidth, nextHeight);
 }
 
+function scheduleSizeUpdate() {
+	if (sizeUpdateFrame !== null) return;
+	sizeUpdateFrame = requestAnimationFrame(() => {
+		sizeUpdateFrame = null;
+		measureSize();
+	});
+}
+
 function releaseFrame() {
+	if (sizeUpdateFrame !== null) {
+		cancelAnimationFrame(sizeUpdateFrame);
+		sizeUpdateFrame = null;
+	}
 	if (styleSyncFrame !== null) {
 		cancelAnimationFrame(styleSyncFrame);
 		styleSyncFrame = null;
@@ -135,9 +148,9 @@ async function attachFrame() {
 
 function observeContent(doc: Document) {
 	const FrameResizeObserver = doc.defaultView?.ResizeObserver || ResizeObserver;
-	contentObserver = new FrameResizeObserver(updateSize);
+	contentObserver = new FrameResizeObserver(scheduleSizeUpdate);
 	contentObserver.observe(canvasRoot.value as HTMLElement);
-	updateSize();
+	measureSize();
 }
 
 function watchEditorHead(doc: Document) {
@@ -166,7 +179,7 @@ watch(
 
 watch(
 	() => props.minHeight,
-	() => nextTick(updateSize),
+	() => nextTick(scheduleSizeUpdate),
 );
 
 onBeforeUnmount(() => {
