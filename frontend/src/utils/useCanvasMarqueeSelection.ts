@@ -2,6 +2,12 @@ import type Block from "@/block";
 import useBuilderStore from "@/stores/builderStore";
 import useCanvasStore from "@/stores/canvasStore";
 import type { CanvasProps } from "@/types/Builder/BuilderCanvas";
+import {
+	getElementRectInEditor,
+	getEventPointInEditor,
+	startCanvasDrag,
+	type CanvasPoint,
+} from "@/utils/canvasFrame";
 import { computed, reactive, ref, type Ref } from "vue";
 
 const MIN_MARQUEE_DRAG = 5;
@@ -18,7 +24,6 @@ const setsEqual = (a: Set<string>, b: Set<string>): boolean => {
 };
 
 type UseCanvasMarqueeSelectionOptions = {
-	canvasContainer: Ref<HTMLElement | null>;
 	canvasProps: CanvasProps;
 	activeBreakpoint: Ref<string | null>;
 	selectedBlockIds: Ref<Set<string>>;
@@ -29,7 +34,6 @@ type UseCanvasMarqueeSelectionOptions = {
 
 export function useCanvasMarqueeSelection(options: UseCanvasMarqueeSelectionOptions) {
 	const {
-		canvasContainer,
 		canvasProps,
 		activeBreakpoint,
 		selectedBlockIds,
@@ -46,6 +50,7 @@ export function useCanvasMarqueeSelection(options: UseCanvasMarqueeSelectionOpti
 	const marqueeInitialSelection = ref<Set<string>>(new Set());
 	// Cached block rects — snapshotted once when drag starts; blocks don't move during a marquee
 	let blockRectCache: BlockRectSnapshot[] = [];
+	let stopMarqueeDrag: (() => void) | null = null;
 	let rafId: number | null = null;
 	// Tracks which blocks currently have the DOM highlight attribute (no Vue overhead)
 	let marqueePreviewIds = new Set<string>();
@@ -95,8 +100,8 @@ export function useCanvasMarqueeSelection(options: UseCanvasMarqueeSelectionOpti
 	};
 
 	const removeWindowListeners = () => {
-		window.removeEventListener("mousemove", handleMarqueeMove);
-		window.removeEventListener("mouseup", handleMarqueeEnd);
+		stopMarqueeDrag?.();
+		stopMarqueeDrag = null;
 		window.removeEventListener("dragstart", cancelMarqueeOnDrag);
 	};
 
@@ -108,27 +113,36 @@ export function useCanvasMarqueeSelection(options: UseCanvasMarqueeSelectionOpti
 		// unconditionally swallows native caret placement inside editable text blocks
 		ev.preventDefault();
 
+		// The marquee box and the cached rects are drawn and compared in editor
+		// coordinates, but the press can come from either document.
+		const start = getEventPointInEditor(ev);
 		marquee.active = true;
 		marquee.visible = false;
-		marquee.startX = ev.clientX;
-		marquee.startY = ev.clientY;
-		marquee.currentX = ev.clientX;
-		marquee.currentY = ev.clientY;
+		marquee.startX = start.x;
+		marquee.startY = start.y;
+		marquee.currentX = start.x;
+		marquee.currentY = start.y;
 		marqueeAdditiveSelection.value = ev.shiftKey || ev.metaKey || ev.ctrlKey;
 		marqueeInitialSelection.value = new Set(selectedBlockIds.value);
-		marqueeBreakpoint.value = getBreakpointAtPoint(ev.clientX, ev.clientY);
+		marqueeBreakpoint.value = getBreakpointAtPoint(start.x, start.y);
 
-		window.addEventListener("mousemove", handleMarqueeMove);
-		window.addEventListener("mouseup", handleMarqueeEnd);
+		// The capture layer keeps the whole drag in the editor document, even when the
+		// pointer travels over the canvas frame or a side panel. It waits for real
+		// travel, so a plain press on canvas chrome still turns into a click.
+		stopMarqueeDrag = startCanvasDrag(ev, {
+			threshold: MIN_MARQUEE_DRAG,
+			onMove: ({ point }) => handleMarqueeMove(point),
+			onEnd: handleMarqueeEnd,
+		});
 		// Cancel marquee if the browser starts an HTML5 block drag (mouseup won't fire during drag)
 		window.addEventListener("dragstart", cancelMarqueeOnDrag);
 	};
 
+	const canvasDocument = () => canvasProps.frameDocument || document;
+
 	const snapshotBlockRects = (): BlockRectSnapshot[] => {
-		const container = canvasContainer.value;
-		if (!container) return [];
 		const target = marqueeBreakpoint.value || activeBreakpoint.value;
-		const elements = container.querySelectorAll<HTMLElement>(
+		const elements = canvasDocument().querySelectorAll<HTMLElement>(
 			".__builder_component__[data-block-id][data-breakpoint]",
 		);
 		const result: BlockRectSnapshot[] = [];
@@ -136,7 +150,7 @@ export function useCanvasMarqueeSelection(options: UseCanvasMarqueeSelectionOpti
 			if ((el.dataset.breakpoint || null) !== target) continue;
 			const blockId = el.dataset.blockId;
 			if (!blockId || blockId === "root") continue;
-			const rect = el.getBoundingClientRect();
+			const rect = getElementRectInEditor(el);
 			if (!rect.width || !rect.height) continue;
 			const block = findBlock(blockId);
 			if (!block) continue;
@@ -165,12 +179,12 @@ export function useCanvasMarqueeSelection(options: UseCanvasMarqueeSelectionOpti
 		marqueePreviewIds = newIds;
 	};
 
-	const handleMarqueeMove = (ev: MouseEvent) => {
+	const handleMarqueeMove = (point: CanvasPoint) => {
 		if (!marquee.active) return;
 
 		// Always capture the latest position — even if a rAF is already pending
-		marquee.currentX = ev.clientX;
-		marquee.currentY = ev.clientY;
+		marquee.currentX = point.x;
+		marquee.currentY = point.y;
 
 		if (rafId !== null) return; // coalesce: only one rAF per frame
 
@@ -250,15 +264,12 @@ export function useCanvasMarqueeSelection(options: UseCanvasMarqueeSelectionOpti
 	};
 
 	const getBreakpointAtPoint = (x: number, y: number) => {
-		const container = canvasContainer.value;
-		if (!container) {
-			return activeBreakpoint.value;
-		}
-
-		const canvases = Array.from(container.querySelectorAll(".canvas[data-breakpoint]")) as HTMLElement[];
+		const canvases = Array.from(
+			canvasDocument().querySelectorAll(".canvas[data-breakpoint]"),
+		) as HTMLElement[];
 
 		for (const canvasElement of canvases) {
-			const rect = canvasElement.getBoundingClientRect();
+			const rect = getElementRectInEditor(canvasElement);
 			if (!rect.width || !rect.height) continue;
 			if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
 				return canvasElement.dataset.breakpoint || activeBreakpoint.value;

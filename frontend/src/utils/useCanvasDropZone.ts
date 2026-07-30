@@ -3,6 +3,11 @@ import useBlockTemplateStore from "@/stores/blockTemplateStore";
 import useBuilderStore from "@/stores/builderStore";
 import useCanvasStore from "@/stores/canvasStore";
 import useComponentStore from "@/stores/componentStore";
+import {
+	elementFromEditorPoint,
+	getComputedStyleFor,
+	getElementRectInEditor,
+} from "@/utils/canvasFrame";
 import { getLayoutDirection, type LayoutDirection } from "@/utils/dropGeometry";
 import {
 	getBlockCopy,
@@ -67,9 +72,13 @@ export function useCanvasDropZone(
 		},
 	});
 
+	const canvasDocument = () => canvasStore.activeCanvas?.canvasProps?.frameDocument || document;
+
 	const getInitialParentBlock = (ev: DragEvent) => {
-		const element = document.elementFromPoint(ev.x, ev.y) as HTMLElement;
-		const targetElement = element.closest(".__builder_component__") as HTMLElement;
+		// The drag runs over a capture layer in the editor document, so the hit test has
+		// to read through the iframe to find the block underneath.
+		const element = elementFromEditorPoint(ev.clientX, ev.clientY) as HTMLElement;
+		const targetElement = element?.closest(".__builder_component__") as HTMLElement;
 
 		// set the hoveredBreakpoint from the target element to show placeholder at the correct breakpoint canvas
 		const breakpoint =
@@ -96,7 +105,7 @@ export function useCanvasDropZone(
 	const getBlockElement = (block: Block) => {
 		const breakpoint =
 			canvasStore.activeCanvas?.hoveredBreakpoint || canvasStore.activeCanvas?.activeBreakpoint;
-		return document.querySelector(
+		return canvasDocument().querySelector(
 			`.__builder_component__[data-block-id="${block.blockId}"][data-breakpoint="${breakpoint}"]`,
 		) as HTMLElement;
 	};
@@ -113,7 +122,7 @@ export function useCanvasDropZone(
 
 		if (parentBlock) {
 			const parentElement = getBlockElement(parentBlock);
-			layoutDirection = getLayoutDirection(window.getComputedStyle(parentElement));
+			layoutDirection = getLayoutDirection(getComputedStyleFor(parentElement));
 			index = findDropIndex(ev, parentElement, layoutDirection);
 		}
 
@@ -134,7 +143,7 @@ export function useCanvasDropZone(
 
 		// Get all child positions
 		const childPositions = childElements.map((child, idx) => {
-			const rect = child.getBoundingClientRect();
+			const rect = getElementRectInEditor(child);
 			const midPoint = layoutDirection === "row" ? rect.left + rect.width / 2 : rect.top + rect.height / 2;
 			return { midPoint, idx };
 		});

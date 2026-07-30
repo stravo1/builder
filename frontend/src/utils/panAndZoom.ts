@@ -1,3 +1,4 @@
+import { getEventPointInEditor } from "@/utils/canvasFrame";
 import { useElementBounding } from "@vueuse/core";
 import { nextTick, reactive } from "vue";
 
@@ -56,7 +57,7 @@ function setPanAndZoom(
 		});
 	};
 
-	const updatePanAndZoom = (e: WheelEvent) => {
+	const updatePanAndZoom = (e: WheelEvent, point: { x: number; y: number }) => {
 		clearTimeout(wheeling);
 		if (e.ctrlKey || e.metaKey) {
 			props.scaling = true;
@@ -64,15 +65,17 @@ function setPanAndZoom(
 				// set pinch point before setting new scale value
 				const middleX = targetBound.left + targetBound.width / 2;
 				const middleY = targetBound.top + targetBound.height / 2;
-				pointFromCenterX = (e.clientX - middleX) / props.scale;
-				pointFromCenterY = (e.clientY - middleY) / props.scale;
-				startX = e.clientX;
-				startY = e.clientY;
+				pointFromCenterX = (point.x - middleX) / props.scale;
+				pointFromCenterY = (point.y - middleY) / props.scale;
+				startX = point.x;
+				startY = point.y;
 				pinchPointSet = true;
 				let clearPinchPoint = () => {
 					pinchPointSet = false;
 				};
-				panAndZoomAreaElement.addEventListener("mousemove", clearPinchPoint, { once: true });
+				pointerTargets().forEach((target) =>
+					target.addEventListener("mousemove", clearPinchPoint, { once: true }),
+				);
 			}
 
 			let sensitivity = 0.008;
@@ -118,16 +121,28 @@ function setPanAndZoom(
 		}, 200);
 	};
 
-	panAndZoomAreaElement.addEventListener(
-		"wheel",
-		(e) => {
-			e.preventDefault();
-			requestAnimationFrame(() => updatePanAndZoom(e));
-		},
-		{ passive: false },
-	);
+	const wheelTargets = new Set<EventTarget>();
+	const pointerTargets = () => [panAndZoomAreaElement as EventTarget, ...wheelTargets];
 
-	return { setZoom };
+	const handleWheel = (e: WheelEvent) => {
+		e.preventDefault();
+		const point = getEventPointInEditor(e);
+		requestAnimationFrame(() => updatePanAndZoom(e, point));
+	};
+
+	panAndZoomAreaElement.addEventListener("wheel", handleWheel, { passive: false });
+
+	// The canvas sits in a frame, so a wheel over a block never reaches the editor document.
+	const addWheelTarget = (target: EventTarget) => {
+		wheelTargets.add(target);
+		target.addEventListener("wheel", handleWheel as EventListener, { passive: false });
+		return () => {
+			wheelTargets.delete(target);
+			target.removeEventListener("wheel", handleWheel as EventListener);
+		};
+	};
+
+	return { setZoom, addWheelTarget };
 }
 
 export default setPanAndZoom;

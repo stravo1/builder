@@ -42,11 +42,29 @@ export function loadFontList(): Promise<FontListItem[]> {
 	return fontListPromise;
 }
 
+// Google fonts arrive in the canvas frame with the cloned editor stylesheets, but a
+// FontFace belongs to one document only. Every canvas frame keeps its own copy, and
+// a frame that opens later replays the faces loaded so far.
+const canvasFrames = new Set<Document>();
+const loadedFaces = new Set<FontFace>();
+
+export function registerFontDocument(frameDocument: Document) {
+	canvasFrames.add(frameDocument);
+	loadedFaces.forEach((face) => frameDocument.fonts.add(face));
+	return () => canvasFrames.delete(frameDocument);
+}
+
+function addFace(face: FontFace) {
+	loadedFaces.add(face);
+	document.fonts.add(face);
+	canvasFrames.forEach((frameDocument) => frameDocument.fonts.add(face));
+}
+
 function loadCustomFont(font: string, url: string): Promise<string> {
 	return new FontFace(font, `url("${url}")`)
 		.load()
 		.then((face) => {
-			document.fonts.add(face);
+			addFace(face);
 			return font;
 		})
 		.catch(() => {

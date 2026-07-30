@@ -16,16 +16,22 @@ function getRotatedCursor(svg: string, angle: number, fallback: string, hotspot 
 
 let overlay: HTMLDivElement | null = null;
 
-// Prevents hovered elements from overriding the cursor during a drag.
+// Prevents hovered elements from overriding the cursor during a drag. The overlay
+// also keeps every move event in the editor document, so a drag that travels over
+// the canvas frame is not lost to the frame.
+function showDragOverlay() {
+	if (overlay) return overlay;
+	overlay = document.createElement("div");
+	overlay.setAttribute("data-canvas-capture", "");
+	overlay.style.position = "fixed";
+	overlay.style.inset = "0";
+	overlay.style.zIndex = "2147483647";
+	document.body.appendChild(overlay);
+	return overlay;
+}
+
 function setDragCursor(cursor: string) {
-	if (!overlay) {
-		overlay = document.createElement("div");
-		overlay.style.position = "fixed";
-		overlay.style.inset = "0";
-		overlay.style.zIndex = "2147483647";
-		document.body.appendChild(overlay);
-	}
-	overlay.style.cursor = cursor;
+	showDragOverlay().style.cursor = cursor;
 }
 
 function clearDragCursor() {
@@ -44,6 +50,7 @@ type DragOptions = {
 // Runs a mouse drag with the cursor locked for its duration, tearing down its listeners on mouseup
 // or Escape.
 function startDrag({ cursor, onMove, onEnd, onCancel }: DragOptions) {
+	showDragOverlay();
 	if (cursor) setDragCursor(cursor);
 
 	const mousemove = (moveEvent: MouseEvent) => {

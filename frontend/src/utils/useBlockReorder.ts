@@ -1,11 +1,22 @@
 import type Block from "@/block";
 import useCanvasStore from "@/stores/canvasStore";
 import {
+	editorPointToFrame,
+	getComputedStyleFor,
+	getElementDocument,
+	getElementRectInEditor,
+	getEventPointInEditor,
+	getFrameElement,
+	startCanvasDrag,
+	type CanvasPoint,
+} from "@/utils/canvasFrame";
+import {
 	clusterLines,
 	collectChildRects,
 	computeDropIndicator,
 	computeReadingOrderIndex,
 	getLayoutDirection,
+	type IndicatorGeometry,
 } from "@/utils/dropGeometry";
 
 const DRAG_THRESHOLD = 4; // px before a mousedown becomes a drag
@@ -45,19 +56,28 @@ export function startBlockReorder(event: MouseEvent, block: Block, breakpoint?: 
 		canvasStore.activeCanvas?.hoveredBreakpoint ||
 		"desktop";
 
+	// Blocks live in the canvas frame. Drop geometry stays in frame coordinates so
+	// rects and hit-tests agree, and only the ghost and the drop indicator — both
+	// drawn in the editor document — are converted back.
+	const canvasDoc = getElementDocument(event.target as Element);
+	const toFrame = (point: CanvasPoint) => {
+		const frame = getFrameElement(canvasDoc);
+		return frame ? editorPointToFrame(frame, point) : point;
+	};
+
 	const getContainerEl = (target: Block): HTMLElement | null =>
-		document.querySelector(
+		canvasDoc.querySelector(
 			`.__builder_component__[data-block-id="${target.blockId}"][data-breakpoint="${dragBreakpoint}"]`,
 		) as HTMLElement | null;
 
 	const sourceEl = getContainerEl(block);
 	if (!sourceEl) return;
 
-	const startX = event.clientX;
-	const startY = event.clientY;
+	const startPoint = getEventPointInEditor(event);
 	const sourceRect = sourceEl.getBoundingClientRect();
-	const grabOffsetX = startX - sourceRect.left;
-	const grabOffsetY = startY - sourceRect.top;
+	const sourceRectInEditor = getElementRectInEditor(sourceEl);
+	const grabOffsetX = startPoint.x - sourceRectInEditor.left;
+	const grabOffsetY = startPoint.y - sourceRectInEditor.top;
 	const originalParentId = block.getParentBlock()?.blockId ?? null;
 
 	let started = false;
@@ -88,10 +108,10 @@ export function startBlockReorder(event: MouseEvent, block: Block, breakpoint?: 
 			position: "fixed",
 			left: "0",
 			top: "0",
-			width: `${sourceRect.width / scale}px`,
-			height: `${sourceRect.height / scale}px`,
+			width: `${sourceRect.width}px`,
+			height: `${sourceRect.height}px`,
 			transformOrigin: "top left",
-			transform: `translate(${sourceRect.left}px, ${sourceRect.top}px) scale(${scale})`,
+			transform: `translate(${sourceRectInEditor.left}px, ${sourceRectInEditor.top}px) scale(${scale})`,
 			opacity: String(GHOST_OPACITY),
 			pointerEvents: "none",
 			zIndex: "999999",
@@ -143,7 +163,7 @@ export function startBlockReorder(event: MouseEvent, block: Block, breakpoint?: 
 		bandFraction: number,
 	): boolean => {
 		const parentEl = getContainerEl(parentBlock);
-		const dir = parentEl ? getLayoutDirection(getComputedStyle(parentEl)) : "column";
+		const dir = parentEl ? getLayoutDirection(getComputedStyleFor(parentEl)) : "column";
 		const r = childEl.getBoundingClientRect();
 		const lo = dir === "row" ? r.left : r.top;
 		const hi = dir === "row" ? r.right : r.bottom;
@@ -163,7 +183,7 @@ export function startBlockReorder(event: MouseEvent, block: Block, breakpoint?: 
 	//  - a gap between items → elementFromPoint already returns the parent
 	// Returns the resolved block AND its element so the caller doesn't re-query.
 	const resolveTargetContainer = (clientX: number, clientY: number) => {
-		const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+		const el = canvasDoc.elementFromPoint(clientX, clientY) as HTMLElement | null;
 		const hovered = el?.closest(".__builder_component__") as HTMLElement | null;
 		let raw: Block | null = (hovered?.dataset.blockId && findBlock(hovered.dataset.blockId)) || null;
 
@@ -216,7 +236,7 @@ export function startBlockReorder(event: MouseEvent, block: Block, breakpoint?: 
 		}
 		const { parent, parentEl } = resolved;
 
-		const style = getComputedStyle(parentEl);
+		const style = getComputedStyleFor(parentEl);
 		const direction = getLayoutDirection(style);
 		const pointerMain = direction === "row" ? clientX : clientY;
 		const pointerCross = direction === "row" ? clientY : clientX;
@@ -229,20 +249,43 @@ export function startBlockReorder(event: MouseEvent, block: Block, breakpoint?: 
 		dropParent = parent;
 		dropIndex = index;
 
+		const editorRect = getElementRectInEditor(parentEl);
 		const t = canvasStore.reorderTarget;
 		t.active = true;
 		t.isComponentParent = parent.isExtendedFromComponent();
 		t.isSameContainer = parent.blockId === originalParentId;
-		t.containerRect = { top: cr.top, left: cr.left, width: cr.width, height: cr.height };
-		t.line = computeDropIndicator(lines, index, cr, style, direction, {
-			width: sourceRect.width,
-			height: sourceRect.height,
-		});
+		t.containerRect = {
+			top: editorRect.top,
+			left: editorRect.left,
+			width: editorRect.width,
+			height: editorRect.height,
+		};
+		t.line = toEditorIndicator(
+			computeDropIndicator(lines, index, cr, style, direction, {
+				width: sourceRect.width,
+				height: sourceRect.height,
+			}),
+		);
 	};
 
-	const positionGhost = (clientX: number, clientY: number) => {
+	// The indicator is drawn in the editor document, so its frame-space geometry
+	// has to be moved and scaled into editor space.
+	const toEditorIndicator = (line: IndicatorGeometry): IndicatorGeometry => {
+		const frame = getFrameElement(canvasDoc);
+		if (!frame) return line;
+		const scale = getScale();
+		const frameRect = frame.getBoundingClientRect();
+		return {
+			orientation: line.orientation,
+			left: frameRect.left + line.left * scale,
+			top: frameRect.top + line.top * scale,
+			length: line.length * scale,
+		};
+	};
+
+	const positionGhost = (point: CanvasPoint) => {
 		if (!ghost) return;
-		ghost.style.transform = `translate(${clientX - grabOffsetX}px, ${clientY - grabOffsetY}px) scale(${getScale()})`;
+		ghost.style.transform = `translate(${point.x - grabOffsetX}px, ${point.y - grabOffsetY}px) scale(${getScale()})`;
 	};
 
 	const commit = () => {
@@ -262,9 +305,7 @@ export function startBlockReorder(event: MouseEvent, block: Block, breakpoint?: 
 	};
 
 	const cleanup = () => {
-		document.removeEventListener("mousemove", onMove);
-		document.removeEventListener("mouseup", onUp);
-		document.removeEventListener("keydown", onKey);
+		stopDrag?.();
 
 		if (ghost) ghost.remove();
 		ghost = null;
@@ -286,34 +327,22 @@ export function startBlockReorder(event: MouseEvent, block: Block, breakpoint?: 
 		}
 	};
 
-	const onMove = (e: MouseEvent) => {
-		if (!started) {
-			if (Math.abs(e.clientX - startX) < DRAG_THRESHOLD && Math.abs(e.clientY - startY) < DRAG_THRESHOLD) {
-				return;
-			}
-			beginDrag();
-		}
-		e.preventDefault();
-		positionGhost(e.clientX, e.clientY);
-		updateTarget(e.clientX, e.clientY);
-	};
-
-	const onUp = () => {
-		if (started && dropParent !== null && dropIndex !== null) {
-			commit();
-		}
-		cleanup();
-	};
-
-	const onKey = (e: KeyboardEvent) => {
-		if (e.key === "Escape") {
+	const stopDrag = startCanvasDrag(event, {
+		threshold: DRAG_THRESHOLD,
+		onMove: ({ event: moveEvent, point }) => {
+			if (!started) beginDrag();
+			moveEvent.preventDefault();
+			positionGhost(point);
+			const framePoint = toFrame(point);
+			updateTarget(framePoint.x, framePoint.y);
+		},
+		onEnd: () => {
+			if (started && dropParent !== null && dropIndex !== null) commit();
+			cleanup();
+		},
+		onCancel: () => {
 			dropParent = null;
 			dropIndex = null;
-			cleanup();
-		}
-	};
-
-	document.addEventListener("mousemove", onMove);
-	document.addEventListener("mouseup", onUp);
-	document.addEventListener("keydown", onKey);
+		},
+	});
 }

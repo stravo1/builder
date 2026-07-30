@@ -47,6 +47,7 @@ declare module 'vue' {
     BuilderRightPanel: typeof import('./src/components/BuilderRightPanel.vue')['default']
     BuilderSettings: typeof import('./src/components/BuilderSettings.vue')['default']
     BuilderToolbar: typeof import('./src/components/BuilderToolbar.vue')['default']
+    CanvasFrame: typeof import('./src/components/CanvasFrame.vue')['default']
     CodeEditor: typeof import('./src/components/Controls/CodeEditor.vue')['default']
     CodeMirrorEditor: typeof import('./src/components/Controls/CodeMirror/CodeMirrorEditor.vue')['default']
     CollapsibleSection: typeof import('./src/components/CollapsibleSection.vue')['default']

@@ -46,6 +46,7 @@ import type Block from "@/block";
 import useBuilderStore from "@/stores/builderStore";
 import useCanvasStore from "@/stores/canvasStore";
 import blockController from "@/utils/blockController";
+import { elementFromEditorPoint, startCanvasDrag } from "@/utils/canvasFrame";
 import { addPxToNumber } from "@/utils/helpers";
 import { isReorderable, startBlockReorder } from "@/utils/useBlockReorder";
 import { Ref, computed, inject, nextTick, onMounted, ref, watch, watchEffect } from "vue";
@@ -240,11 +241,12 @@ const handleClick = (ev: MouseEvent) => {
 
 	const editorWrapper = editor.value;
 	editorWrapper.classList.add("pointer-events-none");
-	let element = document.elementFromPoint(ev.x, ev.y) as HTMLElement;
+	// The block sits in the canvas frame, so the hit test has to read through the iframe.
+	let element = elementFromEditorPoint(ev.clientX, ev.clientY) as HTMLElement;
 	if (element.classList.contains("editor")) {
 		element.classList.remove("pointer-events-auto");
 		element.classList.add("pointer-events-none");
-		element = document.elementFromPoint(ev.x, ev.y) as HTMLElement;
+		element = elementFromEditorPoint(ev.clientX, ev.clientY) as HTMLElement;
 	}
 	if (element.classList.contains("__builder_component__")) {
 		element.dispatchEvent(new MouseEvent("click", ev));
@@ -293,8 +295,6 @@ const handleMove = (ev: MouseEvent) => {
 	ev.stopPropagation();
 	const pauseId = canvasStore.activeCanvas?.history?.pause();
 	const target = ev.target as HTMLElement;
-	const startX = ev.clientX;
-	const startY = ev.clientY;
 	const startLeft = (props.target as HTMLElement).offsetLeft || 0;
 	const startTop = (props.target as HTMLElement).offsetTop || 0;
 
@@ -306,41 +306,35 @@ const handleMove = (ev: MouseEvent) => {
 	document.body.style.cursor = "grabbing";
 	target.style.cursor = "grabbing";
 
-	const mousemove = async (mouseMoveEvent: MouseEvent) => {
-		if (canvasStore.isMarqueeActive) return;
-		const scale = canvasProps.scale;
-		const movementX = (mouseMoveEvent.clientX - startX) / scale;
-		const movementY = (mouseMoveEvent.clientY - startY) / scale;
-		let finalLeft = startLeft + movementX;
-		let finalTop = startTop + movementY;
-		props.block.setStyle("left", addPxToNumber(finalLeft));
-		props.block.setStyle("top", addPxToNumber(finalTop));
-		await nextTick();
-		const { leftOffset, rightOffset } = guides.getPositionOffset();
-		if (leftOffset !== 0) {
-			props.block.setStyle("left", addPxToNumber(finalLeft + leftOffset));
-		}
-		if (rightOffset !== 0) {
-			props.block.setStyle("left", addPxToNumber(finalLeft + rightOffset));
-		}
+	startCanvasDrag(ev, {
+		onMove: async ({ event, movementX, movementY }) => {
+			if (canvasStore.isMarqueeActive) return;
+			const scale = canvasProps.scale;
+			let finalLeft = startLeft + movementX / scale;
+			let finalTop = startTop + movementY / scale;
+			props.block.setStyle("left", addPxToNumber(finalLeft));
+			props.block.setStyle("top", addPxToNumber(finalTop));
+			await nextTick();
+			const { leftOffset, rightOffset } = guides.getPositionOffset();
+			if (leftOffset !== 0) {
+				props.block.setStyle("left", addPxToNumber(finalLeft + leftOffset));
+			}
+			if (rightOffset !== 0) {
+				props.block.setStyle("left", addPxToNumber(finalLeft + rightOffset));
+			}
 
-		mouseMoveEvent.preventDefault();
-		preventClick.value = true;
-	};
-	document.addEventListener("mousemove", mousemove);
-	document.addEventListener(
-		"mouseup",
-		(mouseUpEvent) => {
+			event.preventDefault();
+			preventClick.value = true;
+		},
+		onEnd: (upEvent) => {
 			moving.value = false;
 			document.body.style.cursor = docCursor;
 			target.style.cursor = "grab";
-			document.removeEventListener("mousemove", mousemove);
-			mouseUpEvent.preventDefault();
+			upEvent?.preventDefault();
 			guides.hideX();
 			canvasStore.activeCanvas?.history?.resume(pauseId, true);
 		},
-		{ once: true },
-	);
+	});
 };
 
 defineExpose({

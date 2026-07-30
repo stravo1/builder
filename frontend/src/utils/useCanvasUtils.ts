@@ -143,17 +143,22 @@ export function useCanvasUtils(
 		canvasProps.scale = Math.max(canvasProps.scale - 0.1, 0.1);
 	};
 
+	function getModeCursor(mode: BuilderMode) {
+		if (mode === "text") return "text";
+		if (["container", "image", "repeater"].includes(mode)) return "crosshair";
+		if (mode === "move") return "grab";
+		return "default";
+	}
+
 	function toggleMode(mode: BuilderMode) {
-		if (!canvasContainer.value) return;
-		const container = canvasContainer.value as HTMLElement;
-		if (mode === "text") {
-			container.style.cursor = "text";
-		} else if (["container", "image", "repeater"].includes(mode)) {
-			container.style.cursor = "crosshair";
-		} else if (mode === "move") {
-			container.style.cursor = "grab";
-		} else {
-			container.style.cursor = "default";
+		const cursor = getModeCursor(mode);
+		if (canvasContainer.value) {
+			(canvasContainer.value as HTMLElement).style.cursor = cursor;
+		}
+		// The canvas is a separate document, so the container cursor does not reach it.
+		const frameDocument = canvasProps.frameDocument;
+		if (frameDocument) {
+			frameDocument.documentElement.style.cursor = cursor;
 		}
 	}
 

@@ -1,13 +1,13 @@
-import { useElementBounding } from "@vueuse/core";
+import { useEventListener } from "@vueuse/core";
 import { nextTick, onScopeDispose, reactive, watch, watchEffect } from "vue";
-import { getElementRotation } from "./rotation";
+import { getElementRectInEditor, getElementWindow } from "./canvasFrame";
 import { addPxToNumber } from "./helpers";
+import { getElementRotation } from "./rotation";
 
-// All tracked targets share one MutationObserver on the canvas container. It is
-// created when the first target registers and disconnected once the last one is
-// removed, so it survives individual BlockEditor remounts (a component-scoped
-// observer would die with whichever editor happened to create it) without leaking
-// stale updaters across the session.
+// All tracked targets share one MutationObserver on the canvas root. It is created when
+// the first target registers and disconnected once the last one is removed, so it survives
+// individual BlockEditor remounts (a component-scoped observer would die with whichever
+// editor happened to create it) without leaking stale updaters across the session.
 const updateList = new Set<() => void>();
 let observer: MutationObserver | null = null;
 
@@ -25,15 +25,27 @@ function startObserver(container: HTMLElement) {
 }
 
 function trackTarget(target: HTMLElement | SVGElement, host: HTMLElement, canvasProps: CanvasProps) {
-	const targetBounds = reactive(useElementBounding(target));
-	const container = target.closest(".canvas-container") as HTMLElement | null;
+	// The target lives in the canvas frame while the host lives in the editor overlay, so
+	// the rect has to be read in editor coordinates.
+	const targetBounds = reactive({ top: 0, left: 0, width: 0, height: 0 });
+	const update = () => {
+		const rect = getElementRectInEditor(target);
+		targetBounds.top = rect.top;
+		targetBounds.left = rect.left;
+		targetBounds.width = rect.width;
+		targetBounds.height = rect.height;
+	};
+	const container = target.closest(".canvas-root") as HTMLElement | null;
 
-	updateList.add(targetBounds.update);
+	updateList.add(update);
+	update();
 	if (container && !observer) {
 		startObserver(container);
 	}
 
-	watch(canvasProps, () => nextTick(targetBounds.update), { deep: true });
+	watch(canvasProps, () => nextTick(update), { deep: true });
+	useEventListener(getElementWindow(target), "resize", update);
+	useEventListener(window, "resize", update);
 
 	// `targetBounds` is the axis-aligned box enclosing the rotated element, so it can't be
 	// used directly for a rotated element: rotate the host around the same center instead,
@@ -61,14 +73,14 @@ function trackTarget(target: HTMLElement | SVGElement, host: HTMLElement, canvas
 	});
 
 	onScopeDispose(() => {
-		updateList.delete(targetBounds.update);
+		updateList.delete(update);
 		if (updateList.size === 0 && observer) {
 			observer.disconnect();
 			observer = null;
 		}
 	});
 
-	return targetBounds.update;
+	return update;
 }
 
 export default trackTarget;

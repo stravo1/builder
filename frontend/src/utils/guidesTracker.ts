@@ -1,7 +1,27 @@
 import useCanvasStore from "@/stores/canvasStore";
-import { useElementBounding } from "@vueuse/core";
+import { getElementRectInEditor } from "@/utils/canvasFrame";
 import { reactive } from "vue";
 const canvasStore = useCanvasStore();
+
+// The guides are drawn in the editor document while the blocks live in the canvas
+// frame, so every rect here is read in editor coordinates.
+function trackBounds(element: Element | null) {
+	const bounds = reactive({ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 });
+	const update = () => {
+		if (!element) return;
+		const rect = getElementRectInEditor(element);
+		Object.assign(bounds, {
+			left: rect.left,
+			top: rect.top,
+			right: rect.right,
+			bottom: rect.bottom,
+			width: rect.width,
+			height: rect.height,
+		});
+	};
+	update();
+	return Object.assign(bounds, { update });
+}
 const tracks = [
 	{
 		point: 0,
@@ -29,9 +49,9 @@ function setGuides(target: HTMLElement | SVGElement, canvasProps: CanvasProps) {
 	const threshold = 10;
 	// TODO: Remove canvas dependency
 	const canvasElement = target.closest(".canvas") as HTMLElement;
-	const canvasBounds = reactive(useElementBounding(canvasElement));
-	const targetBounds = reactive(useElementBounding(target));
-	const parentBounds = reactive(useElementBounding(target.parentElement as HTMLElement));
+	const canvasBounds = trackBounds(canvasElement);
+	const targetBounds = trackBounds(target);
+	const parentBounds = trackBounds(target.parentElement);
 
 	const getFinalWidth = (calculatedWidth: number) => {
 		targetBounds.update();

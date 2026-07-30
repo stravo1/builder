@@ -3,6 +3,7 @@ import useBuilderStore from "@/stores/builderStore";
 import useCanvasStore from "@/stores/canvasStore";
 import { CanvasHistory } from "@/types/Builder/BuilderCanvas";
 import getBlockTemplate from "@/utils/blockTemplate";
+import { getComputedStyleFor, startCanvasDrag } from "@/utils/canvasFrame";
 import {
 	addPxToNumber,
 	getBlock,
@@ -18,6 +19,7 @@ const builderStore = useBuilderStore();
 const canvasStore = useCanvasStore();
 
 export function useCanvasEvents(
+	frameDoc: Document,
 	container: Ref<HTMLElement>,
 	canvasProps: CanvasProps,
 	canvasHistory: CanvasHistory,
@@ -26,19 +28,17 @@ export function useCanvasEvents(
 	findBlock: (blockId: string) => Block | null,
 ) {
 	let counter = 0;
-	useEventListener(container, "mousedown", (ev: MouseEvent) => {
+	useEventListener(frameDoc, "mousedown", (ev: MouseEvent) => {
 		if (builderStore.mode === "move") {
 			return;
 		}
-		const initialX = ev.clientX;
-		const initialY = ev.clientY;
 		if (builderStore.mode === "select") {
 			return;
 		} else {
 			if (builderStore.readOnlyMode) return;
 			const pauseId = canvasHistory.value?.pause();
 			ev.stopPropagation();
-			let element = document.elementFromPoint(ev.x, ev.y) as HTMLElement;
+			let element = frameDoc.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement;
 			let block = getRootBlock();
 			if (element) {
 				if (element.dataset.blockId) {
@@ -53,18 +53,19 @@ export function useCanvasEvents(
 				}
 			}
 			const child = getBlockTemplate(builderStore.mode);
-			const parentElement = document.body.querySelector(
+			const parentElement = frameDoc.querySelector(
 				`.canvas [data-block-id="${parentBlock.blockId}"]`,
 			) as HTMLElement;
 			const parentOldPosition = parentBlock.getStyle("position");
 			if (parentOldPosition === "static" || parentOldPosition === "inherit" || !parentOldPosition) {
 				parentBlock.setBaseStyle("position", "relative");
 			}
+			// Rects read inside the frame are already in unscaled canvas pixels.
 			const parentElementBounds = parentElement.getBoundingClientRect();
-			let x = (ev.x - parentElementBounds.left) / canvasProps.scale;
-			let y = (ev.y - parentElementBounds.top) / canvasProps.scale;
-			const parentWidth = getNumberFromPx(getComputedStyle(parentElement).width);
-			const parentHeight = getNumberFromPx(getComputedStyle(parentElement).height);
+			let x = ev.clientX - parentElementBounds.left;
+			let y = ev.clientY - parentElementBounds.top;
+			const parentWidth = getNumberFromPx(getComputedStyleFor(parentElement).width);
+			const parentHeight = getNumberFromPx(getComputedStyleFor(parentElement).height);
 
 			const childBlock = parentBlock.addChild(child);
 			childBlock.setBaseStyle("position", "absolute");
@@ -76,26 +77,17 @@ export function useCanvasEvents(
 				counter++;
 			}
 
-			const mouseMoveHandler = (mouseMoveEvent: MouseEvent) => {
-				if (builderStore.mode === "text") {
-					return;
-				} else {
-					mouseMoveEvent.preventDefault();
-					let width = (mouseMoveEvent.clientX - initialX) / canvasProps.scale;
-					let height = (mouseMoveEvent.clientY - initialY) / canvasProps.scale;
-					width = clamp(width, 0, parentWidth);
-					height = clamp(height, 0, parentHeight);
+			startCanvasDrag(ev, {
+				onMove: ({ event, movementX, movementY }) => {
+					if (builderStore.mode === "text") return;
+					event.preventDefault();
+					let width = clamp(movementX / canvasProps.scale, 0, parentWidth);
+					let height = clamp(movementY / canvasProps.scale, 0, parentHeight);
 					const setFullWidth = width === parentWidth;
 					childBlock.setBaseStyle("width", setFullWidth ? "100%" : addPxToNumber(width));
 					childBlock.setBaseStyle("height", addPxToNumber(height));
-				}
-			};
-			useEventListener(document, "mousemove", mouseMoveHandler);
-			useEventListener(
-				document,
-				"mouseup",
-				() => {
-					document.removeEventListener("mousemove", mouseMoveHandler);
+				},
+				onEnd: () => {
 					parentBlock.setBaseStyle("position", parentOldPosition || "static");
 					childBlock.setBaseStyle("position", "static");
 					childBlock.setBaseStyle("top", "auto");
@@ -125,39 +117,31 @@ export function useCanvasEvents(
 						builderStore.openImageUpload = true;
 					}
 				},
-				{ once: true },
-			);
+			});
 		}
 	});
 
-	useEventListener(container, "mousedown", (ev: MouseEvent) => {
-		if (builderStore.mode === "move") {
-			container.value.style.cursor = "grabbing";
-			const initialX = ev.clientX;
-			const initialY = ev.clientY;
-			const initialTranslateX = canvasProps.translateX;
-			const initialTranslateY = canvasProps.translateY;
-			const mouseMoveHandler = (mouseMoveEvent: MouseEvent) => {
-				mouseMoveEvent.preventDefault();
-				const diffX = (mouseMoveEvent.clientX - initialX) / canvasProps.scale;
-				const diffY = (mouseMoveEvent.clientY - initialY) / canvasProps.scale;
-				canvasProps.translateX = initialTranslateX + diffX;
-				canvasProps.translateY = initialTranslateY + diffY;
-			};
-			useEventListener(document, "mousemove", mouseMoveHandler);
-			useEventListener(
-				document,
-				"mouseup",
-				() => {
-					document.removeEventListener("mousemove", mouseMoveHandler);
-					container.value.style.cursor = "grab";
-				},
-				{ once: true },
-			);
-			ev.stopPropagation();
-			ev.preventDefault();
-		}
-	});
+	const startPan = (ev: MouseEvent) => {
+		if (builderStore.mode !== "move") return;
+		container.value.style.cursor = "grabbing";
+		const initialTranslateX = canvasProps.translateX;
+		const initialTranslateY = canvasProps.translateY;
+		startCanvasDrag(ev, {
+			onMove: ({ event, movementX, movementY }) => {
+				event.preventDefault();
+				canvasProps.translateX = initialTranslateX + movementX / canvasProps.scale;
+				canvasProps.translateY = initialTranslateY + movementY / canvasProps.scale;
+			},
+			onEnd: () => {
+				container.value.style.cursor = "grab";
+			},
+		});
+		ev.stopPropagation();
+		ev.preventDefault();
+	};
+
+	useEventListener(container, "mousedown", startPan);
+	useEventListener(frameDoc, "mousedown", startPan);
 
 	useEventListener(document, "keydown", (ev: KeyboardEvent) => {
 		// make sure reference container is not hidden or not editable
@@ -232,7 +216,7 @@ export function useCanvasEvents(
 		}
 	});
 
-	useEventListener(container, "mouseover", handleMouseOver);
+	useEventListener(frameDoc, "mouseover", handleMouseOver);
 }
 
 function handleMouseOver(e: MouseEvent) {

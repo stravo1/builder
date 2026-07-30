@@ -9,7 +9,7 @@ import { nextTick } from "vue";
 const builderStore = useBuilderStore();
 const canvasStore = useCanvasStore();
 
-export function useBlockEventHandlers(target: HTMLElement) {
+export function useBlockEventHandlers(target: Document | HTMLElement) {
 	useEventListener(target, "mousedown", handleMouseDown);
 	useEventListener(target, "click", handleClick);
 	useEventListener(target, "dblclick", handleDoubleClick);

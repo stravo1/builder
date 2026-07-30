@@ -4,7 +4,6 @@
 		:data-builder-canvas="canvasId"
 		@click="handleClick"
 		@mousedown="handleMarqueeStart">
-		<component :is="'style'" v-if="blockClientStyles" v-text="blockClientStyles" />
 		<Transition name="fade">
 			<div
 				class="absolute bottom-0 left-0 right-0 top-0 grid w-full place-items-center bg-surface-gray-1 p-10 text-ink-gray-5"
@@ -54,43 +53,55 @@
 						aria-hidden="true" />
 				</div>
 			</div>
-			<div
-				class="canvas relative flex h-full bg-surface-base shadow-xl contain-layout"
-				:data-breakpoint="breakpoint.device"
-				:style="{
-					...canvasStyles,
-					background: canvasProps.background,
-					width: `${breakpoint.width}px`,
-				}"
-				v-for="breakpoint in renderedBreakpoints"
-				v-show="breakpoint.visible"
-				:key="breakpoint.device">
+			<CanvasFrame
+				:canvasId="canvasId"
+				:minHeight="containerHeight"
+				:dark="builderStore.canvasDarkMode"
+				@ready="onFrameReady"
+				@dispose="onFrameDispose"
+				@resize="onFrameResize">
+				<component :is="'style'" v-if="blockClientStyles" v-text="blockClientStyles" />
 				<div
-					class="absolute left-0 cursor-pointer select-none text-4xl text-ink-gray-7"
+					class="canvas relative flex bg-surface-base shadow-xl contain-layout"
+					:data-breakpoint="breakpoint.device"
 					:style="{
-						fontSize: `calc(${12}px * 1/${canvasProps.scale})`,
-						top: `calc(${-20}px * 1/${canvasProps.scale})`,
+						...canvasStyles,
+						background: canvasProps.background,
+						width: `${breakpoint.width}px`,
 					}"
-					v-show="!canvasProps.scaling && !canvasProps.panning"
-					@click="activeBreakpoint = breakpoint.device">
-					{{ breakpoint.displayName }}
+					v-for="breakpoint in renderedBreakpoints"
+					v-show="breakpoint.visible"
+					:key="breakpoint.device">
+					<div
+						class="absolute left-0 cursor-pointer select-none text-4xl text-ink-gray-7"
+						:style="{
+							fontSize: `calc(${12}px * 1/${canvasProps.scale})`,
+							top: `calc(${-20}px * 1/${canvasProps.scale})`,
+						}"
+						v-show="!canvasProps.scaling && !canvasProps.panning"
+						@click="activeBreakpoint = breakpoint.device">
+						{{ breakpoint.displayName }}
+					</div>
+					<BuilderBlock
+						class="min-h-[inherit]"
+						:block="block"
+						:style="variables"
+						:key="block.blockId"
+						:readonly="builderStore.readOnlyMode"
+						v-if="showBlocks"
+						:breakpoint="breakpoint.device"
+						:data="pageStore.pageData" />
 				</div>
-				<BuilderBlock
-					class="h-full min-h-[inherit]"
-					:block="block"
-					:style="variables"
-					:key="block.blockId"
-					:readonly="builderStore.readOnlyMode"
-					v-if="showBlocks"
-					:breakpoint="breakpoint.device"
-					:data="pageStore.pageData" />
-			</div>
+			</CanvasFrame>
 		</div>
 		<div
 			class="overlay absolute"
 			:class="{ 'pointer-events-none': isOverDropZone }"
 			id="overlay"
 			ref="overlay" />
+		<!-- Covers the canvas frame while a panel drag runs, so dragover and drop stay
+		     in the editor document and reach the drop zone on the container. -->
+		<div v-show="canvasStore.isDragging" data-canvas-capture class="absolute inset-0 z-[150]" />
 		<div v-show="marquee.visible" class="pointer-events-none fixed z-[200]" :style="marqueeStyle" />
 		<DropIndicator />
 		<div
@@ -140,11 +151,28 @@ import { useCanvasDropZone } from "@/utils/useCanvasDropZone";
 import { useCanvasEvents } from "@/utils/useCanvasEvents";
 import { useCanvasMarqueeSelection } from "@/utils/useCanvasMarqueeSelection";
 import { useCanvasUtils } from "@/utils/useCanvasUtils";
+import { forwardFrameKeys } from "@/utils/canvasFrame";
+import { registerFontDocument } from "@/utils/fontManager";
+import { useElementSize, useEventListener } from "@vueuse/core";
 import { Tooltip } from "frappe-ui";
-import { Ref, computed, onMounted, onUnmounted, provide, reactive, ref, useId, watch } from "vue";
+import {
+	EffectScope,
+	Ref,
+	computed,
+	effectScope,
+	nextTick,
+	onMounted,
+	onUnmounted,
+	provide,
+	reactive,
+	ref,
+	useId,
+	watch,
+} from "vue";
 import setPanAndZoom from "../utils/panAndZoom";
 import BlockSnapGuides from "./BlockSnapGuides.vue";
 import BuilderBlock from "./BuilderBlock.vue";
+import CanvasFrame from "./CanvasFrame.vue";
 import DropIndicator from "./DropIndicator.vue";
 import FitScreenIcon from "./Icons/FitScreen.vue";
 
@@ -180,6 +208,9 @@ const props = withDefaults(
 );
 
 const block = ref(props.blockData) as Ref<Block>;
+// The frame holds no viewport of its own, so the canvases take their full-height look
+// from the editor container, the same height the transformed wrapper used to give them.
+const { height: containerHeight } = useElementSize(canvasContainer);
 const history = ref(null) as Ref<null> | CanvasHistory;
 const blockClientStyles = computed(() => Array.from(blockStyles.values()).join("\n"));
 
@@ -199,6 +230,7 @@ const {
 
 const canvasProps = reactive({
 	overlayElement: null,
+	frameDocument: null as Document | null,
 	background: "#fff",
 	scale: 1,
 	translateX: 0,
@@ -253,7 +285,6 @@ const {
 
 const { marquee, marqueeStyle, suppressNextClick, handleMarqueeStart, cleanupMarqueeListeners } =
 	useCanvasMarqueeSelection({
-		canvasContainer,
 		canvasProps,
 		activeBreakpoint,
 		selectedBlockIds,
@@ -282,18 +313,51 @@ onMounted(() => {
 		(readOnly) => (readOnly ? history.value?.disable() : history.value?.enable()),
 		{ immediate: true },
 	);
-	useCanvasEvents(
-		canvasContainer as unknown as Ref<HTMLElement>,
-		canvasProps,
-		history as CanvasHistory,
-		selectedBlocks,
-		getRootBlock,
-		findBlock,
-	);
-	const { setZoom } = setPanAndZoom(canvasEl, canvasContainerEl, canvasProps);
+	const { setZoom, addWheelTarget } = setPanAndZoom(canvasEl, canvasContainerEl, canvasProps);
 	setCanvasZoom.value = setZoom;
-	useBlockEventHandlers(canvasContainerEl);
+	addFrameWheelTarget = addWheelTarget;
 });
+
+// Blocks live in the canvas frame, so the delegated listeners bind to its document.
+// The scope is stopped on dispose, which happens before every reload of the frame.
+let frameScope: EffectScope | null = null;
+let addFrameWheelTarget: ((target: EventTarget) => () => void) | null = null;
+let removeFrameWheelTarget: (() => void) | null = null;
+let unregisterFontDocument: (() => void) | null = null;
+
+function onFrameReady(frameDoc: Document) {
+	canvasProps.frameDocument = frameDoc;
+	removeFrameWheelTarget = addFrameWheelTarget?.(frameDoc) ?? null;
+	unregisterFontDocument = registerFontDocument(frameDoc);
+	frameScope = effectScope();
+	frameScope.run(() => {
+		useCanvasEvents(
+			frameDoc,
+			canvasContainer as unknown as Ref<HTMLElement>,
+			canvasProps,
+			history as CanvasHistory,
+			selectedBlocks,
+			getRootBlock,
+			findBlock,
+		);
+		useBlockEventHandlers(frameDoc);
+		useEventListener(frameDoc, "mousedown", handleMarqueeStart);
+		useEventListener(frameDoc, "click", handleFrameClick);
+		forwardFrameKeys(frameDoc);
+	});
+	toggleMode(builderStore.mode);
+	nextTick(setScaleAndTranslate);
+}
+
+function onFrameDispose() {
+	frameScope?.stop();
+	frameScope = null;
+	removeFrameWheelTarget?.();
+	removeFrameWheelTarget = null;
+	unregisterFontDocument?.();
+	unregisterFontDocument = null;
+	canvasProps.frameDocument = null;
+}
 
 onUnmounted(() => {
 	cleanupMarqueeListeners();
@@ -309,6 +373,19 @@ const handleClick = (ev: MouseEvent) => {
 	// hack to ensure if click is on canvas-container
 	// TODO: Still clears selection if space handlers are dragged over canvas-container
 	if (target?.classList.contains("canvas-container")) {
+		clearSelection();
+	}
+};
+
+// Inside the frame the empty space around the canvases is the frame body, so a
+// press there clears the selection the same way the editor gutter does.
+const handleFrameClick = (ev: MouseEvent) => {
+	if (suppressNextClick.value) {
+		suppressNextClick.value = false;
+		return;
+	}
+	const target = ev.target as HTMLElement | null;
+	if (target && !target.closest(".__builder_component__")) {
 		clearSelection();
 	}
 };
@@ -362,15 +439,26 @@ watch(
 	},
 );
 
+// Showing or hiding a breakpoint changes the frame width, but the frame reports its new
+// size one observer tick later. Fitting before that would measure the old width, so the
+// fit waits for the frame to report.
+let refitPending = false;
+
 watch(
 	() => canvasProps.breakpoints.map((b) => b.visible),
 	() => {
 		if (canvasProps.settingCanvas) {
 			return;
 		}
-		setScaleAndTranslate();
+		refitPending = true;
 	},
 );
+
+function onFrameResize() {
+	if (!refitPending) return;
+	refitPending = false;
+	setScaleAndTranslate();
+}
 
 watch(
 	() => builderStore.mode,

@@ -268,10 +268,12 @@ const useCanvasStore = defineStore("canvasStore", {
 			// to avoid re-rendering the whole canvas
 			if (this.dropTarget.placeholder) return;
 
-			let element = document.createElement("div");
+			// The blocks live in the canvas frame, so the placeholder belongs to that document.
+			const canvasDocument = this.activeCanvas?.canvasProps?.frameDocument || document;
+			let element = canvasDocument.createElement("div");
 			element.id = "placeholder";
 
-			const root = document.querySelector(".__builder_component__[data-block-id='root']");
+			const root = canvasDocument.querySelector(".__builder_component__[data-block-id='root']");
 			if (root) {
 				this.dropTarget.placeholder = root.appendChild(element);
 			}
