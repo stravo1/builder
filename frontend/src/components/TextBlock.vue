@@ -83,8 +83,8 @@ const FontFamilyPasteRule = Extension.create({
 				key: new PluginKey("fontFamilyPasteRule"),
 				props: {
 					transformPastedHTML(html) {
-						const div = document.createElement("div");
-						div.innerHTML = html;
+						// Inert document: pasted HTML must not run in the editor document.
+						const div = new DOMParser().parseFromString(html, "text/html").body;
 						const removeFontFamily = (element: HTMLElement) => {
 							if (element.style) {
 								element.style.fontFamily = "";

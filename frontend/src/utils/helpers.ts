@@ -59,11 +59,9 @@ function getTextContent(html: string | null) {
 	if (!html || !isHTMLString(html)) {
 		return html || "";
 	}
-	const tmp = document.createElement("div");
-	tmp.innerHTML = html || "";
-	const textContent = tmp.textContent || tmp.innerText || "";
-	tmp.remove();
-	return textContent;
+	// Parsed documents are inert: block HTML must not load images or run inline
+	// handlers in the editor document.
+	return new DOMParser().parseFromString(html, "text/html").body.textContent || "";
 }
 
 function isHTMLString(str: string) {
