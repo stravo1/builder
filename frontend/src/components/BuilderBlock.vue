@@ -213,10 +213,11 @@ const attributes = computed(() => {
 			attribs["data-dark-src"] = "";
 		}
 		delete attribs.darkSrc;
-		// Stopping the client scripts remounts the block tree, which builds every image
-		// again. A cached image decodes off the main thread by default and paints one
-		// frame late, which reads as a flash. Sync decoding keeps it on screen.
-		attribs.decoding = "sync";
+		if (canvasProps?.syncImageDecoding) {
+			// JavaScript cleanup remounts the block tree. Sync decoding avoids a one-frame
+			// image flash there, without making ordinary image renders block paint.
+			attribs.decoding = "sync";
+		}
 	}
 
 	if (

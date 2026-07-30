@@ -15,6 +15,7 @@ export interface CanvasProps {
 	frameDocument: Document | null;
 	// Client scripts run only when the user asks for it, from the command palette.
 	scriptsRunning: boolean;
+	syncImageDecoding: boolean;
 	background: string;
 	scale: number;
 	translateX: number;

@@ -133,6 +133,7 @@ declare interface CanvasProps {
 	overlayElement: HTMLElement | null;
 	frameDocument: Document | null;
 	scriptsRunning: boolean;
+	syncImageDecoding: boolean;
 	breakpoints: Breakpoint[];
 }
 

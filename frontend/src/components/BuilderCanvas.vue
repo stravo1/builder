@@ -249,6 +249,7 @@ const canvasProps = reactive({
 	// Off until the user presses Run. A script that moves or hides blocks makes the
 	// canvas hard to edit, so it should never start on its own.
 	scriptsRunning: false,
+	syncImageDecoding: false,
 	background: "#fff",
 	scale: 1,
 	translateX: 0,
@@ -379,6 +380,7 @@ function onFrameDispose() {
 	unregisterFontDocument = null;
 	canvasProps.frameDocument = null;
 	pageScriptJavaScriptHasRun = false;
+	canvasProps.syncImageDecoding = false;
 }
 
 onUnmounted(() => {
@@ -581,10 +583,14 @@ watch(
 		// CSS leaves cleanly when the injected style is removed. JavaScript can move or
 		// rewrite blocks, so only a frame that actually ran JavaScript needs a remount.
 		if (pageScriptJavaScriptHasRun) {
+			canvasProps.syncImageDecoding = true;
 			blockEpoch.value += 1;
 			pageScriptJavaScriptHasRun = false;
 		}
-		nextTick(runPageScriptsInFrame);
+		nextTick(() => {
+			canvasProps.syncImageDecoding = false;
+			runPageScriptsInFrame();
+		});
 	},
 	{ deep: true },
 );
