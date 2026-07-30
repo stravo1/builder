@@ -14,6 +14,7 @@
 
 <script setup lang="ts">
 import type Block from "@/block";
+import { getComputedStyleFor } from "@/utils/canvasFrame";
 import { startDrag } from "@/utils/cursor";
 import { getNumberFromPx } from "@/utils/helpers";
 import { useElementBounding } from "@vueuse/core";
@@ -42,7 +43,7 @@ const maxDistance = computed(() => Math.min(targetBounds.width, targetBounds.hei
 const maxRadius = computed(() => {
 	props.targetBlock.getStyle("width");
 	props.targetBlock.getStyle("height");
-	const targetStyle = window.getComputedStyle(props.target);
+	const targetStyle = getComputedStyleFor(props.target);
 	return Math.min(parseInt(targetStyle.height, 10), parseInt(targetStyle.width, 10)) / 2;
 });
 

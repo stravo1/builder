@@ -1,4 +1,5 @@
 import type Block from "@/block";
+import { getComputedStyleFor } from "@/utils/canvasFrame";
 
 type ResizeDirection = {
 	horizontal?: "left" | "right";
@@ -9,8 +10,8 @@ type ResizeDirection = {
 function getElementRotation(el: Element | null): number {
 	let rotation = 0;
 	let current = el;
-	while (current && !current.classList.contains("canvas-container")) {
-		const rotate = getComputedStyle(current).rotate;
+	while (current && !current.classList.contains("canvas-root")) {
+		const rotate = getComputedStyleFor(current).rotate;
 		if (rotate && rotate !== "none") {
 			rotation += parseFloat(rotate) || 0;
 		}

@@ -33,6 +33,7 @@
 import type Block from "@/block";
 import { useRotatedCursors } from "@/composables/useRotatedCursors";
 import useCanvasStore from "@/stores/canvasStore";
+import { getComputedStyleFor } from "@/utils/canvasFrame";
 import { startDrag } from "@/utils/cursor";
 import { getResizePositionDelta, toLocalDelta } from "@/utils/rotation";
 import type { ResizeDirection } from "@/utils/rotation";
@@ -124,17 +125,17 @@ watch(resizing, () => {
 
 const targetWidth = computed(() => {
 	props.targetBlock.getStyle("width"); // to trigger reactivity
-	return Math.round(getNumberFromPx(getComputedStyle(props.target).getPropertyValue("width")));
+	return Math.round(getNumberFromPx(getComputedStyleFor(props.target).getPropertyValue("width")));
 });
 
 const targetHeight = computed(() => {
 	props.targetBlock.getStyle("height"); // to trigger reactivity
-	return Math.round(getNumberFromPx(getComputedStyle(props.target).getPropertyValue("height")));
+	return Math.round(getNumberFromPx(getComputedStyleFor(props.target).getPropertyValue("height")));
 });
 
 const fontSize = computed(() => {
 	props.targetBlock.getStyle("fontSize"); // to trigger reactivity
-	return Math.round(getNumberFromPx(getComputedStyle(props.target).getPropertyValue("font-size")));
+	return Math.round(getNumberFromPx(getComputedStyleFor(props.target).getPropertyValue("font-size")));
 });
 
 // For the left/top side, the opposite edge is kept visually fixed by shifting top/left the same
@@ -147,7 +148,7 @@ const handleResize = (ev: MouseEvent, { horizontal, vertical }: ResizeDirection)
 	const startWidth = target.offsetWidth;
 	const startTop = target.offsetTop;
 	const startLeft = target.offsetLeft;
-	const ownRotation = parseFloat(getComputedStyle(target).rotate) || 0;
+	const ownRotation = parseFloat(getComputedStyleFor(target).rotate) || 0;
 	const blockStartWidth = props.targetBlock.getStyle("width") as string;
 	const blockStartHeight = props.targetBlock.getStyle("height") as string;
 	const startFontSize = fontSize.value || 0;

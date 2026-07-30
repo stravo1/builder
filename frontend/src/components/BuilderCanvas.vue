@@ -152,6 +152,7 @@ import { useCanvasEvents } from "@/utils/useCanvasEvents";
 import { useCanvasMarqueeSelection } from "@/utils/useCanvasMarqueeSelection";
 import { useCanvasUtils } from "@/utils/useCanvasUtils";
 import { forwardFrameKeys } from "@/utils/canvasFrame";
+import { applyPageScripts } from "@/utils/canvasPageScripts";
 import { registerFontDocument } from "@/utils/fontManager";
 import { useElementSize, useEventListener } from "@vueuse/core";
 import { Tooltip } from "frappe-ui";
@@ -201,9 +202,13 @@ const props = withDefaults(
 	defineProps<{
 		blockData: Block | BlockOptions;
 		canvasStyles?: Record<string, any>;
+		// Only the page canvas runs the page client scripts. A fragment canvas edits a
+		// component, which is not the page those scripts belong to.
+		runPageScripts?: boolean;
 	}>(),
 	{
 		canvasStyles: () => ({}),
+		runPageScripts: false,
 	},
 );
 
@@ -536,6 +541,24 @@ function selectBreakpoint(ev: MouseEvent, breakpoint: BreakpointConfig) {
 	}
 }
 
+// Page scripts wait for the blocks, so a script that looks for an element finds it.
+// They re-run whenever the frame reloads or the scripts change, which is also how the
+// script author sees an edit take effect.
+watch(
+	[
+		() => canvasProps.frameDocument,
+		() => pageStore.activePageScripts,
+		() => pageStore.settingPage,
+		() => builderSettings.doc?.execute_block_scripts_in_editor,
+	],
+	async ([frameDocument, scripts, settingPage, scriptMode]) => {
+		if (!props.runPageScripts || !frameDocument || settingPage) return;
+		await nextTick();
+		applyPageScripts(frameDocument, scripts, scriptMode !== "Don't Execute");
+	},
+	{ deep: true },
+);
+
 function escapeAttributeValue(value: string) {
 	return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }
@@ -554,10 +577,13 @@ function emulateBlockClientScript(script: BlockClientScriptRuntime) {
 			componentData: script.componentData,
 			props: script.props,
 		};
+		// The blocks live in the canvas frame, so the sandbox root is the canvas root
+		// inside that document, not the editor container.
+		const sandboxRoot = script.element.closest(".canvas-root") as HTMLElement | null;
 		cleanup =
 			mode === "Unrestricted"
 				? executeClientScriptUnrestricted(script.element, script.javascript, context)
-				: executeClientScriptRestricted(script.element, canvasContainer.value, script.javascript, context);
+				: executeClientScriptRestricted(script.element, sandboxRoot, script.javascript, context);
 	}
 
 	return () => {

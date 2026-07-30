@@ -30,14 +30,19 @@ function createEvents(defaultTarget: EventTarget) {
 	};
 }
 
-function createScriptFunction(userScript: string) {
-	return new Function(
-		"context",
-		`with (context) {
+// The canvas is its own document, so the script is compiled with that document's
+// Function constructor. A script that reaches for a global then gets the canvas
+// window, the same one it gets on a published page.
+function createScriptFunction(userScript: string, scope: Window) {
+	const body = `with (context) {
 			return (async function(component_data, props) { ${userScript} })
 				.call(thisRef, component_data, props);
-		}`,
-	);
+		}`;
+	return new (scope.Function as FunctionConstructor)("context", body);
+}
+
+function getScriptScope(element: Element): Window {
+	return element.ownerDocument.defaultView || window;
 }
 
 function executeClientScriptUnrestricted(
@@ -47,12 +52,13 @@ function executeClientScriptUnrestricted(
 ): ScriptCleanup {
 	if (!thisElement || !userScript.trim()) return () => {};
 
+	const scriptDocument = thisElement.ownerDocument;
 	try {
-		const fn = createScriptFunction(userScript);
+		const fn = createScriptFunction(userScript, getScriptScope(thisElement));
 		const cleanup = fn({
 			component_data: componentData,
-			document,
-			events: createEvents(document),
+			document: scriptDocument,
+			events: createEvents(scriptDocument),
 			props,
 			thisRef: thisElement,
 		});
@@ -207,7 +213,7 @@ function executeClientScriptRestricted(
 	};
 
 	try {
-		const fn = createScriptFunction(userScript);
+		const fn = createScriptFunction(userScript, getScriptScope(thisElement));
 		const userCleanup = fn(context);
 		return () => {
 			eventListeners.forEach(({ target, type, listener, options }) => {

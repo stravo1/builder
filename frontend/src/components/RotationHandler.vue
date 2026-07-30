@@ -15,6 +15,7 @@ import type Block from "@/block";
 import rotationCursorSvg from "@/assets/rotation-cursor.svg?raw";
 import { useRotatedCursors } from "@/composables/useRotatedCursors";
 import useCanvasStore from "@/stores/canvasStore";
+import { getElementRectInEditor } from "@/utils/canvasFrame";
 import { getRotatedCursor, setDragCursor, startDrag } from "@/utils/cursor";
 import { getElementRotation } from "@/utils/rotation";
 import { ref } from "vue";
@@ -53,7 +54,9 @@ const corners = cornerLayout.map((corner) => ({
 }));
 
 const handleRotate = (ev: MouseEvent, baseAngle: number) => {
-	const bounds = props.target.getBoundingClientRect();
+	// The pointer reports editor coordinates, so the center it turns around has to be
+	// read in editor coordinates too. The block itself lives in the canvas frame.
+	const bounds = getElementRectInEditor(props.target);
 	const centerX = bounds.left + bounds.width / 2;
 	const centerY = bounds.top + bounds.height / 2;
 	let previousPointerAngle = Math.atan2(ev.clientY - centerY, ev.clientX - centerX) * (180 / Math.PI);

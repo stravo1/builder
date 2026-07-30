@@ -56,6 +56,7 @@
 			:canvas-styles="{
 				minHeight: '1000px',
 			}"
+			run-page-scripts
 			:style="{
 				top: 'var(--toolbar-height)',
 				left: `${

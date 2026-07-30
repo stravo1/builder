@@ -98,7 +98,9 @@
 
 				<div class="text-xs leading-4 text-ink-gray-6">
 					<b>Note:</b>
-					All client scripts are executed in preview mode and on published pages.
+					CSS applies in the canvas, in preview mode and on published pages. JavaScript runs in
+					preview mode and on published pages. It also runs in the canvas unless you turn client
+					scripts off in Settings.
 				</div>
 			</div>
 		</div>
