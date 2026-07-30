@@ -2,6 +2,7 @@ import Block from "@/block";
 import useCanvasStore from "@/stores/canvasStore";
 import { BuilderPage } from "@/types/doctypes";
 import getBlockTemplate from "@/utils/blockTemplate";
+import { isElementTarget } from "@/utils/canvasFrame";
 import { dialog, FileUploadHandler, toast } from "frappe-ui";
 import { reactive, toRaw } from "vue";
 import { getRGB, HexToHSV, HSVToHex } from "./colors";
@@ -126,7 +127,7 @@ const INTERACTIVE_CONTROL_SELECTOR =
 
 // used to let control widgets keep their own click/contextmenu behaviour
 function isInteractiveControl(target: EventTarget | null) {
-	if (!(target instanceof HTMLElement)) return false;
+	if (!isElementTarget(target)) return false;
 	return Boolean(target.closest(INTERACTIVE_CONTROL_SELECTOR));
 }
 
@@ -536,10 +537,7 @@ function generateId() {
 }
 
 function isBlock(e: MouseEvent) {
-	return (
-		(e.target instanceof HTMLElement || e.target instanceof SVGElement) &&
-		e.target.closest(".__builder_component__")
-	);
+	return isElementTarget(e.target) && e.target.closest(".__builder_component__");
 }
 
 type BlockInfo = {

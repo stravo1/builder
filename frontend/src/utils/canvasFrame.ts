@@ -31,6 +31,13 @@ export function getElementWindow(element: Element | null): Window {
 	return getElementDocument(element).defaultView || window;
 }
 
+// Nodes the frame document parses itself — anything rendered through v-html — get the
+// frame realm's prototypes, so `instanceof HTMLElement` in the editor realm is false for
+// them. Duck-typing keeps event targets from both documents on the same path.
+export function isElementTarget(target: EventTarget | null): target is HTMLElement {
+	return typeof (target as Element | null)?.closest === "function";
+}
+
 export function getComputedStyleFor(element: Element): CSSStyleDeclaration {
 	return getElementWindow(element).getComputedStyle(element);
 }
@@ -139,7 +146,7 @@ export function forwardFrameKeys(frameDoc: Document) {
 }
 
 function isEditableTarget(target: EventTarget | null) {
-	if (!(target instanceof HTMLElement)) return false;
+	if (!isElementTarget(target)) return false;
 	return (
 		target.isContentEditable ||
 		["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
