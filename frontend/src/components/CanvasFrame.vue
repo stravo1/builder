@@ -41,6 +41,7 @@ const height = ref(1);
 let currentDocument: Document | null = null;
 let contentObserver: ResizeObserver | null = null;
 let headObserver: MutationObserver | null = null;
+let styleSyncFrame: number | null = null;
 
 // srcdoc frames resolve relative URLs against about:srcdoc, so the base tag keeps
 // cloned stylesheets and block assets pointing at the same origin as the editor.
@@ -56,6 +57,14 @@ function cloneEditorStyles(doc: Document) {
 		const clone = source.cloneNode(true) as HTMLElement;
 		clone.setAttribute(STYLE_MARKER, "");
 		doc.head.appendChild(clone);
+	});
+}
+
+function scheduleStyleSync(doc: Document) {
+	if (styleSyncFrame !== null) return;
+	styleSyncFrame = requestAnimationFrame(() => {
+		styleSyncFrame = null;
+		if (currentDocument === doc) cloneEditorStyles(doc);
 	});
 }
 
@@ -89,6 +98,10 @@ function updateSize() {
 }
 
 function releaseFrame() {
+	if (styleSyncFrame !== null) {
+		cancelAnimationFrame(styleSyncFrame);
+		styleSyncFrame = null;
+	}
 	contentObserver?.disconnect();
 	contentObserver = null;
 	headObserver?.disconnect();
@@ -130,7 +143,7 @@ function observeContent(doc: Document) {
 function watchEditorHead(doc: Document) {
 	headObserver = new MutationObserver((mutations) => {
 		if (currentDocument !== doc) return;
-		if (mutations.some(({ target }) => document.head.contains(target))) cloneEditorStyles(doc);
+		if (mutations.some(({ target }) => document.head.contains(target))) scheduleStyleSync(doc);
 		if (mutations.some(({ type }) => type === "attributes")) syncDocumentChrome(doc);
 	});
 	headObserver.observe(document.head, { childList: true, subtree: true, characterData: true });
