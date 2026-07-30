@@ -19,7 +19,7 @@ import {
 } from "@/utils/helpers";
 import { useDropZone } from "@vueuse/core";
 import { useTelemetry } from "frappe-ui/frappe";
-import { Ref } from "vue";
+import { onScopeDispose, Ref } from "vue";
 import blockController from "./blockController";
 
 const { capture } = useTelemetry();
@@ -28,14 +28,20 @@ const canvasStore = useCanvasStore();
 const componentStore = useComponentStore();
 const blockTemplateStore = useBlockTemplateStore();
 
+type DropPointer = Pick<DragEvent, "clientX" | "clientY" | "x" | "y" | "shiftKey">;
+
 export function useCanvasDropZone(
 	canvasContainer: Ref<HTMLElement>,
 	block: Ref<Block | null>,
 	findBlock: (id: string) => Block | null,
 ) {
+	let pendingOver: DropPointer | null = null;
+	let dragOverFrame: number | null = null;
+
 	const { isOverDropZone } = useDropZone(canvasContainer, {
 		onDrop: async (files, ev) => {
 			if (builderStore.readOnlyMode) return;
+			flushPendingDragOver();
 			canvasStore.isDropping = true;
 			if (files && files.length) {
 				handleFileDrop(files, ev);
@@ -48,36 +54,82 @@ export function useCanvasDropZone(
 
 		onOver: (files, ev) => {
 			if (builderStore.readOnlyMode) return;
-			const initialBlock = getInitialParentBlock(ev);
-			const shouldReplaceImage = initialBlock?.isImage();
-
-			if (ev.shiftKey || shouldReplaceImage) {
-				const parentBlock = shouldReplaceImage ? initialBlock : getBlockToReplace(ev);
-				if (parentBlock) {
-					canvasStore.activeCanvas?.setHoveredBlock(parentBlock.blockId);
-					canvasStore.removeDropPlaceholder();
-
-					canvasStore.dropTarget.parentBlock = parentBlock;
-					canvasStore.dropTarget.index = 0;
-					canvasStore.dropTarget.x = ev.x;
-					canvasStore.dropTarget.y = ev.y;
-				}
-			} else {
-				const { parentBlock, index, layoutDirection } = findDropTarget(ev);
-				if (parentBlock) {
-					canvasStore.activeCanvas?.setHoveredBlock(parentBlock.blockId);
-					updateDropTarget(ev, parentBlock, index, layoutDirection);
-				}
-			}
+			queueDragOver(ev);
 		},
 	});
 
+	onScopeDispose(cancelPendingDragOver);
+
 	const canvasDocument = () => canvasStore.activeCanvas?.canvasProps?.frameDocument || document;
 
-	const getInitialParentBlock = (ev: DragEvent) => {
+	function queueDragOver(ev: DragEvent) {
+		pendingOver = getDropPointer(ev);
+		if (dragOverFrame !== null) return;
+
+		dragOverFrame = requestAnimationFrame(() => {
+			dragOverFrame = null;
+			const pointer = pendingOver;
+			pendingOver = null;
+			if (pointer) handleDragOver(pointer);
+		});
+	}
+
+	function getDropPointer(ev: DragEvent): DropPointer {
+		return {
+			clientX: ev.clientX,
+			clientY: ev.clientY,
+			x: ev.x,
+			y: ev.y,
+			shiftKey: ev.shiftKey,
+		};
+	}
+
+	function cancelPendingDragOver() {
+		if (dragOverFrame !== null) {
+			cancelAnimationFrame(dragOverFrame);
+			dragOverFrame = null;
+		}
+		pendingOver = null;
+	}
+
+	function flushPendingDragOver() {
+		if (dragOverFrame !== null) {
+			cancelAnimationFrame(dragOverFrame);
+			dragOverFrame = null;
+		}
+		const pointer = pendingOver;
+		pendingOver = null;
+		if (pointer) handleDragOver(pointer);
+	}
+
+	function handleDragOver(pointer: DropPointer) {
+		const initialBlock = getInitialParentBlock(pointer);
+		const shouldReplaceImage = initialBlock?.isImage();
+
+		if (pointer.shiftKey || shouldReplaceImage) {
+			const parentBlock = shouldReplaceImage ? initialBlock : getBlockToReplace(initialBlock);
+			if (!parentBlock) return;
+
+			canvasStore.activeCanvas?.setHoveredBlock(parentBlock.blockId);
+			canvasStore.removeDropPlaceholder();
+			canvasStore.dropTarget.parentBlock = parentBlock;
+			canvasStore.dropTarget.index = 0;
+			canvasStore.dropTarget.x = pointer.x;
+			canvasStore.dropTarget.y = pointer.y;
+			return;
+		}
+
+		const { parentBlock, index, layoutDirection } = findDropTarget(pointer);
+		if (!parentBlock) return;
+
+		canvasStore.activeCanvas?.setHoveredBlock(parentBlock.blockId);
+		updateDropTarget(pointer, parentBlock, index, layoutDirection);
+	}
+
+	const getInitialParentBlock = (pointer: DropPointer) => {
 		// The drag runs over a capture layer in the editor document, so the hit test has
 		// to read through the iframe to find the block underneath.
-		const element = elementFromEditorPoint(ev.clientX, ev.clientY) as HTMLElement;
+		const element = elementFromEditorPoint(pointer.clientX, pointer.clientY) as HTMLElement;
 		const targetElement = element?.closest(".__builder_component__") as HTMLElement;
 
 		// set the hoveredBreakpoint from the target element to show placeholder at the correct breakpoint canvas
@@ -94,8 +146,8 @@ export function useCanvasDropZone(
 		return parentBlock;
 	};
 
-	const getBlockToReplace = (ev: DragEvent) => {
-		let parentBlock = getInitialParentBlock(ev);
+	const getBlockToReplace = (initialBlock: Block | null | undefined) => {
+		let parentBlock = initialBlock || null;
 		while (parentBlock && parentBlock.isChildOfComponent) {
 			parentBlock = parentBlock.getParentBlock();
 		}
@@ -110,9 +162,9 @@ export function useCanvasDropZone(
 		) as HTMLElement;
 	};
 
-	const findDropTarget = (ev: DragEvent) => {
-		if (canvasStore.dropTarget.x === ev.x && canvasStore.dropTarget.y === ev.y) return {};
-		let parentBlock = getInitialParentBlock(ev);
+	const findDropTarget = (pointer: DropPointer) => {
+		if (canvasStore.dropTarget.x === pointer.x && canvasStore.dropTarget.y === pointer.y) return {};
+		let parentBlock = getInitialParentBlock(pointer);
 		let layoutDirection = "column" as LayoutDirection;
 		let index = parentBlock?.children.length || 0;
 
@@ -123,14 +175,14 @@ export function useCanvasDropZone(
 		if (parentBlock) {
 			const parentElement = getBlockElement(parentBlock);
 			layoutDirection = getLayoutDirection(getComputedStyleFor(parentElement));
-			index = findDropIndex(ev, parentElement, layoutDirection);
+			index = findDropIndex(pointer, parentElement, layoutDirection);
 		}
 
 		return { parentBlock, index, layoutDirection };
 	};
 
 	const findDropIndex = (
-		ev: DragEvent,
+		pointer: DropPointer,
 		parentElement: HTMLElement,
 		layoutDirection: LayoutDirection,
 	): number => {
@@ -139,43 +191,39 @@ export function useCanvasDropZone(
 		) as HTMLElement[];
 		if (childElements.length === 0) return 0;
 
-		const mousePos = layoutDirection === "row" ? ev.clientX : ev.clientY;
-
-		// Get all child positions
-		const childPositions = childElements.map((child, idx) => {
-			const rect = getElementRectInEditor(child);
-			const midPoint = layoutDirection === "row" ? rect.left + rect.width / 2 : rect.top + rect.height / 2;
-			return { midPoint, idx };
-		});
-
-		// Find the closest child to the mouse position
+		const mousePos = layoutDirection === "row" ? pointer.clientX : pointer.clientY;
 		let closestIndex = 0;
+		let closestMidPoint = 0;
 		let minDistance = Infinity;
 
-		childPositions.forEach(({ midPoint, idx }) => {
+		childElements.forEach((child, index) => {
+			const rect = getElementRectInEditor(child);
+			const midPoint = layoutDirection === "row" ? rect.left + rect.width / 2 : rect.top + rect.height / 2;
 			const distance = Math.abs(midPoint - mousePos);
 			if (distance < minDistance) {
 				minDistance = distance;
-				closestIndex = idx;
+				closestIndex = index;
+				closestMidPoint = midPoint;
 			}
 		});
 
 		// Determine if we should insert before or after the closest child
 		// if mouse is closer to left/top side of the child, insert before, else after
-		return mousePos <= childPositions[closestIndex].midPoint ? closestIndex : closestIndex + 1;
+		return mousePos <= closestMidPoint ? closestIndex : closestIndex + 1;
 	};
 
 	const updateDropTarget = (
-		ev: DragEvent,
+		pointer: DropPointer,
 		parentBlock: Block | null,
 		index: number,
 		layoutDirection: LayoutDirection,
 	) => {
-		const placeholder = canvasStore.dropTarget.placeholder;
+		let placeholder = canvasStore.dropTarget.placeholder;
 		if (!placeholder) {
 			// File drops don't trigger dragstart so placeholder is never inserted, insert explicitly if not found
 			canvasStore.isDragging = true;
 			canvasStore.insertDropPlaceholder();
+			placeholder = canvasStore.dropTarget.placeholder;
 		}
 
 		if (!parentBlock || !placeholder) return;
@@ -202,8 +250,8 @@ export function useCanvasDropZone(
 
 		canvasStore.dropTarget.parentBlock = parentBlock;
 		canvasStore.dropTarget.index = index;
-		canvasStore.dropTarget.x = ev.x;
-		canvasStore.dropTarget.y = ev.y;
+		canvasStore.dropTarget.x = pointer.x;
+		canvasStore.dropTarget.y = pointer.y;
 	};
 
 	const handleBlockDrop = async (ev: DragEvent) => {
@@ -234,7 +282,7 @@ export function useCanvasDropZone(
 			const newBlock = getBlockInstance(blockTemplateStore.getBlockTemplate(blockTemplate).block, false);
 			// if shift key is pressed, replace parent block with new block
 			if (ev.shiftKey) {
-				parentBlock = getBlockToReplace(ev);
+				parentBlock = getBlockToReplace(getInitialParentBlock(getDropPointer(ev)));
 				if (!parentBlock) return;
 				const parentParentBlock = parentBlock.getParentBlock();
 				if (!parentParentBlock) return;
