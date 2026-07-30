@@ -12,7 +12,7 @@
 import { splitStylePrefix, toKebabCase } from "@/utils/helpers";
 
 function escapeAttributeValue(value: string) {
-	return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+	return value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
 }
 
 /** Matches one block inside one breakpoint's canvas. */
@@ -30,6 +30,13 @@ function toDeclaration(property: string, value: StyleValue) {
 
 function isRenderable(property: string, value: StyleValue) {
 	return !property.startsWith("__") && value !== null && value !== undefined && value !== "";
+}
+
+function hasRenderableStateStyles(styles: BlockStyleMap) {
+	return Object.entries(styles).some(([style, value]) => {
+		const { prefix, property } = splitStylePrefix(style);
+		return Boolean(prefix) && isRenderable(property, value);
+	});
 }
 
 /** One rule per state, so `hover:color` and `hover:background` share a block. */
@@ -50,4 +57,4 @@ function toStateStyleRules(styles: BlockStyleMap, selector: string) {
 	).join("\n");
 }
 
-export { blockSelector, toStateStyleRules };
+export { blockSelector, hasRenderableStateStyles, toStateStyleRules };

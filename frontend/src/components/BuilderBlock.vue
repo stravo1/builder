@@ -12,8 +12,8 @@
 		:readonly="readonly"
 		:style="styles">
 		<BuilderBlock
-			:key="child.blockId"
 			v-for="child in block.getChildren().filter((child) => child.isVisible(breakpoint))"
+			:key="child.blockId"
 			:data="data"
 			:component-data="resolvedComponentData"
 			:default-props="defaultProps"
@@ -47,7 +47,7 @@ import useBuilderStore from "@/stores/builderStore";
 import useCanvasStore from "@/stores/canvasStore";
 import useComponentStore from "@/stores/componentStore";
 import usePageStore from "@/stores/pageStore";
-import { blockSelector, toStateStyleRules } from "@/utils/blockStateStyles";
+import { blockSelector, hasRenderableStateStyles, toStateStyleRules } from "@/utils/blockStateStyles";
 import { BlockValueResolver } from "@/utils/blockValueResolver";
 import componentController from "@/utils/componentController.js";
 import { setFont } from "@/utils/fontManager";
@@ -250,9 +250,15 @@ const emulateBlockClientScript = inject<BlockClientScriptEmulator>(
 	"emulateBlockClientScript",
 	() => () => {},
 );
-const registerBlockStateStyles = inject<(key: string, css: string) => () => void>(
+type BlockStateStyleRegistrar = (key: string, css: string) => () => void;
+
+function skipBlockStateStyleRegistration() {
+	return () => {};
+}
+
+const registerBlockStateStyles = inject<BlockStateStyleRegistrar>(
 	"registerBlockStateStyles",
-	() => () => {},
+	skipBlockStateStyleRegistration,
 );
 
 const target = computed(() => {
@@ -456,6 +462,8 @@ watchEffect((onCleanup) => {
 		...props.block.getStyles(props.breakpoint),
 		...props.block.getEditorStyles(),
 	} as BlockStyleMap;
+	if (!hasRenderableStateStyles(styleMap)) return;
+
 	const css = toStateStyleRules(styleMap, blockSelector(uidToUse, props.breakpoint));
 	onCleanup(registerBlockStateStyles(`${uidToUse}:${props.breakpoint}`, css));
 });
