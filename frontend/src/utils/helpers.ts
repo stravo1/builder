@@ -957,6 +957,7 @@ export {
 	setBoxSpacing,
 	shortenNumber,
 	showDialog,
+	splitStylePrefix,
 	stripStatePrefix,
 	toCSSProperty,
 	toKebabCase,

@@ -1,41 +1,41 @@
 <template>
 	<component
 		:is="getComponentName(block)"
+		v-bind="attributes"
+		ref="component"
 		:selected="isSelected"
 		:data-block-id="block.blockId"
 		:data-block-uid="uidToUse"
 		:data-breakpoint="breakpoint"
 		:draggable="draggable"
 		:class="classes"
-		v-bind="attributes"
 		:readonly="readonly"
-		:style="styles"
-		ref="component">
+		:style="styles">
 		<BuilderBlock
+			:key="child.blockId"
+			v-for="child in block.getChildren().filter((child) => child.isVisible(breakpoint))"
 			:data="data"
-			:componentData="resolvedComponentData"
-			:defaultProps="defaultProps"
+			:component-data="resolvedComponentData"
+			:default-props="defaultProps"
 			:block="child"
 			:breakpoint="breakpoint"
 			:preview="preview"
 			:readonly="readonly"
-			:isChildOfComponent="block.isExtendedFromComponent() || isChildOfComponent"
-			:key="child.blockId"
-			:repeater-index="repeaterIndex"
-			v-for="child in block.getChildren().filter((child) => child.isVisible(breakpoint))" />
+			:is-child-of-component="block.isExtendedFromComponent() || isChildOfComponent"
+			:repeater-index="repeaterIndex" />
 	</component>
 	<teleport
-		:to="canvasProps?.overlayElement"
-		v-if="canvasProps?.overlayElement && !preview && Boolean(canvasProps)">
+		v-if="canvasProps?.overlayElement && !preview && Boolean(canvasProps)"
+		:to="canvasProps?.overlayElement">
 		<!-- prettier-ignore -->
 		<BlockEditor
-			ref="editor"
 			v-show="!isEditable"
 			v-if="loadEditor"
+			ref="editor"
 			:block="block"
 			:breakpoint="breakpoint"
 			:editable="isEditable"
-			:isSelected="isSelected"
+			:is-selected="isSelected"
 			:readonly="readonly"
 			:target="(target as HTMLElement)" />
 	</teleport>
@@ -47,6 +47,7 @@ import useBuilderStore from "@/stores/builderStore";
 import useCanvasStore from "@/stores/canvasStore";
 import useComponentStore from "@/stores/componentStore";
 import usePageStore from "@/stores/pageStore";
+import { blockSelector, toStateStyleRules } from "@/utils/blockStateStyles";
 import { BlockValueResolver } from "@/utils/blockValueResolver";
 import componentController from "@/utils/componentController.js";
 import { setFont } from "@/utils/fontManager";
@@ -212,6 +213,10 @@ const attributes = computed(() => {
 			attribs["data-dark-src"] = "";
 		}
 		delete attribs.darkSrc;
+		// Stopping the client scripts remounts the block tree, which builds every image
+		// again. A cached image decodes off the main thread by default and paints one
+		// frame late, which reads as a flash. Sync decoding keeps it on screen.
+		attribs.decoding = "sync";
 	}
 
 	if (
@@ -243,6 +248,10 @@ const attributes = computed(() => {
 const canvasProps = !props.preview ? (inject("canvasProps") as CanvasProps) : null;
 const emulateBlockClientScript = inject<BlockClientScriptEmulator>(
 	"emulateBlockClientScript",
+	() => () => {},
+);
+const registerBlockStateStyles = inject<(key: string, css: string) => () => void>(
+	"registerBlockStateStyles",
 	() => () => {},
 );
 
@@ -416,6 +425,8 @@ watch(
 		() => builderSettings.doc?.execute_block_scripts_in_editor,
 		() => pageStore.settingPage,
 		componentDataReady,
+		// Run/Stop gates the script, so a change there has to re-register it.
+		() => canvasProps?.scriptsRunning,
 	],
 	([element, clientScript, componentData, resolvedProps, , settingPage, dataReady], _, onCleanup) => {
 		if (!element || !clientScript) return;
@@ -436,6 +447,18 @@ watch(
 	},
 	{ immediate: true },
 );
+
+// A block renders its regular styles inline, and an inline style cannot carry a pseudo
+// class, so hover/focus/active have to leave as real rules. The canvas only applies them
+// during preview.
+watchEffect((onCleanup) => {
+	const styleMap = {
+		...props.block.getStyles(props.breakpoint),
+		...props.block.getEditorStyles(),
+	} as BlockStyleMap;
+	const css = toStateStyleRules(styleMap, blockSelector(uidToUse, props.breakpoint));
+	onCleanup(registerBlockStateStyles(`${uidToUse}:${props.breakpoint}`, css));
+});
 
 const isEditable = computed(() => {
 	// to ensure it is right block and not on different breakpoint

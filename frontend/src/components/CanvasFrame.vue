@@ -8,7 +8,7 @@
 	<Teleport v-if="frameBody" :to="frameBody">
 		<div
 			ref="canvasRoot"
-			class="canvas-root flex items-stretch gap-40"
+			class="canvas-root flex w-max items-stretch gap-40"
 			:class="{ 'scheme-dark': dark }"
 			:data-builder-canvas="canvasId"
 			:style="{ minHeight: `${minHeight}px`, colorScheme: dark ? 'dark' : 'light' }">
@@ -70,9 +70,12 @@ function syncDocumentChrome(doc: Document) {
 	// transparent lets the editor backdrop show through the gaps between breakpoints.
 	doc.documentElement.style.background = "transparent";
 	doc.body.style.background = "transparent";
-	// max-content keeps the body from shrinking to the iframe width, so the measured
-	// content size never feeds back into the size we write onto the iframe.
-	doc.body.style.width = "max-content";
+	// The page body of every breakpoint is a block that also renders as <body>, so a
+	// `body` rule in the user's CSS matches the frame's own body as well. `display:
+	// contents` stops that body generating a box, so padding, borders and backgrounds
+	// meant for the page cannot move or paint the canvas itself. Inline wins over the
+	// stylesheet, so the user cannot undo it by accident.
+	doc.body.style.display = "contents";
 }
 
 function updateSize() {
@@ -96,9 +99,13 @@ function releaseFrame() {
 }
 
 async function attachFrame() {
-	releaseFrame();
 	const frame = iframe.value;
 	const doc = frame?.contentDocument;
+	// A srcdoc frame is attached once on mount and again on load, and both times it is
+	// the same document. Re-attaching would run every page script into it a second time.
+	if (doc && doc === currentDocument) return;
+
+	releaseFrame();
 	if (!frame || !doc || doc.readyState === "loading") return;
 
 	currentDocument = doc;
@@ -144,7 +151,10 @@ watch(
 	{ flush: "post" },
 );
 
-watch(() => props.minHeight, () => nextTick(updateSize));
+watch(
+	() => props.minHeight,
+	() => nextTick(updateSize),
+);
 
 onBeforeUnmount(() => {
 	iframe.value?.removeEventListener("load", attachFrame);

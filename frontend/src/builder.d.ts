@@ -132,6 +132,7 @@ declare interface CanvasProps {
 	settingCanvas: boolean;
 	overlayElement: HTMLElement | null;
 	frameDocument: Document | null;
+	scriptsRunning: boolean;
 	breakpoints: Breakpoint[];
 }
 

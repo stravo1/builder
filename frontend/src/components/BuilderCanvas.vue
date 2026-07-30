@@ -61,6 +61,7 @@
 				@dispose="onFrameDispose"
 				@resize="onFrameResize">
 				<component :is="'style'" v-if="blockClientStyles" v-text="blockClientStyles" />
+				<component :is="'style'" v-if="blockStateStyles" v-text="blockStateStyles" />
 				<div
 					class="canvas relative flex bg-surface-base shadow-xl contain-layout"
 					:data-breakpoint="breakpoint.device"
@@ -83,10 +84,10 @@
 						{{ breakpoint.displayName }}
 					</div>
 					<BuilderBlock
-						class="min-h-[inherit]"
+						:class="['min-h-[inherit]', PAGE_ROOT_CLASS]"
 						:block="block"
 						:style="variables"
-						:key="block.blockId"
+						:key="`${block.blockId}:${blockEpoch}`"
 						:readonly="builderStore.readOnlyMode"
 						v-if="showBlocks"
 						:breakpoint="breakpoint.device"
@@ -152,7 +153,7 @@ import { useCanvasEvents } from "@/utils/useCanvasEvents";
 import { useCanvasMarqueeSelection } from "@/utils/useCanvasMarqueeSelection";
 import { useCanvasUtils } from "@/utils/useCanvasUtils";
 import { forwardFrameKeys } from "@/utils/canvasFrame";
-import { applyPageScripts } from "@/utils/canvasPageScripts";
+import { PAGE_ROOT_CLASS, applyPageScripts } from "@/utils/canvasPageScripts";
 import { registerFontDocument } from "@/utils/fontManager";
 import { useElementSize, useEventListener } from "@vueuse/core";
 import { Tooltip } from "frappe-ui";
@@ -197,6 +198,7 @@ const canvas = ref(null);
 const showBlocks = ref(false);
 const overlay = ref(null);
 const blockStyles = reactive(new Map<string, string>());
+const stateStyles = reactive(new Map<string, string>());
 
 const props = withDefaults(
 	defineProps<{
@@ -218,11 +220,18 @@ const block = ref(props.blockData) as Ref<Block>;
 const { height: containerHeight } = useElementSize(canvasContainer);
 const history = ref(null) as Ref<null> | CanvasHistory;
 const blockClientStyles = computed(() => Array.from(blockStyles.values()).join("\n"));
+// Hover, focus and active render as real rules during preview only. To select a block the
+// user hovers it, and a block that restyles itself under the pointer is hard to edit.
+const blockStateStyles = computed(() =>
+	canvasProps.scriptsRunning ? Array.from(stateStyles.values()).filter(Boolean).join("\n") : "",
+);
 
 const activeBreakpoint = ref("desktop") as Ref<string | null>;
 const hoveredBreakpoint = ref("desktop") as Ref<string | null>;
 const hoveredBlock = ref(null) as Ref<string | null>;
 const setCanvasZoom = ref<(scale: number, pinchPoint: { x: number; y: number } | "center") => void>();
+// Remounting the block tree is how the canvas takes back what a client script changed.
+const blockEpoch = ref(0);
 
 const {
 	clearSelection,
@@ -236,6 +245,9 @@ const {
 const canvasProps = reactive({
 	overlayElement: null,
 	frameDocument: null as Document | null,
+	// Off until the user presses Run. A script that moves or hides blocks makes the
+	// canvas hard to edit, so it should never start on its own.
+	scriptsRunning: false,
 	background: "#fff",
 	scale: 1,
 	translateX: 0,
@@ -351,7 +363,9 @@ function onFrameReady(frameDoc: Document) {
 		forwardFrameKeys(frameDoc);
 	});
 	toggleMode(builderStore.mode);
-	nextTick(setScaleAndTranslate);
+	// Fit once, on the first frame. A later frame comes from a reload, and re-fitting
+	// then would move the canvas under the user for no reason.
+	if (canvasProps.settingCanvas) nextTick(setScaleAndTranslate);
 }
 
 function onFrameDispose() {
@@ -475,6 +489,7 @@ watch(
 
 provide("canvasProps", canvasProps);
 provide("emulateBlockClientScript", emulateBlockClientScript);
+provide("registerBlockStateStyles", registerBlockStateStyles);
 
 defineExpose({
 	setScaleAndTranslate,
@@ -541,23 +556,43 @@ function selectBreakpoint(ev: MouseEvent, breakpoint: BreakpointConfig) {
 	}
 }
 
-// Page scripts wait for the blocks, so a script that looks for an element finds it.
-// They re-run whenever the frame reloads or the scripts change, which is also how the
-// script author sees an edit take effect.
+// Stopping has to undo what the scripts did. Reloading the frame would do that, but the
+// canvas goes blank while the new one builds. Instead the injected elements come out and
+// the block tree remounts, which puts back every block a script moved, hid or rewrote.
+// A script that reached outside the block tree, or left something on the canvas window,
+// survives until the page reloads.
 watch(
-	[
-		() => canvasProps.frameDocument,
-		() => pageStore.activePageScripts,
-		() => pageStore.settingPage,
-		() => builderSettings.doc?.execute_block_scripts_in_editor,
-	],
-	async ([frameDocument, scripts, settingPage, scriptMode]) => {
-		if (!props.runPageScripts || !frameDocument || settingPage) return;
+	() => canvasProps.frameDocument,
+	async (frameDocument) => {
+		if (!props.runPageScripts || !frameDocument || pageStore.settingPage) return;
 		await nextTick();
-		applyPageScripts(frameDocument, scripts, scriptMode !== "Don't Execute");
+		runPageScriptsInFrame();
+	},
+	{ immediate: true },
+);
+
+watch(
+	[() => canvasProps.scriptsRunning, () => pageStore.activePageScripts],
+	(_, [wasRunning]) => {
+		if (!props.runPageScripts || pageStore.settingPage) return;
+		// Only a canvas that has been running has anything to take back. Skipping the
+		// remount on the way in keeps the blocks, and their images, on screen.
+		if (wasRunning) blockEpoch.value += 1;
+		nextTick(runPageScriptsInFrame);
 	},
 	{ deep: true },
 );
+
+function runPageScriptsInFrame() {
+	const frameDocument = canvasProps.frameDocument;
+	if (!frameDocument) return;
+	applyPageScripts(frameDocument, pageStore.activePageScripts, canvasProps.scriptsRunning);
+}
+
+function registerBlockStateStyles(key: string, css: string) {
+	stateStyles.set(key, css);
+	return () => stateStyles.delete(key);
+}
 
 function escapeAttributeValue(value: string) {
 	return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
@@ -568,11 +603,15 @@ function emulateBlockClientScript(script: BlockClientScriptRuntime) {
 	const selector = `[data-builder-canvas="${canvasId}"] [data-block-uid="${escapeAttributeValue(
 		script.key,
 	)}"][data-breakpoint="${escapeAttributeValue(script.breakpoint)}"]`;
-	blockStyles.set(registrationKey, script.css ? `${selector} { ${script.css} }` : "");
+	// Run/Stop from the command palette decides whether a block script applies, CSS as
+	// much as JavaScript. The setting only picks how much of the canvas the script may
+	// reach.
+	const running = canvasProps.scriptsRunning;
+	blockStyles.set(registrationKey, running && script.css ? `${selector} { ${script.css} }` : "");
 
 	const mode = builderSettings.doc?.execute_block_scripts_in_editor ?? "Restricted";
 	let cleanup = () => {};
-	if (mode !== "Don't Execute" && script.javascript.trim()) {
+	if (running && mode !== "Don't Execute" && script.javascript.trim()) {
 		const context = {
 			componentData: script.componentData,
 			props: script.props,

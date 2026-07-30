@@ -12,6 +12,9 @@ export interface BreakpointConfig {
 
 export interface CanvasProps {
 	overlayElement: HTMLElement | null;
+	frameDocument: Document | null;
+	// Client scripts run only when the user asks for it, from the command palette.
+	scriptsRunning: boolean;
 	background: string;
 	scale: number;
 	translateX: number;
