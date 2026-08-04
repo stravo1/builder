@@ -65,5 +65,5 @@ export const builtInSections = [
 ] as PropertySection[];
 
 export function registerBuiltInPropertySections() {
-	builtInSections.forEach((section) => registerPropertySection(section));
+	builtInSections.forEach((section) => propertySections.registerBuiltIn(section));
 }

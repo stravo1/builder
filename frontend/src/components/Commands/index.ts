@@ -35,6 +35,7 @@ export type Command = RegistryItem & {
 
 export const commands = createRegistry<Command>();
 export const registerCommand = commands.register;
+const registerBuiltInCommand = commands.registerBuiltIn;
 
 export const resolveText = (value: string | (() => string)) =>
 	typeof value === "function" ? value() : value;
@@ -84,7 +85,7 @@ export function registerBuiltInCommands() {
 		await nextTick();
 	};
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "go-to-dashboard",
 		title: "Go to Dashboard",
 		icon: "lucide-layout-dashboard",
@@ -94,7 +95,7 @@ export function registerBuiltInCommands() {
 		action: () => router.push({ name: "home" }),
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "preview",
 		title: "Preview Page",
 		icon: "lucide-play",
@@ -108,7 +109,7 @@ export function registerBuiltInCommands() {
 		},
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "publish",
 		title: "Publish Page",
 		icon: "lucide-globe",
@@ -118,7 +119,7 @@ export function registerBuiltInCommands() {
 		action: () => pageStore.publishPage(),
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "duplicate-page",
 		title: "Duplicate Page",
 		icon: "lucide-copy-plus",
@@ -132,7 +133,7 @@ export function registerBuiltInCommands() {
 		},
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "expand-layers",
 		title: "Expand All Layers",
 		icon: "lucide-chevrons-up-down",
@@ -145,7 +146,7 @@ export function registerBuiltInCommands() {
 		},
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "collapse-layers",
 		title: "Collapse All Layers",
 		icon: "lucide-chevrons-down-up",
@@ -158,7 +159,7 @@ export function registerBuiltInCommands() {
 		},
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "toggle-left-panel",
 		title: () => `${builderStore.showLeftPanel ? "Hide" : "Show"} Left Panel`,
 		icon: () => (builderStore.showLeftPanel ? "lucide-panel-left-close" : "lucide-panel-left-open"),
@@ -169,7 +170,7 @@ export function registerBuiltInCommands() {
 		action: () => (builderStore.showLeftPanel = !builderStore.showLeftPanel),
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "toggle-right-panel",
 		title: () => `${builderStore.showRightPanel ? "Hide" : "Show"} Right Panel`,
 		icon: () => (builderStore.showRightPanel ? "lucide-panel-right-close" : "lucide-panel-right-open"),
@@ -179,7 +180,7 @@ export function registerBuiltInCommands() {
 		action: () => (builderStore.showRightPanel = !builderStore.showRightPanel),
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "toggle-theme",
 		title: () => `Switch to ${isDark.value ? "Light" : "Dark"} Mode`,
 		icon: () => (isDark.value ? "lucide-sun" : "lucide-moon"),
@@ -188,7 +189,7 @@ export function registerBuiltInCommands() {
 		action: transitionTheme,
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "shortcuts",
 		title: "Keyboard Shortcuts",
 		icon: "lucide-command",
@@ -201,7 +202,7 @@ export function registerBuiltInCommands() {
 
 	// key bindings with no palette entry, so the palette shows what it always did
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "toggle-panels",
 		title: "Toggle Panels",
 		icon: "lucide-panels-left-bottom",
@@ -214,7 +215,7 @@ export function registerBuiltInCommands() {
 		},
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "toggle-canvas-dark-mode",
 		title: "Toggle Canvas Dark Mode",
 		icon: "lucide-moon",
@@ -224,7 +225,7 @@ export function registerBuiltInCommands() {
 		action: () => (builderStore.canvasDarkMode = !builderStore.canvasDarkMode),
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "search-blocks",
 		title: "Search Blocks",
 		icon: "lucide-search",
@@ -234,7 +235,7 @@ export function registerBuiltInCommands() {
 		action: () => (builderStore.showSearchBlock = true),
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "focus-property-search",
 		title: "Focus Property Search",
 		icon: "lucide-search",
@@ -246,7 +247,7 @@ export function registerBuiltInCommands() {
 		},
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "copy-block-styles",
 		title: "Copy Block Styles",
 		icon: "lucide-clipboard-copy",
@@ -265,7 +266,7 @@ export function registerBuiltInCommands() {
 		},
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "duplicate-block",
 		title: "Duplicate Block",
 		icon: "lucide-copy",
@@ -279,7 +280,7 @@ export function registerBuiltInCommands() {
 		},
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "edit-with-ai",
 		title: "Edit Block with AI",
 		icon: "lucide-sparkles",
@@ -299,7 +300,7 @@ export function registerBuiltInCommands() {
 		},
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "undo",
 		title: "Undo",
 		icon: "lucide-undo-2",
@@ -312,7 +313,7 @@ export function registerBuiltInCommands() {
 		},
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "redo",
 		title: "Redo",
 		icon: "lucide-redo-2",
@@ -325,7 +326,7 @@ export function registerBuiltInCommands() {
 		},
 	});
 
-	registerCommand({
+	registerBuiltInCommand({
 		name: "delete-page",
 		title: "Delete Page",
 		icon: "lucide-trash-2",

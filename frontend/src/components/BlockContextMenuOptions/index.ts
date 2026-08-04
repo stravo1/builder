@@ -302,5 +302,5 @@ export function registerBuiltInContextMenuOptions() {
 		},
 	];
 
-	options.forEach(registerContextMenuOption);
+	options.forEach(blockContextMenuOptions.registerBuiltIn);
 }

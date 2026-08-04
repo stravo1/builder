@@ -114,6 +114,31 @@ describe("createRegistry", () => {
 		expect(registry.visible.value[0].label).toBe("new");
 	});
 
+	it("refuses to replace a built-in item", () => {
+		const registry = createRegistry<TestItem>();
+		registry.registerBuiltIn({ name: "Layers", label: "built-in" });
+
+		expect(() => registry.register({ name: "Layers", label: "extension" })).toThrow(/read-only/);
+		expect(registry.visible.value[0].label).toBe("built-in");
+	});
+
+	it("refuses to unregister a built-in item", () => {
+		const registry = createRegistry<TestItem>();
+		registry.registerBuiltIn({ name: "Layers" });
+
+		expect(() => registry.unregister("Layers")).toThrow(/read-only/);
+		expect(names(registry.visible.value)).toEqual(["Layers"]);
+	});
+
+	it("lets a built-in register again, as it does on every mount", () => {
+		const registry = createRegistry<TestItem>();
+		registry.registerBuiltIn({ name: "Layers", label: "first" });
+		registry.registerBuiltIn({ name: "Layers", label: "second" });
+
+		expect(registry.visible.value).toHaveLength(1);
+		expect(registry.visible.value[0].label).toBe("second");
+	});
+
 	it("keeps a replacement when the replaced registration unregisters", () => {
 		const registry = createRegistry<TestItem>();
 		const removeOld = registry.register({ name: "tab", label: "old" });

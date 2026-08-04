@@ -133,5 +133,5 @@ const builtInSettingsItems: SettingsItem[] = [
 ];
 
 export function registerBuiltInSettingsItems() {
-	builtInSettingsItems.forEach(registerSettingsItem);
+	builtInSettingsItems.forEach(settingsItems.registerBuiltIn);
 }
