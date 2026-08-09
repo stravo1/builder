@@ -19,40 +19,36 @@ export type ToolbarItem = RegistryItem & {
 };
 
 export const toolbarItems = createRegistry<ToolbarItem>();
-export const registerToolbarItem = toolbarItems.register;
-const registerBuiltInItem = toolbarItems.registerBuiltIn;
 
-/** Call from a component setup. The store lookups below need an active pinia. */
-export function registerBuiltInToolbarItems() {
-	const builderStore = useBuilderStore();
-	const pageStore = usePageStore();
+// the route chunk imports this after pinia is installed, so the lookups resolve
+const builderStore = useBuilderStore();
+const pageStore = usePageStore();
 
-	registerBuiltInItem({ name: "menu", region: "left", component: MainMenu });
-	registerBuiltInItem({ name: "modes", region: "left", component: ModeSwitcher });
-	registerBuiltInItem({ name: "page", region: "center", component: PageTitlePopover });
+toolbarItems.registerBuiltIn({ name: "menu", region: "left", component: MainMenu });
+toolbarItems.registerBuiltIn({ name: "modes", region: "left", component: ModeSwitcher });
+toolbarItems.registerBuiltIn({ name: "page", region: "center", component: PageTitlePopover });
 
-	registerBuiltInItem({
-		name: "viewers",
-		region: "right",
-		component: ViewerAvatars,
-		condition: () => builderStore.viewers.length > 0,
-	});
+toolbarItems.registerBuiltIn({
+	name: "viewers",
+	region: "right",
+	component: ViewerAvatars,
+	condition: () => builderStore.viewers.length > 0,
+});
 
-	registerBuiltInItem({
-		name: "read-only",
-		region: "right",
-		component: ReadOnlyBadge,
-		condition: () => builderStore.readOnlyMode,
-	});
+toolbarItems.registerBuiltIn({
+	name: "read-only",
+	region: "right",
+	component: ReadOnlyBadge,
+	condition: () => builderStore.readOnlyMode,
+});
 
-	// one item, not five: the icons share a gap-2 group inside a gap-4 region
-	registerBuiltInItem({ name: "actions", region: "right", component: ToolbarActions });
+// one item, not five: the icons share a gap-2 group inside a gap-4 region
+toolbarItems.registerBuiltIn({ name: "actions", region: "right", component: ToolbarActions });
 
-	registerBuiltInItem({
-		name: "publish",
-		region: "right",
-		component: PublishButton,
-		props: () => ({ disabled: builderStore.readOnlyMode }),
-		condition: () => !(builderStore.readOnlyMode && pageStore.activePage?.is_template),
-	});
-}
+toolbarItems.registerBuiltIn({
+	name: "publish",
+	region: "right",
+	component: PublishButton,
+	props: () => ({ disabled: builderStore.readOnlyMode }),
+	condition: () => !(builderStore.readOnlyMode && pageStore.activePage?.is_template),
+});

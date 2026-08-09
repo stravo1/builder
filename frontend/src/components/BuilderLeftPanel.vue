@@ -37,11 +37,7 @@
 	</div>
 </template>
 <script setup lang="ts">
-import {
-	leftPanelTabs,
-	registerBuiltInLeftPanelTabs,
-	type LeftPanelTab,
-} from "@/components/LeftPanelTabs";
+import { leftPanelTabs, type LeftPanelTab } from "@/components/LeftPanelTabs";
 import TokenManager from "@/components/Modals/TokenManager.vue";
 import useBuilderStore from "@/stores/builderStore";
 import { Tooltip } from "frappe-ui";
@@ -52,7 +48,6 @@ import PanelResizer from "./PanelResizer.vue";
 const builderStore = useBuilderStore();
 const route = useRoute();
 
-registerBuiltInLeftPanelTabs();
 const tabs = leftPanelTabs.visible;
 
 const miniSidebar = ref(null) as Ref<HTMLElement | null>;

@@ -34,8 +34,6 @@ export type Command = RegistryItem & {
 };
 
 export const commands = createRegistry<Command>();
-export const registerCommand = commands.register;
-const registerBuiltInCommand = commands.registerBuiltIn;
 
 export const resolveText = (value: string | (() => string)) =>
 	typeof value === "function" ? value() : value;
@@ -72,273 +70,271 @@ const transitionTheme = () => {
 	}
 };
 
-/** Call from a component setup. The store lookups below need an active pinia. */
-export function registerBuiltInCommands() {
-	const builderStore = useBuilderStore();
-	const pageStore = usePageStore();
-	const canvasStore = useCanvasStore();
-	const aiStore = useAIStore();
+// the route chunk imports this after pinia is installed, so the lookups resolve
+const builderStore = useBuilderStore();
+const pageStore = usePageStore();
+const canvasStore = useCanvasStore();
+const aiStore = useAIStore();
 
-	const setLayersTab = async () => {
-		builderStore.showLeftPanel = true;
-		builderStore.leftPanelActiveTab = "Layers";
-		await nextTick();
-	};
+const setLayersTab = async () => {
+	builderStore.showLeftPanel = true;
+	builderStore.leftPanelActiveTab = "Layers";
+	await nextTick();
+};
 
-	registerBuiltInCommand({
-		name: "go-to-dashboard",
-		title: "Go to Dashboard",
-		icon: "lucide-layout-dashboard",
-		description: "Navigate",
-		group: "Navigate",
-		condition: isBuilderRoute,
-		action: () => router.push({ name: "home" }),
-	});
+commands.registerBuiltIn({
+	name: "go-to-dashboard",
+	title: "Go to Dashboard",
+	icon: "lucide-layout-dashboard",
+	description: "Navigate",
+	group: "Navigate",
+	condition: isBuilderRoute,
+	action: () => router.push({ name: "home" }),
+});
 
-	registerBuiltInCommand({
-		name: "preview",
-		title: "Preview Page",
-		icon: "lucide-play",
-		description: "Page",
-		group: "Page",
-		condition: isBuilderRoute,
-		keys: { key: "p", ctrl: true, description: "Preview" },
-		action: () => {
-			pageStore.savePage();
-			router.push({ name: "preview", params: { pageId: pageStore.selectedPage as string } });
-		},
-	});
+commands.registerBuiltIn({
+	name: "preview",
+	title: "Preview Page",
+	icon: "lucide-play",
+	description: "Page",
+	group: "Page",
+	condition: isBuilderRoute,
+	keys: { key: "p", ctrl: true, description: "Preview" },
+	action: () => {
+		pageStore.savePage();
+		router.push({ name: "preview", params: { pageId: pageStore.selectedPage as string } });
+	},
+});
 
-	registerBuiltInCommand({
-		name: "publish",
-		title: "Publish Page",
-		icon: "lucide-globe",
-		description: "Page",
-		group: "Page",
-		condition: isBuilderRoute,
-		action: () => pageStore.publishPage(),
-	});
+commands.registerBuiltIn({
+	name: "publish",
+	title: "Publish Page",
+	icon: "lucide-globe",
+	description: "Page",
+	group: "Page",
+	condition: isBuilderRoute,
+	action: () => pageStore.publishPage(),
+});
 
-	registerBuiltInCommand({
-		name: "duplicate-page",
-		title: "Duplicate Page",
-		icon: "lucide-copy-plus",
-		description: "Page",
-		group: "Page",
-		condition: isBuilderRoute,
-		action: () => {
-			if (pageStore.activePage) {
-				pageStore.duplicatePage(pageStore.activePage);
-			}
-		},
-	});
+commands.registerBuiltIn({
+	name: "duplicate-page",
+	title: "Duplicate Page",
+	icon: "lucide-copy-plus",
+	description: "Page",
+	group: "Page",
+	condition: isBuilderRoute,
+	action: () => {
+		if (pageStore.activePage) {
+			pageStore.duplicatePage(pageStore.activePage);
+		}
+	},
+});
 
-	registerBuiltInCommand({
-		name: "expand-layers",
-		title: "Expand All Layers",
-		icon: "lucide-chevrons-up-down",
-		description: "Layers",
-		group: "Layers",
-		condition: isBuilderRoute,
-		action: async () => {
-			await setLayersTab();
-			builderStore.activeLayers?.expandAll();
-		},
-	});
+commands.registerBuiltIn({
+	name: "expand-layers",
+	title: "Expand All Layers",
+	icon: "lucide-chevrons-up-down",
+	description: "Layers",
+	group: "Layers",
+	condition: isBuilderRoute,
+	action: async () => {
+		await setLayersTab();
+		builderStore.activeLayers?.expandAll();
+	},
+});
 
-	registerBuiltInCommand({
-		name: "collapse-layers",
-		title: "Collapse All Layers",
-		icon: "lucide-chevrons-down-up",
-		description: "Layers",
-		group: "Layers",
-		condition: isBuilderRoute,
-		action: async () => {
-			await setLayersTab();
-			builderStore.activeLayers?.collapseAll();
-		},
-	});
+commands.registerBuiltIn({
+	name: "collapse-layers",
+	title: "Collapse All Layers",
+	icon: "lucide-chevrons-down-up",
+	description: "Layers",
+	group: "Layers",
+	condition: isBuilderRoute,
+	action: async () => {
+		await setLayersTab();
+		builderStore.activeLayers?.collapseAll();
+	},
+});
 
-	registerBuiltInCommand({
-		name: "toggle-left-panel",
-		title: () => `${builderStore.showLeftPanel ? "Hide" : "Show"} Left Panel`,
-		icon: () => (builderStore.showLeftPanel ? "lucide-panel-left-close" : "lucide-panel-left-open"),
-		description: "View",
-		group: "View",
-		condition: isBuilderRoute,
-		keys: { key: "\\", ctrl: true, shift: true, description: "Toggle left panel" },
-		action: () => (builderStore.showLeftPanel = !builderStore.showLeftPanel),
-	});
+commands.registerBuiltIn({
+	name: "toggle-left-panel",
+	title: () => `${builderStore.showLeftPanel ? "Hide" : "Show"} Left Panel`,
+	icon: () => (builderStore.showLeftPanel ? "lucide-panel-left-close" : "lucide-panel-left-open"),
+	description: "View",
+	group: "View",
+	condition: isBuilderRoute,
+	keys: { key: "\\", ctrl: true, shift: true, description: "Toggle left panel" },
+	action: () => (builderStore.showLeftPanel = !builderStore.showLeftPanel),
+});
 
-	registerBuiltInCommand({
-		name: "toggle-right-panel",
-		title: () => `${builderStore.showRightPanel ? "Hide" : "Show"} Right Panel`,
-		icon: () => (builderStore.showRightPanel ? "lucide-panel-right-close" : "lucide-panel-right-open"),
-		description: "View",
-		group: "View",
-		condition: isBuilderRoute,
-		action: () => (builderStore.showRightPanel = !builderStore.showRightPanel),
-	});
+commands.registerBuiltIn({
+	name: "toggle-right-panel",
+	title: () => `${builderStore.showRightPanel ? "Hide" : "Show"} Right Panel`,
+	icon: () => (builderStore.showRightPanel ? "lucide-panel-right-close" : "lucide-panel-right-open"),
+	description: "View",
+	group: "View",
+	condition: isBuilderRoute,
+	action: () => (builderStore.showRightPanel = !builderStore.showRightPanel),
+});
 
-	registerBuiltInCommand({
-		name: "toggle-theme",
-		title: () => `Switch to ${isDark.value ? "Light" : "Dark"} Mode`,
-		icon: () => (isDark.value ? "lucide-sun" : "lucide-moon"),
-		description: "View",
-		group: "View",
-		action: transitionTheme,
-	});
+commands.registerBuiltIn({
+	name: "toggle-theme",
+	title: () => `Switch to ${isDark.value ? "Light" : "Dark"} Mode`,
+	icon: () => (isDark.value ? "lucide-sun" : "lucide-moon"),
+	description: "View",
+	group: "View",
+	action: transitionTheme,
+});
 
-	registerBuiltInCommand({
-		name: "shortcuts",
-		title: "Keyboard Shortcuts",
-		icon: "lucide-command",
-		description: "General",
-		group: "General",
-		condition: isBuilderRoute,
-		keys: { key: "?", description: "Show keyboard shortcuts" },
-		action: () => (builderStore.shortcutsModalOpen = true),
-	});
+commands.registerBuiltIn({
+	name: "shortcuts",
+	title: "Keyboard Shortcuts",
+	icon: "lucide-command",
+	description: "General",
+	group: "General",
+	condition: isBuilderRoute,
+	keys: { key: "?", description: "Show keyboard shortcuts" },
+	action: () => (builderStore.shortcutsModalOpen = true),
+});
 
-	// key bindings with no palette entry, so the palette shows what it always did
+// key bindings with no palette entry, so the palette shows what it always did
 
-	registerBuiltInCommand({
-		name: "toggle-panels",
-		title: "Toggle Panels",
-		icon: "lucide-panels-left-bottom",
-		group: "View",
-		inPalette: false,
-		keys: { key: "\\", ctrl: true, description: "Toggle panels" },
-		action: () => {
-			builderStore.showRightPanel = !builderStore.showRightPanel;
-			builderStore.showLeftPanel = builderStore.showRightPanel;
-		},
-	});
+commands.registerBuiltIn({
+	name: "toggle-panels",
+	title: "Toggle Panels",
+	icon: "lucide-panels-left-bottom",
+	group: "View",
+	inPalette: false,
+	keys: { key: "\\", ctrl: true, description: "Toggle panels" },
+	action: () => {
+		builderStore.showRightPanel = !builderStore.showRightPanel;
+		builderStore.showLeftPanel = builderStore.showRightPanel;
+	},
+});
 
-	registerBuiltInCommand({
-		name: "toggle-canvas-dark-mode",
-		title: "Toggle Canvas Dark Mode",
-		icon: "lucide-moon",
-		group: "View",
-		inPalette: false,
-		keys: { key: "d", ctrl: true, shift: true, description: "Toggle canvas dark mode" },
-		action: () => (builderStore.canvasDarkMode = !builderStore.canvasDarkMode),
-	});
+commands.registerBuiltIn({
+	name: "toggle-canvas-dark-mode",
+	title: "Toggle Canvas Dark Mode",
+	icon: "lucide-moon",
+	group: "View",
+	inPalette: false,
+	keys: { key: "d", ctrl: true, shift: true, description: "Toggle canvas dark mode" },
+	action: () => (builderStore.canvasDarkMode = !builderStore.canvasDarkMode),
+});
 
-	registerBuiltInCommand({
-		name: "search-blocks",
-		title: "Search Blocks",
-		icon: "lucide-search",
-		group: "General",
-		inPalette: false,
-		keys: { key: "f", ctrl: true, shift: true, description: "Search blocks" },
-		action: () => (builderStore.showSearchBlock = true),
-	});
+commands.registerBuiltIn({
+	name: "search-blocks",
+	title: "Search Blocks",
+	icon: "lucide-search",
+	group: "General",
+	inPalette: false,
+	keys: { key: "f", ctrl: true, shift: true, description: "Search blocks" },
+	action: () => (builderStore.showSearchBlock = true),
+});
 
-	registerBuiltInCommand({
-		name: "focus-property-search",
-		title: "Focus Property Search",
-		icon: "lucide-search",
-		group: "General",
-		inPalette: false,
-		keys: { key: "f", ctrl: true, allowInInput: true, description: "Focus property search" },
-		action: () => {
-			document.querySelector(".properties-search-input")?.querySelector("input")?.focus();
-		},
-	});
+commands.registerBuiltIn({
+	name: "focus-property-search",
+	title: "Focus Property Search",
+	icon: "lucide-search",
+	group: "General",
+	inPalette: false,
+	keys: { key: "f", ctrl: true, allowInInput: true, description: "Focus property search" },
+	action: () => {
+		document.querySelector(".properties-search-input")?.querySelector("input")?.focus();
+	},
+});
 
-	registerBuiltInCommand({
-		name: "copy-block-styles",
-		title: "Copy Block Styles",
-		icon: "lucide-clipboard-copy",
-		group: "Edit",
-		inPalette: false,
-		keys: { key: "c", ctrl: true, shift: true, description: "Copy block styles" },
-		action: () => {
-			if (!blockController.isBlockSelected() || blockController.multipleBlocksSelected()) return;
-			const block = blockController.getSelectedBlocks()[0];
-			const copiedStyle = useStorage(
-				"copiedStyle",
-				{ blockId: "", style: {} },
-				sessionStorage,
-			) as Ref<StyleCopy>;
-			copiedStyle.value = { blockId: block.blockId, style: block.getStylesCopy() };
-		},
-	});
+commands.registerBuiltIn({
+	name: "copy-block-styles",
+	title: "Copy Block Styles",
+	icon: "lucide-clipboard-copy",
+	group: "Edit",
+	inPalette: false,
+	keys: { key: "c", ctrl: true, shift: true, description: "Copy block styles" },
+	action: () => {
+		if (!blockController.isBlockSelected() || blockController.multipleBlocksSelected()) return;
+		const block = blockController.getSelectedBlocks()[0];
+		const copiedStyle = useStorage(
+			"copiedStyle",
+			{ blockId: "", style: {} },
+			sessionStorage,
+		) as Ref<StyleCopy>;
+		copiedStyle.value = { blockId: block.blockId, style: block.getStylesCopy() };
+	},
+});
 
-	registerBuiltInCommand({
-		name: "duplicate-block",
-		title: "Duplicate Block",
-		icon: "lucide-copy",
-		group: "Edit",
-		inPalette: false,
-		keys: { key: "d", ctrl: true, description: "Duplicate block" },
-		action: () => {
-			if (builderStore.readOnlyMode) return;
-			if (!blockController.isBlockSelected() || blockController.multipleBlocksSelected()) return;
-			blockController.getSelectedBlocks()[0].duplicateBlock();
-		},
-	});
+commands.registerBuiltIn({
+	name: "duplicate-block",
+	title: "Duplicate Block",
+	icon: "lucide-copy",
+	group: "Edit",
+	inPalette: false,
+	keys: { key: "d", ctrl: true, description: "Duplicate block" },
+	action: () => {
+		if (builderStore.readOnlyMode) return;
+		if (!blockController.isBlockSelected() || blockController.multipleBlocksSelected()) return;
+		blockController.getSelectedBlocks()[0].duplicateBlock();
+	},
+});
 
-	registerBuiltInCommand({
-		name: "edit-with-ai",
-		title: "Edit Block with AI",
-		icon: "lucide-sparkles",
-		group: "Edit",
-		inPalette: false,
-		keys: { key: "i", ctrl: true, description: "Edit block with AI" },
-		condition: () =>
-			builderStore.isAIEnabled &&
-			!blockController.isRoot() &&
-			!blockController.multipleBlocksSelected() &&
-			!builderStore.readOnlyMode,
-		action: () => {
-			const block = blockController.getSelectedBlocks()[0];
-			if (block) {
-				aiStore.editWithAI(block);
-			}
-		},
-	});
+commands.registerBuiltIn({
+	name: "edit-with-ai",
+	title: "Edit Block with AI",
+	icon: "lucide-sparkles",
+	group: "Edit",
+	inPalette: false,
+	keys: { key: "i", ctrl: true, description: "Edit block with AI" },
+	condition: () =>
+		builderStore.isAIEnabled &&
+		!blockController.isRoot() &&
+		!blockController.multipleBlocksSelected() &&
+		!builderStore.readOnlyMode,
+	action: () => {
+		const block = blockController.getSelectedBlocks()[0];
+		if (block) {
+			aiStore.editWithAI(block);
+		}
+	},
+});
 
-	registerBuiltInCommand({
-		name: "undo",
-		title: "Undo",
-		icon: "lucide-undo-2",
-		group: "Edit",
-		inPalette: false,
-		keys: { key: "z", ctrl: true, description: "Undo" },
-		action: () => {
-			const canvas = canvasStore.activeCanvas;
-			if (canvas?.history?.canUndo) canvas.history.undo();
-		},
-	});
+commands.registerBuiltIn({
+	name: "undo",
+	title: "Undo",
+	icon: "lucide-undo-2",
+	group: "Edit",
+	inPalette: false,
+	keys: { key: "z", ctrl: true, description: "Undo" },
+	action: () => {
+		const canvas = canvasStore.activeCanvas;
+		if (canvas?.history?.canUndo) canvas.history.undo();
+	},
+});
 
-	registerBuiltInCommand({
-		name: "redo",
-		title: "Redo",
-		icon: "lucide-redo-2",
-		group: "Edit",
-		inPalette: false,
-		keys: { key: "z", ctrl: true, shift: true, description: "Redo" },
-		action: () => {
-			const canvas = canvasStore.activeCanvas;
-			if (canvas?.history?.canRedo) canvas.history.redo();
-		},
-	});
+commands.registerBuiltIn({
+	name: "redo",
+	title: "Redo",
+	icon: "lucide-redo-2",
+	group: "Edit",
+	inPalette: false,
+	keys: { key: "z", ctrl: true, shift: true, description: "Redo" },
+	action: () => {
+		const canvas = canvasStore.activeCanvas;
+		if (canvas?.history?.canRedo) canvas.history.redo();
+	},
+});
 
-	registerBuiltInCommand({
-		name: "delete-page",
-		title: "Delete Page",
-		icon: "lucide-trash-2",
-		group: "General",
-		inPalette: false,
-		// same binding as toggle-canvas-dark-mode, as it was before this registry
-		keys: { key: "d", ctrl: true, shift: true, description: "Delete Page" },
-		condition: () => Boolean(pageStore.activePage && !pageStore.activePage.is_standard),
-		action: () => {
-			if (pageStore.activePage && !pageStore.activePage.is_standard) {
-				pageStore.deletePage(pageStore.activePage).then(() => router.push({ name: "home" }));
-			}
-		},
-	});
-}
+commands.registerBuiltIn({
+	name: "delete-page",
+	title: "Delete Page",
+	icon: "lucide-trash-2",
+	group: "General",
+	inPalette: false,
+	// same binding as toggle-canvas-dark-mode, as it was before this registry
+	keys: { key: "d", ctrl: true, shift: true, description: "Delete Page" },
+	condition: () => Boolean(pageStore.activePage && !pageStore.activePage.is_standard),
+	action: () => {
+		if (pageStore.activePage && !pageStore.activePage.is_standard) {
+			pageStore.deletePage(pageStore.activePage).then(() => router.push({ name: "home" }));
+		}
+	},
+});

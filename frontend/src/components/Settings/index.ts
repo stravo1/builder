@@ -10,28 +10,35 @@ export type SettingsItem = RegistryItem & {
 	group: SettingsGroup;
 	component: Component;
 	disabled?: boolean;
+	/** an async pane exposes its loader, so prefetch can warm it while the editor idles */
+	load?: () => Promise<unknown>;
+	/** false keeps a heavy pane out of the idle prefetch: it loads on first open */
+	preload?: boolean;
 };
+
+/** a pane declares the loader once: register builds the component from it */
+type SettingsPane = Omit<SettingsItem, "component"> & { load: () => Promise<{ default: Component }> };
 
 // the sidebar renders groups in this order
 export const settingsGroups: SettingsGroup[] = ["Current Page", "Global"];
 
 export const settingsItems = createRegistry<SettingsItem>();
-export const registerSettingsItem = settingsItems.register;
 
 /**
- * The panes load on demand, so a surface that only reads the metadata, as the
- * command palette does, never pulls them into its chunk.
+ * Registered at module load, so every surface reads the same list however it
+ * opens. The panes load on demand, so a surface that only reads the metadata,
+ * as the command palette does, never pulls them into its chunk.
  *
  * A name doubles as the persisted settingsActiveTab value, so it must not change.
  */
-const builtInSettingsItems: SettingsItem[] = [
+const panes: SettingsPane[] = [
 	{
 		name: "page_general",
 		label: "General",
 		title: "General",
 		icon: "lucide-settings",
 		group: "Current Page",
-		component: defineAsyncComponent(() => import("@/components/Settings/PageGeneral.vue")),
+		load: () => import("@/components/Settings/PageGeneral.vue"),
 	},
 	{
 		name: "page_code",
@@ -39,7 +46,7 @@ const builtInSettingsItems: SettingsItem[] = [
 		title: "Page Code",
 		icon: "lucide-code",
 		group: "Current Page",
-		component: defineAsyncComponent(() => import("@/components/Settings/PageCode.vue")),
+		load: () => import("@/components/Settings/PageCode.vue"),
 	},
 	{
 		name: "page_meta",
@@ -47,7 +54,7 @@ const builtInSettingsItems: SettingsItem[] = [
 		title: "Meta",
 		icon: "lucide-square-dashed-bottom-code",
 		group: "Current Page",
-		component: defineAsyncComponent(() => import("@/components/Settings/PageMeta.vue")),
+		load: () => import("@/components/Settings/PageMeta.vue"),
 	},
 	{
 		name: "page_analytics",
@@ -55,7 +62,9 @@ const builtInSettingsItems: SettingsItem[] = [
 		title: "Page Analytics",
 		icon: "lucide-chart-bar",
 		group: "Current Page",
-		component: defineAsyncComponent(() => import("@/components/Settings/PageAnalytics.vue")),
+		load: () => import("@/components/Settings/PageAnalytics.vue"),
+		// the charting library behind both analytics panes is the largest chunk we ship
+		preload: false,
 	},
 	{
 		name: "global_general",
@@ -63,7 +72,7 @@ const builtInSettingsItems: SettingsItem[] = [
 		title: "General",
 		icon: "lucide-settings",
 		group: "Global",
-		component: defineAsyncComponent(() => import("@/components/Settings/GlobalGeneral.vue")),
+		load: () => import("@/components/Settings/GlobalGeneral.vue"),
 	},
 	{
 		name: "global_users",
@@ -71,7 +80,7 @@ const builtInSettingsItems: SettingsItem[] = [
 		title: "Users",
 		icon: "lucide-users",
 		group: "Global",
-		component: defineAsyncComponent(() => import("@/components/Settings/GlobalUsers.vue")),
+		load: () => import("@/components/Settings/GlobalUsers.vue"),
 	},
 	{
 		name: "global_code",
@@ -79,7 +88,7 @@ const builtInSettingsItems: SettingsItem[] = [
 		title: "Global Code",
 		icon: "lucide-code",
 		group: "Global",
-		component: defineAsyncComponent(() => import("@/components/Settings/GlobalCode.vue")),
+		load: () => import("@/components/Settings/GlobalCode.vue"),
 	},
 	{
 		name: "global_redirects",
@@ -87,7 +96,7 @@ const builtInSettingsItems: SettingsItem[] = [
 		title: "Redirects",
 		icon: "lucide-shuffle",
 		group: "Global",
-		component: defineAsyncComponent(() => import("@/components/Settings/GlobalRedirects.vue")),
+		load: () => import("@/components/Settings/GlobalRedirects.vue"),
 	},
 	{
 		name: "global_robots",
@@ -95,7 +104,7 @@ const builtInSettingsItems: SettingsItem[] = [
 		title: "Robots.txt",
 		icon: "lucide-bot",
 		group: "Global",
-		component: defineAsyncComponent(() => import("@/components/Settings/PageRobots.vue")),
+		load: () => import("@/components/Settings/PageRobots.vue"),
 	},
 	{
 		name: "global_domains",
@@ -103,7 +112,7 @@ const builtInSettingsItems: SettingsItem[] = [
 		title: "Custom Domains",
 		icon: "lucide-globe",
 		group: "Global",
-		component: defineAsyncComponent(() => import("@/components/Settings/GlobalDomains.vue")),
+		load: () => import("@/components/Settings/GlobalDomains.vue"),
 		condition: () => Boolean(window.is_fc_site || window.is_developer_mode),
 	},
 	{
@@ -112,7 +121,8 @@ const builtInSettingsItems: SettingsItem[] = [
 		title: "Site Analytics",
 		icon: "lucide-chart-bar",
 		group: "Global",
-		component: defineAsyncComponent(() => import("@/components/Settings/GlobalAnalytics.vue")),
+		load: () => import("@/components/Settings/GlobalAnalytics.vue"),
+		preload: false,
 	},
 	{
 		name: "global_developer",
@@ -120,7 +130,7 @@ const builtInSettingsItems: SettingsItem[] = [
 		title: "Developer Settings",
 		icon: "lucide-terminal",
 		group: "Global",
-		component: defineAsyncComponent(() => import("@/components/Settings/GlobalDeveloper.vue")),
+		load: () => import("@/components/Settings/GlobalDeveloper.vue"),
 	},
 	{
 		name: "global_ai",
@@ -128,10 +138,16 @@ const builtInSettingsItems: SettingsItem[] = [
 		title: "AI Settings",
 		icon: "lucide-sparkles",
 		group: "Global",
-		component: defineAsyncComponent(() => import("@/components/Settings/GlobalAI.vue")),
+		load: () => import("@/components/Settings/GlobalAI.vue"),
 	},
 ];
 
-export function registerBuiltInSettingsItems() {
-	builtInSettingsItems.forEach(settingsItems.registerBuiltIn);
-}
+panes.forEach((pane) =>
+	settingsItems.registerBuiltIn({ ...pane, component: defineAsyncComponent(pane.load) }),
+);
+
+// warmed on idle by prefetchBuilderSettings, so the first open never waits on a chunk
+export const preloadSettingsPanes = () =>
+	settingsItems.visible.value
+		.filter((item) => item.preload !== false)
+		.forEach((item) => item.load?.());
