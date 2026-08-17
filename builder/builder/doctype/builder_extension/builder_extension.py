@@ -44,7 +44,7 @@ class BuilderExtension(Document):
 		enabled: DF.Check
 		extension_name: DF.Data
 		label: DF.Data | None
-		runtime: DF.Literal["UI", "Headless"]
+		runtime: DF.Literal["ui", "headless"]
 		version: DF.Data
 	# end: auto-generated types
 
@@ -98,7 +98,7 @@ class BuilderExtension(Document):
 			frappe.throw(_("Unknown capabilities: {0}").format(", ".join(unknown)))
 
 		# a headless extension has no document of its own, so a dialog has nothing to open
-		if self.runtime == "Headless" and "ui.dialog" in granted:
+		if self.runtime == "headless" and "ui.dialog" in granted:
 			frappe.throw(_("A headless extension draws nothing, so it cannot hold ui.dialog."))
 
 	def delete_extension_files(self):

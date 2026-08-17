@@ -16,7 +16,7 @@ def make_extension(**kwargs):
 		"extension_name": "acme/icons",
 		"label": "Icon Library",
 		"version": "1.2.0",
-		"runtime": "UI",
+		"runtime": "ui",
 		"checksum": "a1b2c3",
 	}
 	return frappe.get_doc({**defaults, **kwargs}).insert()
@@ -68,7 +68,7 @@ class TestBuilderExtension(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			make_extension(
 				extension_name="acme/headless",
-				runtime="Headless",
+				runtime="headless",
 				capabilities=json.dumps(["ui.dialog"]),
 			)
 

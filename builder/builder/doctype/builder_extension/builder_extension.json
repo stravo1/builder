@@ -46,13 +46,13 @@
    "label": "Enabled"
   },
   {
-   "default": "UI",
+   "default": "ui",
    "description": "Headless extensions may not open a frame of their own.",
    "fieldname": "runtime",
    "fieldtype": "Select",
    "in_standard_filter": 1,
    "label": "Runtime",
-   "options": "UI\nHeadless",
+   "options": "ui\nheadless",
    "reqd": 1
   },
   {

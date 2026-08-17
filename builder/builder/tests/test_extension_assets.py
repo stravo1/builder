@@ -17,7 +17,7 @@ def make_extension(**kwargs):
 		"extension_name": "acme/assets",
 		"label": "Assets",
 		"version": "1.0.0",
-		"runtime": "UI",
+		"runtime": "ui",
 		"checksum": "sum123",
 	}
 	return frappe.get_doc({**defaults, **kwargs}).insert()
