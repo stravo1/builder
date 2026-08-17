@@ -1,0 +1,104 @@
+{
+ "actions": [],
+ "creation": "2026-08-17 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "extension_name",
+  "label",
+  "version",
+  "enabled",
+  "runtime",
+  "capabilities",
+  "checksum"
+ ],
+ "fields": [
+  {
+   "description": "The namespaced identity a frame carries over the bridge, as \"publisher/name\".",
+   "fieldname": "extension_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Extension Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Label"
+  },
+  {
+   "description": "Scopes the install directory, so two versions never share files.",
+   "fieldname": "version",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Version",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Enabled"
+  },
+  {
+   "default": "UI",
+   "description": "Headless extensions may not open a frame of their own.",
+   "fieldname": "runtime",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Runtime",
+   "options": "UI\nHeadless",
+   "reqd": 1
+  },
+  {
+   "description": "JSON list of capability keys granted at install. A key absent here is not granted.",
+   "fieldname": "capabilities",
+   "fieldtype": "Small Text",
+   "label": "Capabilities"
+  },
+  {
+   "description": "Of the installed directory. Also busts the entry script cache.",
+   "fieldname": "checksum",
+   "fieldtype": "Data",
+   "label": "Checksum",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-08-17 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Builder",
+ "name": "Builder Extension",
+ "naming_rule": "By script",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Website Manager"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "label"
+}
