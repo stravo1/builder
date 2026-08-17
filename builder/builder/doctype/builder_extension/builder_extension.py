@@ -89,7 +89,13 @@ class BuilderExtension(Document):
 			frappe.throw(_("Version must hold only letters, digits, dots, plus signs and hyphens."))
 
 	def validate_capabilities(self):
-		granted = self.granted_capabilities
+		# parse_json raises on text that is not JSON at all, which would reach the
+		# user as a traceback instead of the message below
+		try:
+			granted = self.granted_capabilities
+		except ValueError:
+			granted = None
+
 		if not isinstance(granted, list):
 			frappe.throw(_("Capabilities must be a JSON list."))
 

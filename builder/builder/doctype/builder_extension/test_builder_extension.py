@@ -83,6 +83,11 @@ class TestBuilderExtension(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			make_extension(extension_name="acme/dictcaps", capabilities=json.dumps({"context.read": True}))
 
+	def test_capabilities_that_are_not_json_are_refused(self):
+		"""A bare key reads as text, not JSON, and must not reach the user as a traceback."""
+		with self.assertRaises(frappe.ValidationError):
+			make_extension(extension_name="acme/textcaps", capabilities="context.read")
+
 	def test_deleting_the_record_removes_the_install_directory(self):
 		extension = make_extension(extension_name="acme/trash")
 		install_path = extension.install_path

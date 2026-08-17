@@ -57,6 +57,7 @@ website_generators = ["Builder Page"]
 jinja = {
 	"methods": [
 		"builder.builder.doctype.builder_component.builder_component.get_component_data",
+		"builder.utils.csp_hash",
 	],
 	"filters": [
 		"builder.utils.combine",

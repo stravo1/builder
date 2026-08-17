@@ -9,7 +9,13 @@
 	script-src names both 'self' and the site URL on purpose. 'self' covers a site
 	reached on a second hostname, where the site URL would name the wrong origin.
 	The site URL covers a browser that does not match 'self' at an opaque origin.
+
+	An import map is an inline script, so script-src blocks it without a hash or a
+	nonce. The map never changes, so it takes a hash. Both the hash and the script
+	body come from import_map below, which is what stops the two drifting apart.
+	Render it with `safe`: escaping the quotes would break the JSON and the hash.
 #}
+{%- set import_map = '{"imports":{"@builder/extension-sdk":"/builder_extension_asset/sdk/extension-sdk.js"}}' -%}
 <!DOCTYPE html>
 <html lang="en">
 	<head>
@@ -17,7 +23,7 @@
 		<meta
 			http-equiv="Content-Security-Policy"
 			content="default-src 'none';
-				script-src 'self' {{ frappe.utils.get_url() }};
+				script-src 'self' {{ frappe.utils.get_url() }} {{ csp_hash(import_map) }};
 				style-src 'self' {{ frappe.utils.get_url() }} 'unsafe-inline';
 				img-src 'self' {{ frappe.utils.get_url() }} data: blob:;
 				font-src 'self' {{ frappe.utils.get_url() }} data:;
@@ -26,9 +32,7 @@
 				form-action 'none'" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Builder Extension</title>
-		<script type="importmap">
-			{ "imports": { "@builder/extension-sdk": "/builder_extension_asset/sdk/extension-sdk.js" } }
-		</script>
+		<script type="importmap">{{ import_map | safe }}</script>
 	</head>
 	<body>
 		<div id="app"></div>
