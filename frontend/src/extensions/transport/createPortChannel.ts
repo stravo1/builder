@@ -34,6 +34,10 @@ export class ChannelCallError extends Error {
 	}
 }
 
+/** The refusal for a method nothing claims. A dispatcher raises it too, so it has one spelling. */
+export const unknownMethod = (method: string) =>
+	new ChannelCallError({ message: `Unknown method "${method}".`, code: "unknown_method" });
+
 const CHANNEL_CLOSED: ChannelError = {
 	message: "The extension channel is closed.",
 	code: "channel_closed",
@@ -61,7 +65,7 @@ export function createPortChannel(port: MessagePort, onRequest?: Dispatcher) {
 		const handler = handlers.get(method);
 		if (handler) return handler(params);
 		if (onRequest) return onRequest(method, params);
-		throw new ChannelCallError({ message: `Unknown method "${method}".`, code: "unknown_method" });
+		throw unknownMethod(method);
 	};
 
 	const answer = async (message: RequestMessage) => {

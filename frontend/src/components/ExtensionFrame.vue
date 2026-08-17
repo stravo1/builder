@@ -33,7 +33,8 @@ const props = defineProps<{
  */
 const emit = defineEmits<{
 	connect: [channel: PortChannel];
-	disconnect: [];
+	/** Names the channel that went away, so a caller can drop it by identity. */
+	disconnect: [channel: PortChannel];
 }>();
 
 const store = useBuilderStore();
@@ -53,9 +54,10 @@ const handshake = (): ConnectMessage => ({
 
 const disconnect = () => {
 	if (!channel) return;
-	channel.close();
+	const closing = channel;
 	channel = null;
-	emit("disconnect");
+	closing.close();
+	emit("disconnect", closing);
 };
 
 /**
