@@ -13,7 +13,6 @@ def make_extension(**kwargs):
 		"extension_name": "acme/listed",
 		"label": "Listed",
 		"version": "1.0.0",
-		"runtime": "ui",
 		"checksum": "sum123",
 		"enabled": 1,
 	}
@@ -54,13 +53,8 @@ class TestGetEnabledExtensions(FrappeTestCase):
 
 		self.assertEqual(self.listed("acme/plain")["capabilities"], [])
 
-	def test_runtime_reaches_the_client_lowercase(self):
-		make_extension(extension_name="acme/silent", runtime="headless")
-
-		self.assertEqual(self.listed("acme/silent")["runtime"], "headless")
-
-	def test_lists_a_headless_extension(self):
-		"""A headless extension still needs its entry frame, so it belongs in the list."""
-		make_extension(extension_name="acme/quiet", runtime="headless")
+	def test_lists_an_extension_that_draws_nothing(self):
+		"""Every extension needs its entry frame, whether or not it registers a surface."""
+		make_extension(extension_name="acme/quiet", capabilities='["page.read"]')
 
 		self.assertIsNotNone(self.listed("acme/quiet"))

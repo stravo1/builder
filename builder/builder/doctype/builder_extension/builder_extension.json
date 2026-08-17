@@ -8,7 +8,6 @@
   "label",
   "version",
   "enabled",
-  "runtime",
   "capabilities",
   "checksum"
  ],
@@ -44,16 +43,6 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Enabled"
-  },
-  {
-   "default": "ui",
-   "description": "Headless extensions may not open a frame of their own.",
-   "fieldname": "runtime",
-   "fieldtype": "Select",
-   "in_standard_filter": 1,
-   "label": "Runtime",
-   "options": "ui\nheadless",
-   "reqd": 1
   },
   {
    "description": "JSON list of capability keys granted at install. A key absent here is not granted.",

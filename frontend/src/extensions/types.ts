@@ -17,14 +17,10 @@ export type Capability =
 	| "token.write"
 	| "ui.dialog";
 
-/** A "ui" extension may paint. A "headless" one registers descriptors and nothing else. */
-export type ExtensionRuntime = "ui" | "headless";
-
 /** One enabled record, as get_enabled_extensions returns it. */
 export type InstalledExtension = {
 	name: string; // extension_name, "acme/icons"
 	label: string;
-	runtime: ExtensionRuntime;
 	entry: string; // script_url, the file the SDK imports
 	capabilities: Capability[];
 };

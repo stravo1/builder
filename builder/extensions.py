@@ -24,7 +24,6 @@ def describe_extension(name: str) -> dict:
 	return {
 		"name": extension.extension_name,
 		"label": extension.label,
-		"runtime": extension.runtime,
 		"entry": extension.script_url,
 		"capabilities": extension.granted_capabilities,
 	}
