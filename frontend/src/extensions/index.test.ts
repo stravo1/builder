@@ -1,56 +1,25 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { connectExtension, disconnectExtension, dispatch, entryChannel } from "./index";
-import { createPortChannel } from "./transport/createPortChannel";
+import { describe, expect, it, vi } from "vitest";
+import { dispatcherFor } from "./index";
+import type { InstalledExtension } from "./types";
 
-const channel = () => createPortChannel(new MessageChannel().port1);
+/** The bridge itself is covered in host/extensionBridge.test.ts. This is the table. */
+const extension: InstalledExtension = {
+	name: "acme/icons",
+	label: "Icons",
+	entry: "/builder_extension_asset/acme-icons@1.0.0/main.js",
+	capabilities: [],
+};
 
-describe("the extension singleton", () => {
-	beforeEach(() => {
-		disconnectExtension("acme/icons", entryChannel("acme/icons")!);
-	});
-
-	it("keeps the first channel an extension connects with", () => {
-		const entry = channel();
-		connectExtension("acme/icons", entry);
-
-		expect(entryChannel("acme/icons")).toBe(entry);
-	});
-
-	it("does not let a later frame replace the entry channel", () => {
-		const entry = channel();
-		connectExtension("acme/icons", entry);
-		connectExtension("acme/icons", channel());
-
-		expect(entryChannel("acme/icons")).toBe(entry);
-	});
-
-	it("forgets a channel that disconnects", () => {
-		const entry = channel();
-		connectExtension("acme/icons", entry);
-		disconnectExtension("acme/icons", entry);
-
-		expect(entryChannel("acme/icons")).toBeUndefined();
-	});
-
-	it("ignores a disconnect from a channel it does not hold", () => {
-		const entry = channel();
-		connectExtension("acme/icons", entry);
-		disconnectExtension("acme/icons", channel());
-
-		expect(entryChannel("acme/icons")).toBe(entry);
-	});
-});
-
-describe("dispatch", () => {
+describe("the host method table", () => {
 	it("answers host.info with the Builder version and the protocol", () => {
 		vi.stubGlobal("window", { builder_version: "2.14.0" });
 
-		expect(dispatch("host.info", undefined)).toEqual({ version: "2.14.0", protocol: 1 });
+		expect(dispatcherFor(extension)("host.info", undefined)).toEqual({ version: "2.14.0", protocol: 1 });
 
 		vi.unstubAllGlobals();
 	});
 
-	it("refuses a method it does not know", () => {
-		expect(() => dispatch("block.update", {})).toThrow(/Unknown method/);
+	it("refuses a method no milestone has added yet", () => {
+		expect(() => dispatcherFor(extension)("block.update", {})).toThrow(/Unknown method/);
 	});
 });
