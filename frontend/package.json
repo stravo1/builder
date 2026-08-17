@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && yarn build:sdk",
+    "build:sdk": "vite build --config vite.sdk.config.mts",
     "build:reset": "tailwindcss -c ./tailwind.reset.config.js -i ./src/reset.css -o ../builder/public/reset.css --minify && node ./scripts/strip-css-comments.js",
     "generate:css-metadata": "node ./scripts/generate-css-property-metadata.mjs",
     "preview": "vite preview",
