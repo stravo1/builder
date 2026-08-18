@@ -102,22 +102,34 @@ export type SettingsRegistration = {
 	after?: string;
 };
 
+/** Which Builder control the host renders. A section holds values, not triggers. */
+export type ControlName = "text" | "number" | "select" | "toggle" | "color" | "range";
+
 /** One control in a property section (Tier B). The host renders it (B3, B4). */
 export type Control = {
 	name: string;
-	control: string;
+	control: ControlName;
 	label?: string;
+	placeholder?: string;
 	/** The host writes the block itself. Needs the `block.update` capability. */
 	bind?: { attribute?: string; style?: string };
 	/** The extension's own value, when no block property holds it (B4). */
 	value?: unknown;
 	/** An action to invoke after a bound write, or on every change when unbound. */
 	action?: string;
-	options?: Array<{ label: string; value: string }>;
+	/** For "select" and "toggle". A toggle option may carry an icon. */
+	options?: Array<{ label: string; value: string; icon?: string }>;
+	min?: number;
+	max?: number;
+	step?: number;
+	/** Per control, so one control can hide while the rest of the section stays. */
+	showWhen?: ShowWhen;
 };
 
 export type PropertiesRegistration = {
 	name: string;
+	/** The section header. Defaults to `name`. */
+	label?: string;
 	controls: Control[];
 	before?: string;
 	after?: string;

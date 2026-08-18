@@ -10,11 +10,13 @@ import type { MethodTable } from "../host/capabilities";
 import { actionMethods } from "./actionMethods";
 import { contextMenuMethods } from "./contextMenuMethods";
 import { leftPanelMethods } from "./leftPanelMethods";
+import { propertyMethods } from "./propertiesMethods";
 import { toolbarMethods } from "./toolbarMethods";
 
 export const surfaceMethods: MethodTable = {
 	...leftPanelMethods,
 	...toolbarMethods,
 	...contextMenuMethods,
+	...propertyMethods,
 	...actionMethods,
 };

@@ -26,8 +26,12 @@ type Options<TRegistration extends Named, TItem extends RegistryEntry> = {
 	/** Names the surface in a refusal, such as "left panel tab". */
 	kind: string;
 	registry: ReturnType<typeof createRegistry<TItem>>;
-	read: (params: unknown) => TRegistration;
-	merge: (current: TRegistration, patch: Record<string, unknown>) => TRegistration;
+	read: (params: unknown, extension: InstalledExtension) => TRegistration;
+	merge: (
+		current: TRegistration,
+		patch: Record<string, unknown>,
+		extension: InstalledExtension,
+	) => TRegistration;
 	describe: (key: string, item: SurfaceItem<TRegistration>) => TItem;
 	/** One per extension, as 1.10 requires of leftPanel and settings. */
 	oneEach?: boolean;
@@ -61,7 +65,7 @@ export const createSurfaceItems = <TRegistration extends Named, TItem extends Re
 	};
 
 	const add = (params: unknown, extension: InstalledExtension) => {
-		const registration = options.read(params);
+		const registration = options.read(params, extension);
 		const owned = [...items.values()].some((item) => item.extension.name === extension.name);
 		if (options.oneEach && owned) {
 			throw refuse(`"${extension.name}" already registers a ${options.kind}.`, "already_registered");
@@ -78,7 +82,7 @@ export const createSurfaceItems = <TRegistration extends Named, TItem extends Re
 		const item = held(key);
 		mount(key, {
 			extension: item.extension,
-			registration: options.merge(item.registration, fields(fields(params).patch)),
+			registration: options.merge(item.registration, fields(fields(params).patch), extension),
 		});
 	};
 
