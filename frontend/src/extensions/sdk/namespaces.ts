@@ -9,9 +9,12 @@
  * caller, and a surface nothing can call cannot be verified in a browser.
  */
 
+import { holdAction, releaseAction, type ActionHandler } from "./actions";
 import { getChannel } from "./connect";
 
 const call = (method: string, params?: unknown) => getChannel().call(method, params);
+
+export type ShowWhen = Record<string, unknown>;
 
 export type LeftPanelRegistration = {
 	name: string;
@@ -19,13 +22,55 @@ export type LeftPanelRegistration = {
 	icon: string;
 	before?: string;
 	after?: string;
-	showWhen?: Record<string, unknown>;
+	showWhen?: ShowWhen;
 };
 
-export type ItemPatch = { visible?: boolean; label?: string; icon?: string };
+export type ToolbarRegistration = {
+	name: string;
+	region: "left" | "center" | "right";
+	icon: string;
+	label?: string;
+	tooltip?: string;
+	/** The name of an action this extension registered. */
+	action?: string;
+	badge?: string | number | null;
+	before?: string;
+	after?: string;
+	showWhen?: ShowWhen;
+	enableWhen?: ShowWhen;
+};
+
+export type ItemPatch = {
+	visible?: boolean;
+	enabled?: boolean;
+	label?: string;
+	icon?: string;
+	tooltip?: string;
+	badge?: string | number | null;
+};
 
 export const leftPanel = {
 	register: (registration: LeftPanelRegistration) => call("leftPanel.register", registration),
 	unregister: (name: string) => call("leftPanel.unregister", { name }),
 	update: (name: string, patch: ItemPatch) => call("leftPanel.update", { name, patch }),
+};
+
+export const toolbar = {
+	register: (registration: ToolbarRegistration) => call("toolbar.register", registration),
+	unregister: (name: string) => call("toolbar.unregister", { name }),
+	update: (name: string, patch: ItemPatch) => call("toolbar.update", { name, patch }),
+};
+
+export const actions = {
+	/** The handler stays in this frame. The host learns only the name. */
+	register: (name: string, handler: ActionHandler) => {
+		holdAction(name, handler);
+		return call("actions.register", { name });
+	},
+	unregister: (name: string) => {
+		releaseAction(name);
+		return call("actions.unregister", { name });
+	},
+	/** Runs an action this extension owns, from any of its frames. */
+	run: (name: string, context?: Record<string, unknown>) => call("actions.run", { name, context }),
 };

@@ -7,7 +7,8 @@
 
 import { createPortChannel, type PortChannel } from "../transport/createPortChannel";
 import { PROTOCOL_VERSION, type ConnectMessage } from "../types";
-import { runSlot } from "./slots";
+import { runAction } from "./actions";
+import { runSlot, setActiveSlot } from "./slots";
 
 /**
  * The origin check lives here, not in the host: measured, every extension frame
@@ -40,12 +41,16 @@ const applyTheme = (theme: unknown) => document.documentElement.setAttribute("da
 const start = async (message: ConnectMessage, port: MessagePort) => {
 	channel = createPortChannel(port);
 	channel.listen("theme", applyTheme);
+	// the one call the host makes into this frame (B2), registered before any
+	// extension code runs, so a click cannot arrive at nothing
+	channel.handle("action.invoke", runAction);
 	applyTheme(message.theme);
 	slotProps = message.props ?? {};
+	setActiveSlot(message.slot);
 
 	// the shell names no extension, so the entry to import arrives here (D5)
 	await import(/* @vite-ignore */ message.entry);
-	runSlot(message.slot);
+	runSlot();
 };
 
 /**

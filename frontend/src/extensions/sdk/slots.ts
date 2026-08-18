@@ -21,7 +21,16 @@ export type VisualSlot = Exclude<ExtensionSlot, "main">;
 export type SlotEntry = { load: () => Promise<unknown> };
 
 let mainHandler: (() => void) | null = null;
+let slot: ExtensionSlot | null = null;
 const visualSlots = new Map<VisualSlot, SlotEntry>();
+
+/**
+ * Set before the entry module is imported, so a registration made while that
+ * module evaluates already knows which frame it is running in.
+ */
+export const setActiveSlot = (name: ExtensionSlot) => (slot = name);
+
+export const activeSlot = () => slot;
 
 const claim = (slot: ExtensionSlot, taken: boolean) => {
 	if (taken) throw new Error(`This extension already registered its "${slot}" slot`);
@@ -45,7 +54,7 @@ export const registerSlot = (slot: VisualSlot, entry: SlotEntry) => {
  * that contract lands with the Vue layer. Until then a panel frame connects and
  * paints nothing.
  */
-export const runSlot = (slot: ExtensionSlot) => {
+export const runSlot = () => {
 	if (slot === "main") return mainHandler?.();
-	if (!visualSlots.has(slot)) console.warn(`This extension registered no "${slot}" slot`);
+	if (slot && !visualSlots.has(slot)) console.warn(`This extension registered no "${slot}" slot`);
 };

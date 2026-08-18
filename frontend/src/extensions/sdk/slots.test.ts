@@ -17,7 +17,8 @@ describe("slots", () => {
 		const main = vi.fn();
 		slots.registerMain(main);
 
-		slots.runSlot("main");
+		slots.setActiveSlot("main");
+		slots.runSlot();
 
 		expect(main).toHaveBeenCalledOnce();
 	});
@@ -27,19 +28,23 @@ describe("slots", () => {
 		slots.registerMain(main);
 		slots.registerSlot("panel", { load: () => Promise.resolve({}) });
 
-		slots.runSlot("panel");
+		slots.setActiveSlot("panel");
+		slots.runSlot();
 
 		expect(main).not.toHaveBeenCalled();
 	});
 
 	it("does nothing in a main frame that registered no main", () => {
-		expect(() => slots.runSlot("main")).not.toThrow();
+		slots.setActiveSlot("main");
+
+		expect(() => slots.runSlot()).not.toThrow();
 	});
 
 	it("warns when the frame's slot was never registered", () => {
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-		slots.runSlot("dialog");
+		slots.setActiveSlot("dialog");
+		slots.runSlot();
 
 		expect(warn).toHaveBeenCalledWith(expect.stringContaining("dialog"));
 		warn.mockRestore();
@@ -63,7 +68,8 @@ describe("slots", () => {
 		const load = vi.fn(() => Promise.resolve({}));
 		slots.registerSlot("panel", { load });
 
-		slots.runSlot("panel");
+		slots.setActiveSlot("panel");
+		slots.runSlot();
 
 		expect(load).not.toHaveBeenCalled();
 	});

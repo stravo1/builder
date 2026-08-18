@@ -3,10 +3,6 @@
  *
  * The registry receives the same object shape a built-in tab produces, so
  * `BuilderLeftPanel.vue` needs no line that knows extensions exist (B6).
- *
- * `update` merges its patch and registers again. A registry item is a copy
- * (`createRegistry.ts:65`), so a value the bridge holds elsewhere could never
- * reach the screen, and re-registering keeps the item's slot (1.5, rule 4).
  */
 
 import ExtensionFrame from "@/components/ExtensionFrame.vue";
@@ -15,8 +11,9 @@ import { editorContext } from "../editor/editorContext";
 import { assertRule, matches, type ShowWhenRule } from "../editor/showWhen";
 import { bridge } from "../host/bridge";
 import type { MethodTable } from "../host/capabilities";
-import { ChannelCallError, type PortChannel } from "../transport/createPortChannel";
-import type { InstalledExtension } from "../types";
+import type { PortChannel } from "../transport/createPortChannel";
+import { fields, flag, optionalText, text } from "./params";
+import { createSurfaceItems, type SurfaceItem } from "./surfaceItems";
 
 type Registration = {
 	name: string;
@@ -28,49 +25,29 @@ type Registration = {
 	visible: boolean;
 };
 
-type Tab = {
-	extension: InstalledExtension;
-	registration: Registration;
-	/** Replaced on every re-registration, so only the live one is ever called. */
-	undo: () => void;
-};
-
-const tabs = new Map<string, Tab>();
-
-/** The host composes every registry name. Two extensions may both call a tab "icons". */
-const keyOf = (extension: InstalledExtension, name: string) => `${extension.name}:${name}`;
-
-const refuse = (message: string, code: string) => new ChannelCallError({ message, code });
-
-const text = (value: unknown, field: string) => {
-	if (typeof value !== "string" || !value.trim()) {
-		throw refuse(`"${field}" must be a non-empty string.`, "invalid_params");
-	}
-	return value;
-};
-
-const optionalText = (value: unknown, field: string) =>
-	value === undefined ? undefined : text(value, field);
-
-const readRegistration = (params: unknown): Registration => {
-	const fields = (params ?? {}) as Record<string, unknown>;
-	assertRule(fields.showWhen as ShowWhenRule | undefined);
+const read = (params: unknown): Registration => {
+	const sent = fields(params);
+	assertRule(sent.showWhen as ShowWhenRule | undefined);
 
 	return {
-		name: text(fields.name, "name"),
-		label: text(fields.label, "label"),
-		icon: text(fields.icon, "icon"),
-		before: optionalText(fields.before, "before"),
-		after: optionalText(fields.after, "after"),
-		showWhen: fields.showWhen as ShowWhenRule | undefined,
+		name: text(sent.name, "name"),
+		label: text(sent.label, "label"),
+		icon: text(sent.icon, "icon"),
+		before: optionalText(sent.before, "before"),
+		after: optionalText(sent.after, "after"),
+		showWhen: sent.showWhen as ShowWhenRule | undefined,
 		visible: true,
 	};
 };
 
-const descriptor = (key: string, tab: Tab): LeftPanelTab => {
-	const { extension, registration } = tab;
-	// built once per registration: ExtensionFrame reads it at load, and a fresh
-	// identity on every render would be work for nothing
+const merge = (current: Registration, patch: Record<string, unknown>): Registration => ({
+	...current,
+	label: optionalText(patch.label, "label") ?? current.label,
+	icon: optionalText(patch.icon, "icon") ?? current.icon,
+	visible: flag(patch.visible, current.visible),
+});
+
+const describe = (key: string, { extension, registration }: SurfaceItem<Registration>): LeftPanelTab => {
 	const dispatch = bridge.dispatcherFor(extension);
 
 	return {
@@ -94,59 +71,18 @@ const descriptor = (key: string, tab: Tab): LeftPanelTab => {
 	};
 };
 
-const mount = (key: string, tab: Tab) => {
-	tab.undo = leftPanelTabs.register(descriptor(key, tab));
-	tabs.set(key, tab);
-};
-
-const owned = (extension: InstalledExtension) =>
-	[...tabs.entries()].find(([, tab]) => tab.extension.name === extension.name);
-
-const held = (key: string) => {
-	const tab = tabs.get(key);
-	if (!tab) throw refuse(`No left panel tab is registered under "${key}".`, "unknown_item");
-	return tab;
-};
-
-const register = (params: unknown, extension: InstalledExtension) => {
-	const registration = readRegistration(params);
-	if (owned(extension)) {
-		throw refuse(`"${extension.name}" already registers a left panel tab.`, "already_registered");
-	}
-
-	const key = keyOf(extension, registration.name);
-	mount(key, { extension, registration, undo: () => {} });
-	bridge.onTeardown(extension.name, () => remove(key));
-};
-
-const remove = (key: string) => {
-	tabs.get(key)?.undo();
-	tabs.delete(key);
-};
-
-const unregister = (params: unknown, extension: InstalledExtension) => {
-	const key = keyOf(extension, text((params as { name?: unknown })?.name, "name"));
-	held(key);
-	remove(key);
-};
-
-const update = (params: unknown, extension: InstalledExtension) => {
-	const { name, patch } = (params ?? {}) as { name?: unknown; patch?: Record<string, unknown> };
-	const key = keyOf(extension, text(name, "name"));
-	const tab = held(key);
-
-	tab.registration = {
-		...tab.registration,
-		label: optionalText(patch?.label, "label") ?? tab.registration.label,
-		icon: optionalText(patch?.icon, "icon") ?? tab.registration.icon,
-		visible: typeof patch?.visible === "boolean" ? patch.visible : tab.registration.visible,
-	};
-	mount(key, tab);
-};
+const tabs = createSurfaceItems<Registration, LeftPanelTab>({
+	kind: "left panel tab",
+	registry: leftPanelTabs,
+	oneEach: true,
+	read,
+	merge,
+	describe,
+});
 
 export const leftPanelMethods: MethodTable = {
 	// the host draws the tab strip and mounts the frame, so no capability gates this
-	"leftPanel.register": { needs: null, run: register },
-	"leftPanel.unregister": { needs: null, run: unregister },
-	"leftPanel.update": { needs: null, run: update },
+	"leftPanel.register": { needs: null, run: tabs.add },
+	"leftPanel.unregister": { needs: null, run: tabs.drop },
+	"leftPanel.update": { needs: null, run: tabs.patch },
 };

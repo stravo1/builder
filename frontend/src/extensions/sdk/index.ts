@@ -6,7 +6,7 @@
  */
 
 import { getChannel, listenForHandshake } from "./connect";
-import { leftPanel } from "./namespaces";
+import { actions, leftPanel, toolbar } from "./namespaces";
 import { registerMain, registerSlot, type SlotEntry } from "./slots";
 
 export type HostInfo = { version: string; protocol: number };
@@ -21,6 +21,12 @@ const builder = {
 
 	/** One tab, registered from the entry frame and drawn by the host (Tier C). */
 	leftPanel,
+
+	/** A descriptor. Builder draws the button and posts the action back (Tier A). */
+	toolbar,
+
+	/** The functions this extension owns. A descriptor names one, the host calls it. */
+	actions,
 
 	host: {
 		/** Which Builder this extension landed in. An extension ships on its own schedule. */
