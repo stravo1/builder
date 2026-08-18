@@ -76,6 +76,7 @@ declare module 'vue' {
     EditableSpan: typeof import('./src/components/EditableSpan.vue')['default']
     ExtensionFrame: typeof import('./src/components/ExtensionFrame.vue')['default']
     ExtensionHost: typeof import('./src/components/ExtensionHost.vue')['default']
+    ExtensionToolbarButton: typeof import('./src/components/ToolbarItems/ExtensionToolbarButton.vue')['default']
     EyeDropper: typeof import('./src/components/Icons/EyeDropper.vue')['default']
     Files: typeof import('./src/components/Icons/Files.vue')['default']
     FitScreen: typeof import('./src/components/Icons/FitScreen.vue')['default']
