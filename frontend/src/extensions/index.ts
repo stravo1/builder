@@ -10,11 +10,12 @@
  * is what keeps the bridge from ever learning what a surface is.
  */
 
+import { editorMethods } from "./editor";
 import { bridge } from "./host/bridge";
 import { hostMethods } from "./host/hostMethods";
 import { surfaceMethods } from "./surfaces";
 
-bridge.define({ ...hostMethods, ...surfaceMethods });
+bridge.define({ ...hostMethods, ...surfaceMethods, ...editorMethods });
 
 export const {
 	connect: connectExtension,

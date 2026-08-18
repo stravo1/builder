@@ -24,6 +24,61 @@ const codeOf = (call: () => unknown) => {
 	return undefined;
 };
 
+describe("every live frame", () => {
+	it("keeps each channel an extension connects with", () => {
+		const host = bridge();
+		const entry = channel();
+		const panel = channel();
+		host.connect("acme/icons", entry);
+		host.connect("acme/icons", panel);
+
+		expect(host.getChannels("acme/icons")).toEqual([entry, panel]);
+	});
+
+	it("drops a channel that disconnects, entry or not", () => {
+		const host = bridge();
+		const entry = channel();
+		const panel = channel();
+		host.connect("acme/icons", entry);
+		host.connect("acme/icons", panel);
+		host.disconnect("acme/icons", panel);
+
+		expect(host.getChannels("acme/icons")).toEqual([entry]);
+		expect(host.getEntryChannel("acme/icons")).toBe(entry);
+	});
+
+	it("answers with nothing for an extension that never connected", () => {
+		expect(bridge().getChannels("acme/icons")).toEqual([]);
+	});
+
+	it("keeps one extension's frames out of another's", () => {
+		const host = bridge();
+		const mine = channel();
+		host.connect("acme/icons", mine);
+		host.connect("acme/other", channel());
+
+		expect(host.getChannels("acme/icons")).toEqual([mine]);
+	});
+
+	// a copy, so a frame that disconnects while a push walks the list is safe
+	it("hands back a copy, not the live set", () => {
+		const host = bridge();
+		const entry = channel();
+		host.connect("acme/icons", entry);
+		host.getChannels("acme/icons").pop();
+
+		expect(host.getChannels("acme/icons")).toEqual([entry]);
+	});
+
+	it("forgets every frame when the extension is torn down", () => {
+		const host = bridge();
+		host.connect("acme/icons", channel());
+		host.teardown("acme/icons");
+
+		expect(host.getChannels("acme/icons")).toEqual([]);
+	});
+});
+
 describe("the entry channel", () => {
 	it("keeps the first channel an extension connects with", () => {
 		const host = bridge();

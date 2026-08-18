@@ -1,6 +1,6 @@
 /**
- * The one owner of an extension's live state: its entry channel, its message
- * budget, and the unregister list teardown walks.
+ * The one owner of an extension's live state: its frames, its message budget,
+ * and the unregister list teardown walks.
  *
  * A factory rather than a module: `index.ts` holds the one instance the editor
  * runs on, and a test builds its own with its own method table.
@@ -15,10 +15,15 @@ const overBudget = (extension: string) =>
 	new ChannelCallError({ message: `"${extension}" is sending too many messages.`, code: "rate_limited" });
 
 export const createExtensionBridge = (methods: MethodTable = {}) => {
-	// a Map, not the object itself: a frame names the method, and "constructor"
-	// would answer from the prototype with something that is not a HostMethod
+	// Look up only registered methods. Object properties such as "constructor"
+	// are inherited from the prototype and are not valid HostMethods.
 	const table = new Map(Object.entries(methods));
+	// Extension keys throughout this bridge are InstalledExtension.name values.
 	const entryChannels = new Map<string, PortChannel>();
+	// every live frame of an extension, because a context push has more than one
+	// destination. The entry channel above stays separate: it is the one frame an
+	// action must reach, and it is chosen by arrival order rather than by liveness (B2)
+	const channels = new Map<string, Set<PortChannel>>();
 	const budgets = new Map<string, Budget>();
 	const unregisters = new Map<string, Array<() => void>>();
 
@@ -38,14 +43,22 @@ export const createExtensionBridge = (methods: MethodTable = {}) => {
 	 */
 	const connect = (extension: string, channel: PortChannel) => {
 		if (!entryChannels.has(extension)) entryChannels.set(extension, channel);
+
+		const live = channels.get(extension) ?? new Set<PortChannel>();
+		channels.set(extension, live);
+		live.add(channel);
 	};
 
 	/** Identity, not name: a reconnecting frame must not delete its own replacement. */
 	const disconnect = (extension: string, channel: PortChannel) => {
 		if (entryChannels.get(extension) === channel) entryChannels.delete(extension);
+		channels.get(extension)?.delete(channel);
 	};
 
 	const getEntryChannel = (extension: string) => entryChannels.get(extension);
+
+	/** Every frame the host can push to. A copy, so a disconnect mid-push is safe. */
+	const getChannels = (extension: string) => [...(channels.get(extension) ?? [])];
 
 	/**
 	 * One dispatcher per frame, closed over the record it was handed, so a frame
@@ -93,10 +106,11 @@ export const createExtensionBridge = (methods: MethodTable = {}) => {
 		unregisters.delete(extension);
 		entryChannels.get(extension)?.close();
 		entryChannels.delete(extension);
+		channels.delete(extension);
 		budgets.delete(extension);
 	};
 
-	return { connect, disconnect, getEntryChannel, define, dispatcherFor, onTeardown, teardown };
+	return { connect, disconnect, getEntryChannel, getChannels, define, dispatcherFor, onTeardown, teardown };
 };
 
 export type ExtensionBridge = ReturnType<typeof createExtensionBridge>;

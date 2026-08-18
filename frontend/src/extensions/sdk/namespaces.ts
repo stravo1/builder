@@ -186,7 +186,14 @@ export const settings = {
 	update: (name: string, patch: ItemPatch) => call("settings.update", { name, patch }),
 };
 
-export type ContextField = "selection" | "breakpoint" | "editingMode" | "readOnly" | "page" | "site";
+export type ContextField =
+	| "selection"
+	| "breakpoint"
+	| "editingMode"
+	| "readOnly"
+	| "isAIEnabled"
+	| "page"
+	| "site";
 
 export type ContextHandler = (context: Record<string, unknown>) => void;
 
@@ -203,8 +210,19 @@ export const context = {
 	 * anything the rule vocabulary already covers: it costs no messages.
 	 */
 	subscribe: (fields: ContextField[], handler: ContextHandler) => {
-		const stop = getChannel().listen("context", (payload) => handler(payload as Record<string, unknown>));
-		void declare("context.subscribe", { fields });
+		// the host holds one subscription per extension, so a push carries every
+		// field any call site named. This handler hears only its own.
+		let seen = "";
+		const stop = getChannel().listen("context", (payload) => {
+			const context = payload as Record<string, unknown>;
+			const mine = JSON.stringify(fields.map((field) => context[field]));
+			if (mine === seen) return;
+			seen = mine;
+			handler(context);
+		});
+		// a call, not a declaration: any frame may subscribe, and the host pushes
+		// to every frame of the extension, so a panel hears what a panel asked for
+		void call("context.subscribe", { fields });
 		return stop;
 	},
 };
