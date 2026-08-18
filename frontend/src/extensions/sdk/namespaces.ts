@@ -27,12 +27,23 @@ const call = (method: string, params?: unknown) => getChannel().call(method, par
  * A refusal is logged as well as returned, because a declaration at module scope
  * is usually not awaited, and a silently rejected registration is a surface that
  * never appears with nothing to explain it.
+ *
+ * A method this Builder does not have is a version gap, not a mistake. An
+ * extension ships on its own schedule, so it loses that one surface and keeps
+ * the rest, and the warning says which Builder is behind rather than blaming
+ * the extension.
  */
 const declare = (method: string, params?: unknown) => {
 	if (activeSlot() !== "main") return Promise.resolve();
 
 	const sent = call(method, params);
-	sent.catch((error) => console.error(`[builder] "${method}" was refused`, error));
+	sent.catch((error) => {
+		if ((error as { code?: string }).code === "unknown_method") {
+			console.warn(`[builder] this Builder has no "${method}", so that surface is skipped`);
+			return;
+		}
+		console.error(`[builder] "${method}" was refused`, error);
+	});
 	return sent;
 };
 
@@ -80,6 +91,39 @@ export type ContextMenuRegistration = {
 	enableWhen?: ShowWhen;
 };
 
+export type SettingsRegistration = {
+	name: string;
+	label: string;
+	title: string;
+	icon: string;
+	/** What the settings frame paints. Declared here, because this item shows it. */
+	load?: SlotLoader;
+	before?: string;
+	after?: string;
+};
+
+/** One control in a property section (Tier B). The host renders it (B3, B4). */
+export type Control = {
+	name: string;
+	control: string;
+	label?: string;
+	/** The host writes the block itself. Needs the `block.update` capability. */
+	bind?: { attribute?: string; style?: string };
+	/** The extension's own value, when no block property holds it (B4). */
+	value?: unknown;
+	/** An action to invoke after a bound write, or on every change when unbound. */
+	action?: string;
+	options?: Array<{ label: string; value: string }>;
+};
+
+export type PropertiesRegistration = {
+	name: string;
+	controls: Control[];
+	before?: string;
+	after?: string;
+	showWhen?: ShowWhen;
+};
+
 export type ItemPatch = {
 	visible?: boolean;
 	enabled?: boolean;
@@ -109,6 +153,48 @@ export const contextMenu = {
 	register: (registration: ContextMenuRegistration) => declare("contextMenu.register", registration),
 	unregister: (name: string) => call("contextMenu.unregister", { name }),
 	update: (name: string, patch: ItemPatch) => call("contextMenu.update", { name, patch }),
+};
+
+export const properties = {
+	registerSection: (registration: PropertiesRegistration) =>
+		declare("properties.registerSection", registration),
+	unregisterSection: (name: string) => call("properties.unregisterSection", { name }),
+	/** Replaces the whole list, for a control list that depends on the extension's own state. */
+	setControls: (name: string, controls: Control[]) =>
+		call("properties.setControls", { name, controls }),
+	update: (name: string, patch: ItemPatch) => call("properties.update", { name, patch }),
+};
+
+export const settings = {
+	registerItem: ({ load, ...registration }: SettingsRegistration) => {
+		if (load) registerSlot("settings", { load });
+		return declare("settings.registerItem", registration);
+	},
+	unregisterItem: (name: string) => call("settings.unregisterItem", { name }),
+	update: (name: string, patch: ItemPatch) => call("settings.update", { name, patch }),
+};
+
+export type ContextField = "selection" | "breakpoint" | "editingMode" | "readOnly" | "page" | "site";
+
+export type ContextHandler = (context: Record<string, unknown>) => void;
+
+export const context = {
+	/** The whole snapshot, once. For startup. */
+	get: () => call("context.get") as Promise<Record<string, unknown>>,
+
+	/**
+	 * Names the fields this extension cares about, so the host sends nothing else
+	 * and only when one of them changes.
+	 *
+	 * Use it for a fact no rule can state — `isSVG` is in the snapshot but is not
+	 * a rule key — and push the answer back with `update`. Use `showWhen` for
+	 * anything the rule vocabulary already covers: it costs no messages.
+	 */
+	subscribe: (fields: ContextField[], handler: ContextHandler) => {
+		const stop = getChannel().listen("context", (payload) => handler(payload as Record<string, unknown>));
+		void declare("context.subscribe", { fields });
+		return stop;
+	},
 };
 
 export const actions = {

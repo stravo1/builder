@@ -6,7 +6,7 @@
  */
 
 import { getChannel, listenForHandshake } from "./connect";
-import { actions, contextMenu, leftPanel, toolbar } from "./namespaces";
+import { actions, context, contextMenu, leftPanel, properties, settings, toolbar } from "./namespaces";
 import { registerMain, registerSlot, type SlotEntry } from "./slots";
 
 export type HostInfo = { version: string; protocol: number };
@@ -35,6 +35,15 @@ const builder = {
 
 	/** A row in the block menu. Its rule is answered for the block under the cursor. */
 	contextMenu,
+
+	/** Tier B. A list naming Builder's own controls, which the host renders. */
+	properties,
+
+	/** One page in the settings dialog, and the document it loads. */
+	settings,
+
+	/** The editor snapshot: read it once, or name the fields to be told about. */
+	context,
 
 	/** The functions this extension owns. A descriptor names one, the host calls it. */
 	actions,
