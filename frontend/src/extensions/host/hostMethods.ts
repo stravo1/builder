@@ -9,11 +9,11 @@ import { PROTOCOL_VERSION } from "../types";
 import type { MethodTable } from "./capabilities";
 
 /** An extension ships on its own schedule, so it needs to know where it landed (1.10). */
-const hostInfo = () => ({
+const getHostInfo = () => ({
 	version: window.builder_version,
 	protocol: PROTOCOL_VERSION,
 });
 
 export const hostMethods: MethodTable = {
-	"host.info": { needs: null, run: hostInfo },
+	"host.info": { needs: null, run: getHostInfo },
 };

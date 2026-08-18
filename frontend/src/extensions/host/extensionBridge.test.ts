@@ -30,7 +30,7 @@ describe("the entry channel", () => {
 		const entry = channel();
 		host.connect("acme/icons", entry);
 
-		expect(host.entryChannel("acme/icons")).toBe(entry);
+		expect(host.getEntryChannel("acme/icons")).toBe(entry);
 	});
 
 	it("does not let a later frame replace the entry channel", () => {
@@ -39,7 +39,7 @@ describe("the entry channel", () => {
 		host.connect("acme/icons", entry);
 		host.connect("acme/icons", channel());
 
-		expect(host.entryChannel("acme/icons")).toBe(entry);
+		expect(host.getEntryChannel("acme/icons")).toBe(entry);
 	});
 
 	it("forgets a channel that disconnects", () => {
@@ -48,7 +48,7 @@ describe("the entry channel", () => {
 		host.connect("acme/icons", entry);
 		host.disconnect("acme/icons", entry);
 
-		expect(host.entryChannel("acme/icons")).toBeUndefined();
+		expect(host.getEntryChannel("acme/icons")).toBeUndefined();
 	});
 
 	it("ignores a disconnect from a channel it does not hold", () => {
@@ -57,7 +57,7 @@ describe("the entry channel", () => {
 		host.connect("acme/icons", entry);
 		host.disconnect("acme/icons", channel());
 
-		expect(host.entryChannel("acme/icons")).toBe(entry);
+		expect(host.getEntryChannel("acme/icons")).toBe(entry);
 	});
 
 	it("takes a new entry channel once the first has gone", () => {
@@ -69,7 +69,7 @@ describe("the entry channel", () => {
 		const second = channel();
 		host.connect("acme/icons", second);
 
-		expect(host.entryChannel("acme/icons")).toBe(second);
+		expect(host.getEntryChannel("acme/icons")).toBe(second);
 	});
 });
 
@@ -200,7 +200,7 @@ describe("teardown", () => {
 		host.connect("acme/icons", entry);
 		host.teardown("acme/icons");
 
-		expect(host.entryChannel("acme/icons")).toBeUndefined();
+		expect(host.getEntryChannel("acme/icons")).toBeUndefined();
 		return expect(entry.call("host.info")).rejects.toThrow(/closed/);
 	});
 

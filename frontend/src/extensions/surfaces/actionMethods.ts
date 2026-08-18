@@ -45,7 +45,7 @@ export const invokeAction = async (
 	action: string,
 	context: Record<string, unknown> = {},
 ) => {
-	const channel = actions.has(keyOf(extension, action)) && bridge.entryChannel(extension.name);
+	const channel = actions.has(keyOf(extension, action)) && bridge.getEntryChannel(extension.name);
 	if (!channel) {
 		toast.error(`${extension.label} could not run "${action}".`);
 		console.error(`Extension "${extension.name}" has no live action named "${action}"`);

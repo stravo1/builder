@@ -19,7 +19,7 @@ bridge.define({ ...hostMethods, ...surfaceMethods });
 export const {
 	connect: connectExtension,
 	disconnect: disconnectExtension,
-	entryChannel,
+	getEntryChannel,
 	dispatcherFor,
 	onTeardown,
 	teardown: teardownExtension,

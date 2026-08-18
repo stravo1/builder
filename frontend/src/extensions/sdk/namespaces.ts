@@ -16,7 +16,7 @@
 
 import { holdAction, releaseAction, type ActionHandler } from "./actions";
 import { getChannel } from "./connect";
-import { activeSlot, registerSlot } from "./slots";
+import { getActiveSlot, registerSlot } from "./slots";
 
 /** An imperative call. Any frame may make one: `update` and `run` are not declarations. */
 const call = (method: string, params?: unknown) => getChannel().call(method, params);
@@ -34,7 +34,7 @@ const call = (method: string, params?: unknown) => getChannel().call(method, par
  * the extension.
  */
 const declare = (method: string, params?: unknown) => {
-	if (activeSlot() !== "main") return Promise.resolve();
+	if (getActiveSlot() !== "main") return Promise.resolve();
 
 	const sent = call(method, params);
 	sent.catch((error) => {

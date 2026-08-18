@@ -30,7 +30,7 @@ const visualSlots = new Map<VisualSlot, SlotEntry>();
  */
 export const setActiveSlot = (name: ExtensionSlot) => (slot = name);
 
-export const activeSlot = () => slot;
+export const getActiveSlot = () => slot;
 
 const claim = (slot: ExtensionSlot, taken: boolean) => {
 	if (taken) throw new Error(`This extension already registered its "${slot}" slot`);

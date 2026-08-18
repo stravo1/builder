@@ -45,13 +45,13 @@ export const factsFor = (block: Block): BlockFacts => ({
  * every selected block, and it is the only way to reach them once the per-block
  * fields go quiet.
  */
-const selection = () => {
+const getSelection = () => {
 	const blocks = blockController.getSelectedBlocks();
 	const shared = { count: blocks.length, blockIds: blocks.map((block) => block.blockId) };
 	return blocks.length === 1 ? { ...shared, ...factsFor(blocks[0]) } : shared;
 };
 
-const page = () => {
+const getPage = () => {
 	const active = usePageStore().activePage;
 	if (!active) return null;
 
@@ -68,12 +68,12 @@ export const editorContext = computed<EditorContext>(() => {
 	const canvasStore = useCanvasStore();
 
 	return {
-		selection: selection(),
+		selection: getSelection(),
 		breakpoint: (canvasStore.activeCanvas?.activeBreakpoint ?? "desktop") as Breakpoint,
 		editingMode: canvasStore.editingMode,
 		readOnly: builderStore.readOnlyMode,
 		isAIEnabled: builderStore.isAIEnabled,
-		page: page(),
+		page: getPage(),
 		site: {
 			isDeveloperMode: Boolean(window.is_developer_mode),
 			isFCSite: Boolean(window.is_fc_site),

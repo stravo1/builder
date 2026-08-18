@@ -45,7 +45,7 @@ export const createExtensionBridge = (methods: MethodTable = {}) => {
 		if (entryChannels.get(extension) === channel) entryChannels.delete(extension);
 	};
 
-	const entryChannel = (extension: string) => entryChannels.get(extension);
+	const getEntryChannel = (extension: string) => entryChannels.get(extension);
 
 	/**
 	 * One dispatcher per frame, closed over the record it was handed, so a frame
@@ -96,7 +96,7 @@ export const createExtensionBridge = (methods: MethodTable = {}) => {
 		budgets.delete(extension);
 	};
 
-	return { connect, disconnect, entryChannel, define, dispatcherFor, onTeardown, teardown };
+	return { connect, disconnect, getEntryChannel, define, dispatcherFor, onTeardown, teardown };
 };
 
 export type ExtensionBridge = ReturnType<typeof createExtensionBridge>;
