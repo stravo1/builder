@@ -175,23 +175,23 @@ describe("the message budget", () => {
 });
 
 describe("teardown", () => {
-	it("runs every undo an extension registered", () => {
+	it("runs every unregister an extension registered", () => {
 		const host = bridge();
-		const undone: string[] = [];
-		host.onTeardown("acme/icons", () => undone.push("tab"));
-		host.onTeardown("acme/icons", () => undone.push("menu"));
+		const unregistered: string[] = [];
+		host.onTeardown("acme/icons", () => unregistered.push("tab"));
+		host.onTeardown("acme/icons", () => unregistered.push("menu"));
 		host.teardown("acme/icons");
 
-		expect(undone).toEqual(["tab", "menu"]);
+		expect(unregistered).toEqual(["tab", "menu"]);
 	});
 
-	it("leaves another extension's undos alone", () => {
+	it("leaves another extension's unregisters alone", () => {
 		const host = bridge();
-		const undone: string[] = [];
-		host.onTeardown("acme/other", () => undone.push("other"));
+		const unregistered: string[] = [];
+		host.onTeardown("acme/other", () => unregistered.push("other"));
 		host.teardown("acme/icons");
 
-		expect(undone).toEqual([]);
+		expect(unregistered).toEqual([]);
 	});
 
 	it("closes and drops the entry channel", () => {
@@ -204,14 +204,14 @@ describe("teardown", () => {
 		return expect(entry.call("host.info")).rejects.toThrow(/closed/);
 	});
 
-	it("runs an undo once, however often it is torn down", () => {
+	it("runs an unregister once, however often it is torn down", () => {
 		const host = bridge();
-		const undone: string[] = [];
-		host.onTeardown("acme/icons", () => undone.push("tab"));
+		const unregistered: string[] = [];
+		host.onTeardown("acme/icons", () => unregistered.push("tab"));
 		host.teardown("acme/icons");
 		host.teardown("acme/icons");
 
-		expect(undone).toEqual(["tab"]);
+		expect(unregistered).toEqual(["tab"]);
 	});
 
 	it("tears down an extension it never saw", () => {

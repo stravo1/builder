@@ -1,6 +1,6 @@
 /**
  * The one owner of an extension's live state: its entry channel, its message
- * budget, and the undo list teardown walks.
+ * budget, and the unregister list teardown walks.
  *
  * A factory rather than a module: `index.ts` holds the one instance the editor
  * runs on, and a test builds its own with its own method table.
@@ -20,7 +20,7 @@ export const createExtensionBridge = (methods: MethodTable = {}) => {
 	const table = new Map(Object.entries(methods));
 	const entryChannels = new Map<string, PortChannel>();
 	const budgets = new Map<string, Budget>();
-	const undos = new Map<string, Array<() => void>>();
+	const unregisters = new Map<string, Array<() => void>>();
 
 	// keyed by extension, not by frame: all four frames of one extension share one budget
 	const budgetFor = (extension: string) => {
@@ -78,10 +78,10 @@ export const createExtensionBridge = (methods: MethodTable = {}) => {
 	};
 
 	/** Milestone 4 appends every `register` the bridge makes on an extension's behalf (B2). */
-	const onTeardown = (extension: string, undo: () => void) => {
-		const list = undos.get(extension) ?? [];
-		undos.set(extension, list);
-		list.push(undo);
+	const onTeardown = (extension: string, unregister: () => void) => {
+		const list = unregisters.get(extension) ?? [];
+		unregisters.set(extension, list);
+		list.push(unregister);
 	};
 
 	/**
@@ -89,8 +89,8 @@ export const createExtensionBridge = (methods: MethodTable = {}) => {
 	 * after itself, because its frames may never run again (B2).
 	 */
 	const teardown = (extension: string) => {
-		undos.get(extension)?.forEach((undo) => undo());
-		undos.delete(extension);
+		unregisters.get(extension)?.forEach((unregister) => unregister());
+		unregisters.delete(extension);
 		entryChannels.get(extension)?.close();
 		entryChannels.delete(extension);
 		budgets.delete(extension);

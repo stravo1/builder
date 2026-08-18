@@ -36,7 +36,7 @@ type Options<TRegistration extends Named, TItem extends RegistryEntry> = {
 export const createSurfaceItems = <TRegistration extends Named, TItem extends RegistryEntry>(
 	options: Options<TRegistration, TItem>,
 ) => {
-	const items = new Map<string, SurfaceItem<TRegistration> & { undo: () => void }>();
+	const items = new Map<string, SurfaceItem<TRegistration> & { unregister: () => void }>();
 
 	// the host composes every registry name: two extensions may pick the same one
 	const keyOf = (extension: InstalledExtension, name: string) => `${extension.name}:${name}`;
@@ -51,12 +51,12 @@ export const createSurfaceItems = <TRegistration extends Named, TItem extends Re
 	};
 
 	const mount = (key: string, item: SurfaceItem<TRegistration>) => {
-		const undo = options.registry.register(options.describe(key, item));
-		items.set(key, { ...item, undo });
+		const unregister = options.registry.register(options.describe(key, item));
+		items.set(key, { ...item, unregister });
 	};
 
 	const remove = (key: string) => {
-		items.get(key)?.undo();
+		items.get(key)?.unregister();
 		items.delete(key);
 	};
 
