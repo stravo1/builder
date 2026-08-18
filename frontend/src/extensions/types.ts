@@ -25,6 +25,53 @@ export type InstalledExtension = {
 	capabilities: Capability[];
 };
 
+export type Breakpoint = "desktop" | "tablet" | "mobile";
+
+/**
+ * What the host publishes about the selection (1.11).
+ *
+ * Every kind check reads the first selected block, because that is what
+ * `blockController` does and what every built-in `condition` therefore reports.
+ * An author who needs more reads `count`.
+ *
+ * The kind checks stay separate booleans rather than one `blockType`, because
+ * `Block` treats them as independent. A block can be a link and a container.
+ */
+export type EditorSelection = {
+	count: number;
+	blockId: string | null;
+	element: string; // the tag, the underlying truth behind every kind check
+	isRoot: boolean;
+	isText: boolean;
+	isImage: boolean;
+	isHTML: boolean;
+	isSVG: boolean;
+	isLink: boolean;
+	isContainer: boolean;
+	isVideo: boolean;
+	isInput: boolean;
+	isRepeater: boolean;
+	isComponent: boolean; // isExtendedFromComponent
+	isChildOfComponent: boolean;
+};
+
+/**
+ * The snapshot an extension reads instead of Builder's live state (1.11).
+ *
+ * A field enters this list only when a built-in `condition` already reads it.
+ * Adding a field later is cheap. Removing one is not.
+ */
+export type EditorContext = {
+	selection: EditorSelection;
+	breakpoint: Breakpoint;
+	editingMode: "page" | "fragment";
+	readOnly: boolean;
+	isAIEnabled: boolean;
+	/** Null while no page is open, so nothing can read an empty route as a real one. */
+	page: { route: string; isTemplate: boolean; isStandard: boolean; published: boolean } | null;
+	site: { isDeveloperMode: boolean; isFCSite: boolean };
+};
+
 /**
  * Extensions ship on their own schedule and will run against an older Builder,
  * so every message names the version it was written for.
