@@ -6,25 +6,19 @@
  *
  * Apart from `namespaces.ts` so that `connect.ts` can register the responder
  * without the two importing each other.
+ *
+ * Every frame holds the handlers, because every frame imports the same entry
+ * module. Only the entry frame names them to the host, so the host always calls
+ * back into the frame that outlives the others. B2 asks for that guarantee, and
+ * declaring at module scope gives it structurally: a dialog frame cannot leave a
+ * dangling handler, because the entry frame declared the same one.
  */
-
-import { activeSlot } from "./slots";
 
 export type ActionHandler = (context: Record<string, unknown>) => unknown;
 
 const handlers = new Map<string, ActionHandler>();
 
-/**
- * Only the entry frame may own an action. Any other frame can be closed while
- * the action is still on a descriptor, and the host cannot tell which frame
- * called, so the refusal belongs here, where the slot is known.
- */
-export const holdAction = (name: string, handler: ActionHandler) => {
-	if (activeSlot() !== "main") {
-		throw new Error(`Register actions from builder.main, not from the "${activeSlot()}" slot`);
-	}
-	handlers.set(name, handler);
-};
+export const holdAction = (name: string, handler: ActionHandler) => handlers.set(name, handler);
 
 export const releaseAction = (name: string) => handlers.delete(name);
 

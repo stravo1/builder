@@ -12,12 +12,20 @@ import { registerMain, registerSlot, type SlotEntry } from "./slots";
 export type HostInfo = { version: string; protocol: number };
 
 const builder = {
-	/** Runs in the hidden entry frame. Registers surfaces, paints nothing (C2). */
+	/**
+	 * Imperative startup work, in the hidden entry frame only.
+	 *
+	 * Registrations do not belong here. They are declarations, and every frame
+	 * needs to read them, so they go at module scope.
+	 */
 	main: (handler: () => void) => registerMain(handler),
 
-	panel: (entry: SlotEntry) => registerSlot("panel", entry),
+	/**
+	 * A dialog has no registration to hang a loader on: it is opened by
+	 * `ui.openDialog`, never registered. So it declares its document on its own.
+	 * A panel and a settings page carry `load` on the item that shows them.
+	 */
 	dialog: (entry: SlotEntry) => registerSlot("dialog", entry),
-	settings: (entry: SlotEntry) => registerSlot("settings", entry),
 
 	/** One tab, registered from the entry frame and drawn by the host (Tier C). */
 	leftPanel,
