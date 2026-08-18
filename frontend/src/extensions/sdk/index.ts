@@ -6,7 +6,7 @@
  */
 
 import { getChannel, listenForHandshake } from "./connect";
-import { actions, leftPanel, toolbar } from "./namespaces";
+import { actions, contextMenu, leftPanel, toolbar } from "./namespaces";
 import { registerMain, registerSlot, type SlotEntry } from "./slots";
 
 export type HostInfo = { version: string; protocol: number };
@@ -24,6 +24,9 @@ const builder = {
 
 	/** A descriptor. Builder draws the button and posts the action back (Tier A). */
 	toolbar,
+
+	/** A row in the block menu. Its rule is answered for the block under the cursor. */
+	contextMenu,
 
 	/** The functions this extension owns. A descriptor names one, the host calls it. */
 	actions,

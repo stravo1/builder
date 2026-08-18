@@ -30,30 +30,42 @@ export type Breakpoint = "desktop" | "tablet" | "mobile";
 /**
  * What the host publishes about the selection (1.11).
  *
- * Every kind check reads the first selected block, because that is what
- * `blockController` does and what every built-in `condition` therefore reports.
- * An author who needs more reads `count`.
+ * Every field but `count` describes one block, so every field but `count` is
+ * defined only when exactly one block names it. With three blocks selected,
+ * `isText: true` would not be a coarse answer, it would be a false one.
+ *
+ * A rule naming any of these therefore stops matching under a multi-selection,
+ * because the matcher compares strictly and nothing equals `undefined`. The item
+ * hides rather than acting on a claim about a block the user did not mean.
+ *
+ * The context menu looks like an exception and is not one: a right-click names
+ * one block, so the host fills these from that block, whatever else is selected.
  *
  * The kind checks stay separate booleans rather than one `blockType`, because
  * `Block` treats them as independent. A block can be a link and a container.
  */
 export type EditorSelection = {
 	count: number;
-	blockId: string | null;
-	element: string; // the tag, the underlying truth behind every kind check
-	isRoot: boolean;
-	isText: boolean;
-	isImage: boolean;
-	isHTML: boolean;
-	isSVG: boolean;
-	isLink: boolean;
-	isContainer: boolean;
-	isVideo: boolean;
-	isInput: boolean;
-	isRepeater: boolean;
-	isComponent: boolean; // isExtendedFromComponent
-	isChildOfComponent: boolean;
+	/** Every selected block, in the order the canvas holds them. Always present. */
+	blockIds: string[];
+	blockId?: string;
+	element?: string; // the tag, the underlying truth behind every kind check
+	isRoot?: boolean;
+	isText?: boolean;
+	isImage?: boolean;
+	isHTML?: boolean;
+	isSVG?: boolean;
+	isLink?: boolean;
+	isContainer?: boolean;
+	isVideo?: boolean;
+	isInput?: boolean;
+	isRepeater?: boolean;
+	isComponent?: boolean; // isExtendedFromComponent
+	isChildOfComponent?: boolean;
 };
+
+/** One block's own answers, carrying no claim about the selection it sits in. */
+export type BlockFacts = Omit<EditorSelection, "count" | "blockIds">;
 
 /**
  * The snapshot an extension reads instead of Builder's live state (1.11).

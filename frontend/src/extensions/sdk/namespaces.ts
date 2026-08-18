@@ -40,6 +40,19 @@ export type ToolbarRegistration = {
 	enableWhen?: ShowWhen;
 };
 
+export type ContextMenuRegistration = {
+	name: string;
+	label: string;
+	/** The name of an action this extension registered. A row with none does nothing. */
+	action: string;
+	/** Which menu the row belongs to. Fixed at registration. Defaults to "both". */
+	menu?: "canvas" | "layers" | "both";
+	before?: string;
+	after?: string;
+	showWhen?: ShowWhen;
+	enableWhen?: ShowWhen;
+};
+
 export type ItemPatch = {
 	visible?: boolean;
 	enabled?: boolean;
@@ -59,6 +72,12 @@ export const toolbar = {
 	register: (registration: ToolbarRegistration) => call("toolbar.register", registration),
 	unregister: (name: string) => call("toolbar.unregister", { name }),
 	update: (name: string, patch: ItemPatch) => call("toolbar.update", { name, patch }),
+};
+
+export const contextMenu = {
+	register: (registration: ContextMenuRegistration) => call("contextMenu.register", registration),
+	unregister: (name: string) => call("contextMenu.unregister", { name }),
+	update: (name: string, patch: ItemPatch) => call("contextMenu.update", { name, patch }),
 };
 
 export const actions = {

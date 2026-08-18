@@ -2,22 +2,10 @@ import { reactive } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * The stores and blockController are mocked, so this runs without pinia and
- * without a canvas. What is under test is the mapping, not Builder's state.
+ * The stores are mocked, so this runs without pinia and without a canvas. What
+ * is under test is the mapping, not Builder's state.
  */
 const selectedBlocks = reactive<Array<Record<string, unknown>>>([]);
-const kinds = reactive({
-	isRoot: false,
-	isText: false,
-	isImage: false,
-	isHTML: false,
-	isSVG: false,
-	isLink: false,
-	isContainer: false,
-	isVideo: false,
-	isInput: false,
-	isRepeater: false,
-});
 const canvas = reactive({
 	editingMode: "page",
 	activeCanvas: { activeBreakpoint: "desktop" } as { activeBreakpoint: string | null } | null,
@@ -26,70 +14,102 @@ const builder = reactive({ readOnlyMode: false, isAIEnabled: true });
 const page = reactive({ activePage: null as Record<string, unknown> | null });
 
 vi.mock("@/utils/blockController", () => ({
-	default: new Proxy(
-		{ getSelectedBlocks: () => selectedBlocks },
-		{ get: (target, key) => (key in target ? target[key as "getSelectedBlocks"] : () => kinds[key as keyof typeof kinds]) },
-	),
+	default: { getSelectedBlocks: () => selectedBlocks },
 }));
 vi.mock("@/stores/canvasStore", () => ({ default: () => canvas }));
 vi.mock("@/stores/builderStore", () => ({ default: () => builder }));
 vi.mock("@/stores/pageStore", () => ({ default: () => page }));
 
 // the site flags are globals Frappe writes onto the page, as Settings/index.ts reads them
-const site = { is_developer_mode: 0, is_fc_site: 0 };
-vi.stubGlobal("window", site);
+vi.stubGlobal("window", { is_developer_mode: 0, is_fc_site: 0 });
 
-// vitest hoists every vi.mock above this import. The window stub is not hoisted,
-// and does not need to be: the getter reads it, module scope does not
-import { editorContext } from "./editorContext";
+import type Block from "@/block";
+import { editorContext, factsFor } from "./editorContext";
 
-const select = (...blocks: Array<Record<string, unknown>>) => {
-	selectedBlocks.splice(0, selectedBlocks.length, ...blocks);
+const KINDS = [
+	"isRoot",
+	"isText",
+	"isImage",
+	"isHTML",
+	"isSVG",
+	"isLink",
+	"isContainer",
+	"isVideo",
+	"isInput",
+	"isRepeater",
+] as const;
+
+const block = (blockId: string, fields: Record<string, unknown> = {}) => {
+	const answers: Record<string, unknown> = {
+		element: "div",
+		isExtendedFromComponent: () => false,
+		...fields,
+	};
+	KINDS.forEach((kind) => (answers[kind] ??= () => false));
+	return { blockId, ...answers };
 };
 
-const block = (fields: Record<string, unknown> = {}) => ({
-	blockId: "block-1",
-	element: "div",
-	isExtendedFromComponent: () => false,
-	...fields,
-});
+const select = (...blocks: Array<Record<string, unknown>>) =>
+	selectedBlocks.splice(0, selectedBlocks.length, ...blocks);
 
-describe("the selection", () => {
-	beforeEach(() => {
-		select();
-		Object.keys(kinds).forEach((kind) => (kinds[kind as keyof typeof kinds] = false));
-	});
+beforeEach(() => select());
 
-	it("reports an empty selection", () => {
-		expect(editorContext.value.selection).toMatchObject({ count: 0, blockId: null, element: "" });
-	});
+describe("one selected block", () => {
+	it("answers for that block", () => {
+		select(block("block-1", { element: "h1", isText: () => true }));
 
-	it("counts every selected block", () => {
-		select(block(), block());
-
-		expect(editorContext.value.selection.count).toBe(2);
-	});
-
-	it("names the first block, whatever else is selected", () => {
-		select(block({ blockId: "first", element: "h1" }), block({ blockId: "second" }));
-
-		expect(editorContext.value.selection.blockId).toBe("first");
-		expect(editorContext.value.selection.element).toBe("h1");
-	});
-
-	it("takes each kind from blockController", () => {
-		select(block());
-		kinds.isText = true;
-
-		expect(editorContext.value.selection.isText).toBe(true);
-		expect(editorContext.value.selection.isImage).toBe(false);
+		expect(editorContext.value.selection).toMatchObject({
+			count: 1,
+			blockIds: ["block-1"],
+			blockId: "block-1",
+			element: "h1",
+			isText: true,
+			isImage: false,
+		});
 	});
 
 	it("reads isComponent as a method and isChildOfComponent as a name", () => {
-		select(block({ isExtendedFromComponent: () => true, isChildOfComponent: "acme-card" }));
+		select(block("block-1", { isExtendedFromComponent: () => true, isChildOfComponent: "acme-card" }));
 
-		expect(editorContext.value.selection.isComponent).toBe(true);
-		expect(editorContext.value.selection.isChildOfComponent).toBe(true);
+		expect(editorContext.value.selection).toMatchObject({
+			isComponent: true,
+			isChildOfComponent: true,
+		});
+	});
+});
+
+describe("an ambiguous selection", () => {
+	it("leaves every per-block field undefined when several are selected", () => {
+		select(block("block-1", { isText: () => true }), block("block-2"));
+		const { selection } = editorContext.value;
+
+		expect(selection.count).toBe(2);
+		expect(selection.blockId).toBeUndefined();
+		expect(selection.element).toBeUndefined();
+		KINDS.forEach((kind) => expect(selection[kind]).toBeUndefined());
+	});
+
+	it("still names every selected block, in order", () => {
+		select(block("block-1"), block("block-2"), block("block-3"));
+
+		expect(editorContext.value.selection.blockIds).toEqual(["block-1", "block-2", "block-3"]);
+	});
+
+	it("leaves every per-block field undefined when nothing is selected", () => {
+		const { selection } = editorContext.value;
+
+		expect(selection).toEqual({ count: 0, blockIds: [] });
+	});
+});
+
+describe("factsFor", () => {
+	it("answers for the block it is given, whatever is selected", () => {
+		select(block("block-1"), block("block-2"));
+
+		expect(factsFor(block("block-9", { isImage: () => true }) as unknown as Block)).toMatchObject({
+			blockId: "block-9",
+			isImage: true,
+		});
 	});
 });
 

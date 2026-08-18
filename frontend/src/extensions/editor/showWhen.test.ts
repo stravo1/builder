@@ -9,6 +9,7 @@ const context = (
 ): EditorContext => ({
 	selection: {
 		count: 1,
+		blockIds: ["block-1"],
 		blockId: "block-1",
 		element: "div",
 		isRoot: false,
