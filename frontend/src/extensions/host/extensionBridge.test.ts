@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChannelCallError, createPortChannel } from "../transport/createPortChannel";
 import type { Capability, InstalledExtension } from "../types";
+import type { MethodTable } from "./capabilities";
 import { createExtensionBridge } from "./extensionBridge";
 
 const channel = () => createPortChannel(new MessageChannel().port1);
@@ -23,6 +24,52 @@ const codeOf = (call: () => unknown) => {
 	}
 	return undefined;
 };
+
+describe("read-only mode", () => {
+	const writing = { needs: "block.update" as const, run: () => "written" };
+	const reading = { needs: "block.read" as const, run: () => "read" };
+
+	const readOnlyBridge = (methods: MethodTable) =>
+		createExtensionBridge(methods, { isReadOnly: () => true });
+
+	it("refuses a write while the page is read-only", () => {
+		const dispatch = readOnlyBridge({ "block.update": writing }).dispatcherFor(record(["block.update"]));
+
+		expect(codeOf(() => dispatch("block.update", {}))).toBe("read_only");
+	});
+
+	it("still answers a read while the page is read-only", () => {
+		const dispatch = readOnlyBridge({ "block.get": reading }).dispatcherFor(record(["block.read"]));
+
+		expect(dispatch("block.get", {})).toBe("read");
+	});
+
+	it("still answers a method that needs no capability", () => {
+		const dispatch = readOnlyBridge({ "host.info": { needs: null, run: () => "info" } }).dispatcherFor(record());
+
+		expect(dispatch("host.info", {})).toBe("info");
+	});
+
+	it("allows the write when the page is not read-only", () => {
+		const host = createExtensionBridge({ "block.update": writing }, { isReadOnly: () => false });
+		const dispatch = host.dispatcherFor(record(["block.update"]));
+
+		expect(dispatch("block.update", {})).toBe("written");
+	});
+
+	// a bridge built without the option is the shape every existing test uses
+	it("allows the write when no reader was injected", () => {
+		const dispatch = bridge({ "block.update": writing }).dispatcherFor(record(["block.update"]));
+
+		expect(dispatch("block.update", {})).toBe("written");
+	});
+
+	it("refuses the missing grant before it looks at read-only", () => {
+		const dispatch = readOnlyBridge({ "block.update": writing }).dispatcherFor(record());
+
+		expect(codeOf(() => dispatch("block.update", {}))).toBe("capability_required");
+	});
+});
 
 describe("every live frame", () => {
 	it("keeps each channel an extension connects with", () => {

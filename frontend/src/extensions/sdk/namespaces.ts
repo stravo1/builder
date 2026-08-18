@@ -227,6 +227,22 @@ export const context = {
 	},
 };
 
+export type BlockPatch = {
+	attributes?: Record<string, string | null>;
+	/** Lands on the breakpoint the user is looking at unless `breakpoint` names one. */
+	styles?: Record<string, string | number | null>;
+	classes?: string[];
+	innerHTML?: string;
+	breakpoint?: "desktop" | "tablet" | "mobile";
+};
+
+export const block = {
+	/** One block and its subtree, as a plain object. The id comes from the context or a menu row. */
+	get: (blockId: string) => call("block.get", { blockId }) as Promise<Record<string, unknown>>,
+	/** Refused without `block.update`, and refused again while the page is read-only. */
+	update: (blockId: string, patch: BlockPatch) => call("block.update", { blockId, ...patch }),
+};
+
 export const actions = {
 	/**
 	 * The handler stays in this frame, and the host learns only the name.

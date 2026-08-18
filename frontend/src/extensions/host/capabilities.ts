@@ -23,6 +23,23 @@ export type HostMethod = {
 
 export type MethodTable = Record<string, HostMethod>;
 
+/**
+ * The capabilities that change something a user can see and save.
+ *
+ * Read-only mode is enforced once, in the bridge, rather than trusted to each
+ * write method (1.12). Naming the capabilities rather than the methods means a
+ * write method added later is covered before it is written.
+ */
+const WRITE_CAPABILITIES: Capability[] = ["block.update", "token.write"];
+
+export const assertWritable = (extension: InstalledExtension, method: string, needs: Capability | null) => {
+	if (!needs || !WRITE_CAPABILITIES.includes(needs)) return;
+	throw new ChannelCallError({
+		message: `"${extension.name}" cannot run "${method}" while this page is read-only.`,
+		code: "read_only",
+	});
+};
+
 /** The check a `bind` control makes at registration, where there is no call to gate (B3). */
 export const canWrite = (extension: InstalledExtension) => extension.capabilities.includes("block.update");
 

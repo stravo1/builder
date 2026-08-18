@@ -10,12 +10,18 @@
  * is what keeps the bridge from ever learning what a surface is.
  */
 
+import useBuilderStore from "@/stores/builderStore";
 import { editorMethods } from "./editor";
 import { bridge } from "./host/bridge";
 import { hostMethods } from "./host/hostMethods";
 import { surfaceMethods } from "./surfaces";
 
-bridge.define({ ...hostMethods, ...surfaceMethods, ...editorMethods });
+// the store resolves on each call, never at import, so nothing here depends on
+// the order the editor loads in
+bridge.define(
+	{ ...hostMethods, ...surfaceMethods, ...editorMethods },
+	{ isReadOnly: () => useBuilderStore().readOnlyMode },
+);
 
 export const {
 	connect: connectExtension,

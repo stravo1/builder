@@ -8,13 +8,21 @@
 
 import { ChannelCallError, unknownMethod, type Dispatcher, type PortChannel } from "../transport/createPortChannel";
 import type { InstalledExtension } from "../types";
-import { assertGranted, type MethodTable } from "./capabilities";
+import { assertGranted, assertWritable, type MethodTable } from "./capabilities";
 import { createBudget, type Budget } from "./rateLimit";
 
 const overBudget = (extension: string) =>
 	new ChannelCallError({ message: `"${extension}" is sending too many messages.`, code: "rate_limited" });
 
-export const createExtensionBridge = (methods: MethodTable = {}) => {
+/**
+ * `isReadOnly` is injected rather than imported, so no module on the way to this
+ * factory has to import a store. `index.ts` supplies it with the method table,
+ * because it is the one file that already imports the whole editor.
+ */
+export type BridgeOptions = { isReadOnly?: () => boolean };
+
+export const createExtensionBridge = (methods: MethodTable = {}, options: BridgeOptions = {}) => {
+	let { isReadOnly } = options;
 	// Look up only registered methods. Object properties such as "constructor"
 	// are inherited from the prototype and are not valid HostMethods.
 	const table = new Map(Object.entries(methods));
@@ -77,6 +85,7 @@ export const createExtensionBridge = (methods: MethodTable = {}) => {
 			if (!entry) throw unknownMethod(method);
 
 			assertGranted(extension, method, entry.needs);
+			if (isReadOnly?.()) assertWritable(extension, method, entry.needs);
 			return entry.run(params, extension);
 		};
 
@@ -85,9 +94,10 @@ export const createExtensionBridge = (methods: MethodTable = {}) => {
 	 * `dispatcherFor` without the bridge importing the surface back. Once only:
 	 * a second call would give the method list two owners.
 	 */
-	const define = (added: MethodTable) => {
+	const define = (added: MethodTable, settings: BridgeOptions = {}) => {
 		if (table.size) throw new Error("The extension method table is already defined");
 		Object.entries(added).forEach(([method, entry]) => table.set(method, entry));
+		isReadOnly = settings.isReadOnly ?? isReadOnly;
 	};
 
 	/** Milestone 4 appends every `register` the bridge makes on an extension's behalf (B2). */
