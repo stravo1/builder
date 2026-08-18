@@ -1,8 +1,10 @@
 <template>
 	<Tooltip :text="tooltip" :hoverDelay="0.6" arrow-class="mb-3">
 		<Button variant="ghost" :icon="icon" :disabled="disabled" :label="label" @click="click">
-			<template v-if="badge" #suffix>
-				<span class="rounded-full bg-surface-gray-3 px-1.5 text-xs text-ink-gray-7">{{ badge }}</span>
+			<template v-if="badge !== null && badge !== undefined" #suffix>
+				<!-- Builder's own Badge, with the theme fixed: the extension supplies
+				     the count, never how it looks. ReadOnlyBadge.vue is the precedent -->
+				<Badge variant="subtle" theme="gray" size="sm">{{ badge }}</Badge>
 			</template>
 		</Button>
 	</Tooltip>
@@ -10,13 +12,13 @@
 
 <script setup lang="ts">
 /**
- * Tier A: the extension sends data and Builder draws the button, so it cannot
- * look foreign (1.8).
+ * Tier A: the extension sends data and Builder draws the button out of its own
+ * components, so it cannot look foreign (1.8).
  *
  * It knows nothing about extensions or the bridge. The descriptor the bridge
  * synthesizes passes `onClick`, so every extension-aware decision stays there.
  */
-import { Button, Tooltip } from "frappe-ui";
+import { Badge, Button, Tooltip } from "frappe-ui";
 
 const props = defineProps<{
 	icon: string;
