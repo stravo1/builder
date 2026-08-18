@@ -11,6 +11,7 @@ import { actionMethods } from "./actionMethods";
 import { contextMenuMethods } from "./contextMenuMethods";
 import { leftPanelMethods } from "./leftPanelMethods";
 import { propertyMethods } from "./propertiesMethods";
+import { settingsMethods } from "./settingsMethods";
 import { toolbarMethods } from "./toolbarMethods";
 
 export const surfaceMethods: MethodTable = {
@@ -18,5 +19,6 @@ export const surfaceMethods: MethodTable = {
 	...toolbarMethods,
 	...contextMenuMethods,
 	...propertyMethods,
+	...settingsMethods,
 	...actionMethods,
 };
