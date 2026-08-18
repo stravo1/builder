@@ -14,7 +14,7 @@ import { createBudget, type Budget } from "./rateLimit";
 const overBudget = (extension: string) =>
 	new ChannelCallError({ message: `"${extension}" is sending too many messages.`, code: "rate_limited" });
 
-export const createExtensionBridge = (methods: MethodTable) => {
+export const createExtensionBridge = (methods: MethodTable = {}) => {
 	// a Map, not the object itself: a frame names the method, and "constructor"
 	// would answer from the prototype with something that is not a HostMethod
 	const table = new Map(Object.entries(methods));
@@ -64,8 +64,18 @@ export const createExtensionBridge = (methods: MethodTable) => {
 			if (!entry) throw unknownMethod(method);
 
 			assertGranted(extension, method, entry.needs);
-			return entry.run(params);
+			return entry.run(params, extension);
 		};
+
+	/**
+	 * Fills the table after construction, so a surface can import the bridge for
+	 * `dispatcherFor` without the bridge importing the surface back. Once only:
+	 * a second call would give the method list two owners.
+	 */
+	const define = (added: MethodTable) => {
+		if (table.size) throw new Error("The extension method table is already defined");
+		Object.entries(added).forEach(([method, entry]) => table.set(method, entry));
+	};
 
 	/** Milestone 4 appends every `register` the bridge makes on an extension's behalf (B2). */
 	const onTeardown = (extension: string, undo: () => void) => {
@@ -86,7 +96,7 @@ export const createExtensionBridge = (methods: MethodTable) => {
 		budgets.delete(extension);
 	};
 
-	return { connect, disconnect, entryChannel, dispatcherFor, onTeardown, teardown };
+	return { connect, disconnect, entryChannel, define, dispatcherFor, onTeardown, teardown };
 };
 
 export type ExtensionBridge = ReturnType<typeof createExtensionBridge>;

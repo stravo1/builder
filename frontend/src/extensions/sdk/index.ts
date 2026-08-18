@@ -6,6 +6,7 @@
  */
 
 import { getChannel, listenForHandshake } from "./connect";
+import { leftPanel } from "./namespaces";
 import { registerMain, registerSlot, type SlotEntry } from "./slots";
 
 export type HostInfo = { version: string; protocol: number };
@@ -17,6 +18,9 @@ const builder = {
 	panel: (entry: SlotEntry) => registerSlot("panel", entry),
 	dialog: (entry: SlotEntry) => registerSlot("dialog", entry),
 	settings: (entry: SlotEntry) => registerSlot("settings", entry),
+
+	/** One tab, registered from the entry frame and drawn by the host (Tier C). */
+	leftPanel,
 
 	host: {
 		/** Which Builder this extension landed in. An extension ships on its own schedule. */

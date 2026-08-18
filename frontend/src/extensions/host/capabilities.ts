@@ -17,7 +17,8 @@ import type { Capability, InstalledExtension } from "../types";
  */
 export type HostMethod = {
 	needs: Capability | null;
-	run: (params: unknown) => unknown;
+	/** The record comes from the dispatcher's closure, never from the wire (B2). */
+	run: (params: unknown, extension: InstalledExtension) => unknown;
 };
 
 export type MethodTable = Record<string, HostMethod>;
