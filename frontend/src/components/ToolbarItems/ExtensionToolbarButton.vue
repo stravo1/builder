@@ -1,6 +1,14 @@
 <template>
 	<Tooltip :text="tooltip" :hoverDelay="0.6" arrow-class="mb-3">
-		<Button variant="ghost" :icon="icon" :disabled="disabled" :label="label" @click="click">
+		<Button
+			variant="ghost"
+			:icon="icon.startsWith('lucide-') ? undefined : icon"
+			:disabled="disabled"
+			:label="label"
+			@click="click">
+			<template v-if="icon.startsWith('lucide-')" #icon>
+				<RuntimeLucideIcon :name="icon" class="size-4.5" />
+			</template>
 			<template v-if="badge !== null && badge !== undefined" #suffix>
 				<!-- Builder's own Badge, with the theme fixed: the extension supplies
 				     the count, never how it looks. ReadOnlyBadge.vue is the precedent -->

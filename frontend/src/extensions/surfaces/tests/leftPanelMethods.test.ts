@@ -90,6 +90,7 @@ describe("register", () => {
 		expect(registered("acme/icons:icons")).toMatchObject({
 			label: "Icons",
 			icon: "lucide-shapes",
+			usesRuntimeIcon: true,
 			after: "Assets",
 			lazy: true,
 		});

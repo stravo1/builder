@@ -7,6 +7,7 @@ export type SettingsItem = RegistryItem & {
 	label: string;
 	title: string;
 	icon: string;
+	usesRuntimeIcon?: boolean;
 	group: SettingsGroup;
 	component: Component;
 	/** What the pane receives. An extension's frame needs its record; a built-in pane needs nothing. */

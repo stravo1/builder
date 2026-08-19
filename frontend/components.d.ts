@@ -145,6 +145,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     RouteTreeNode: typeof import('./src/components/RouteTreeNode.vue')['default']
     RouteTreeView: typeof import('./src/components/RouteTreeView.vue')['default']
+    RuntimeLucideIcon: typeof import('./src/components/ToolbarItems/RuntimeLucideIcon.vue')['default']
     SearchBlock: typeof import('./src/components/Controls/SearchBlock.vue')['default']
     SelectOptions: typeof import('./src/components/PropsOptions/SelectOptions.vue')['default']
     SettingsGear: typeof import('./src/components/Icons/SettingsGear.vue')['default']

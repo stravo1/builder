@@ -121,6 +121,7 @@ const settingsCommands = computed<PaletteItem[]>(() =>
 			title: item.title,
 			description: "Settings",
 			icon: item.icon,
+			usesRuntimeIcon: item.usesRuntimeIcon,
 			section: item.group === "Current Page" ? "page" : "global",
 			action: () => openSettings(item.name),
 		})),

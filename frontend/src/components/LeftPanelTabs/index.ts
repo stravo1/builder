@@ -10,6 +10,7 @@ import type { Component } from "vue";
 export type LeftPanelTab = RegistryItem & {
 	label: string;
 	icon: string | Component;
+	usesRuntimeIcon?: boolean;
 	component?: Component;
 	props?: () => Record<string, unknown>;
 	/** mount on first open, then keep alive */

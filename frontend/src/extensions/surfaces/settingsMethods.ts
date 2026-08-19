@@ -59,6 +59,7 @@ const toRegistryItem = (key: string, { extension, registration }: SurfaceItem<Re
 		label: registration.label,
 		title: registration.title,
 		icon: registration.icon,
+		usesRuntimeIcon: registration.icon.startsWith("lucide-"),
 		group: "Global",
 		before: registration.before,
 		after: registration.after,

@@ -54,6 +54,7 @@ const toRegistryItem = (key: string, { extension, registration }: SurfaceItem<Re
 		name: key,
 		label: registration.label,
 		icon: registration.icon,
+		usesRuntimeIcon: registration.icon.startsWith("lucide-"),
 		before: registration.before,
 		after: registration.after,
 		// 1.13: mount on first open, and v-show keeps the document alive after that

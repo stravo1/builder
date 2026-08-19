@@ -59,6 +59,7 @@ describe("registerItem", () => {
 		expect(registered("builder/sample:sample")).toMatchObject({
 			label: "Sample",
 			title: "Sample Extension",
+			usesRuntimeIcon: true,
 		});
 	});
 
