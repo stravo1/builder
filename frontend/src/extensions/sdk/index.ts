@@ -6,7 +6,18 @@
  */
 
 import { getChannel, listenForHandshake } from "./connect";
-import { actions, block, context, contextMenu, leftPanel, page, properties, settings, toolbar } from "./namespaces";
+import {
+	actions,
+	block,
+	context,
+	contextMenu,
+	leftPanel,
+	page,
+	properties,
+	settings,
+	state,
+	toolbar,
+} from "./namespaces";
 import { registerMain, registerSlot, type SlotEntry } from "./slots";
 import { ui } from "./ui";
 
@@ -54,6 +65,9 @@ const builder = {
 
 	/** A modal the host draws, holding a document of this extension's own. */
 	ui,
+
+	/** This extension's own storage. No capability, because Builder never reads it. */
+	state,
 
 	/** The functions this extension owns. A descriptor names one, the host calls it. */
 	actions,

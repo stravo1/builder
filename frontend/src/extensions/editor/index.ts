@@ -10,6 +10,7 @@ import type { MethodTable } from "../host/capabilities";
 import { blockMethods } from "./blockMethods";
 import { contextMethods } from "./contextMethods";
 import { pageMethods } from "./pageMethods";
+import { stateMethods } from "./stateMethods";
 import { uiMethods } from "./uiMethods";
 
 export const editorMethods: MethodTable = {
@@ -17,4 +18,5 @@ export const editorMethods: MethodTable = {
 	...blockMethods,
 	...pageMethods,
 	...uiMethods,
+	...stateMethods,
 };

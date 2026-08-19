@@ -255,6 +255,14 @@ export const page = {
 	getBlocks: () => call("page.getBlocks") as Promise<Array<Record<string, unknown>>>,
 };
 
+export const state = {
+	/** Everything this extension has stored. Per browser and per user. */
+	get: () => call("state.get") as Promise<Record<string, unknown>>,
+	/** Merged at the top level. Never removes a key the patch leaves unmentioned. */
+	set: (state: Record<string, unknown>) => call("state.set", { state }),
+	unset: (key: string) => call("state.unset", { key }),
+};
+
 export const actions = {
 	/**
 	 * The handler stays in this frame, and the host learns only the name.
