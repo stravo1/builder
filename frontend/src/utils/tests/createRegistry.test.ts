@@ -1,4 +1,4 @@
-import { ref } from "vue";
+import { isReactive, ref } from "vue";
 import { describe, expect, it } from "vitest";
 import { createRegistry, type RegistryItem } from "../createRegistry";
 
@@ -115,6 +115,14 @@ describe("createRegistry", () => {
 
 		expect(registry.visible.value).toHaveLength(1);
 		expect(registry.visible.value[0].label).toBe("new");
+	});
+
+	it("keeps a component entry raw", () => {
+		const registry = createRegistry<TestItem & { component: object }>();
+		const component = { render: () => null };
+		registry.register({ name: "menu", component });
+
+		expect(isReactive(registry.all.value[0].component)).toBe(false);
 	});
 
 	it("refuses to replace a built-in item", () => {

@@ -1,4 +1,4 @@
-import { computed, reactive, ref, toRaw } from "vue";
+import { computed, markRaw, reactive, ref, toRaw } from "vue";
 
 /**
  * Every registry item needs a stable identity, and may ask for a position
@@ -62,7 +62,9 @@ export function createRegistry<T extends RegistryEntry>() {
 	};
 
 	const add = (item: T) => {
-		const registered = { ...item };
+		// Registry entries can carry Vue components. Keeping the snapshot raw stops
+		// the reactive Map from proxying those components before a surface renders it.
+		const registered = markRaw({ ...item });
 		items.set(item.name, registered);
 		place(registered);
 		// a later registration under the same name owns the entry, so this must not delete it
