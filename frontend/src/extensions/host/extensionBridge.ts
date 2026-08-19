@@ -35,7 +35,7 @@ export const createExtensionBridge = (methods: MethodTable = {}, options: Bridge
 	const budgets = new Map<string, Budget>();
 	const unregisters = new Map<string, Array<() => void>>();
 
-	// keyed by extension, not by frame: all four frames of one extension share one budget
+	// keyed by extension, not by frame: every frame of one extension shares one budget
 	const budgetFor = (extension: string) => {
 		const known = budgets.get(extension);
 		if (known) return known;

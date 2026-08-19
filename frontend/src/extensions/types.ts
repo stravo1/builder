@@ -5,8 +5,8 @@
  * holds the guards over these shapes.
  */
 
-/** The four documents an extension can have. The host names one at the handshake. */
-export type ExtensionSlot = "main" | "panel" | "dialog" | "settings";
+/** The five documents an extension can have. The host names one at the handshake. */
+export type ExtensionSlot = "main" | "panel" | "dialog" | "popover" | "settings";
 
 /** Every capability the bridge gates a method by. Mirrors CAPABILITIES in builder_extension.py. */
 export const CAPABILITIES = [
@@ -16,6 +16,7 @@ export const CAPABILITIES = [
 	"page.read",
 	"token.write",
 	"ui.dialog",
+	"ui.popover",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];

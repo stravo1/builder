@@ -78,6 +78,7 @@ declare module 'vue' {
     ExtensionDialog: typeof import('./src/components/ExtensionDialog.vue')['default']
     ExtensionFrame: typeof import('./src/components/ExtensionFrame.vue')['default']
     ExtensionHost: typeof import('./src/components/ExtensionHost.vue')['default']
+    ExtensionPopover: typeof import('./src/components/ExtensionPopover.vue')['default']
     ExtensionToolbarButton: typeof import('./src/components/ToolbarItems/ExtensionToolbarButton.vue')['default']
     EyeDropper: typeof import('./src/components/Icons/EyeDropper.vue')['default']
     Files: typeof import('./src/components/Icons/Files.vue')['default']

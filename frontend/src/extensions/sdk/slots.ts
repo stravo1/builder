@@ -1,11 +1,11 @@
 /**
- * The four slot entries an extension registers, and running the one that arrived.
+ * The five slot entries an extension registers, and running the one that arrived.
  *
  * The slot names are fixed and none is a name the author picks (D5).
  *
- * Every frame imports the same entry module, so all four registrations run in
+ * Every frame imports the same entry module, so all five registrations run in
  * every frame. Only the one the handshake named is then executed. That is how
- * one module serves four frames: the frame learns which it is after the module
+ * one module serves five frames: the frame learns which it is after the module
  * has already been read.
  *
  * It is also why `main` takes a callback and the rest take `{ load }`. The entry

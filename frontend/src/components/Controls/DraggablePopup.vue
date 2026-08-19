@@ -74,7 +74,9 @@ const props = withDefaults(
 	},
 );
 
-const emit = defineEmits(["update:modelValue"]);
+// "dragging" lets a consumer whose content swallows the pointer, such as an
+// iframe, stop taking events until the drag ends
+const emit = defineEmits(["update:modelValue", "dragging"]);
 
 const popoverContent = ref(null) as Ref<HTMLElement | null>;
 const headerRef = ref<HTMLElement | null>(null);
@@ -99,6 +101,7 @@ const togglePopup = () => {
 
 const startDrag = (event: MouseEvent) => {
 	isDragging.value = true;
+	emit("dragging", true);
 	startX = event.clientX;
 	startY = event.clientY;
 	startLeft = popupLeft.value;
@@ -120,6 +123,7 @@ const drag = (event: MouseEvent) => {
 
 const stopDrag = () => {
 	isDragging.value = false;
+	emit("dragging", false);
 	document.removeEventListener("mousemove", drag);
 
 	if (popoverContent.value && headerRef.value) {

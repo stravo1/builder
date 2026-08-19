@@ -71,7 +71,7 @@ const get = (_params: unknown, extension: InstalledExtension) => read(extension)
  * A patch, merged at the top level. `set` never removes what a call leaves
  * unmentioned, which is the rule `tokens.set` follows too (D6).
  *
- * An extension has up to four frames and any of them may write. Merging is what
+ * An extension has up to five frames and any of them may write. Merging is what
  * stops a panel saving its query from erasing what the entry frame stored.
  */
 const set = (params: unknown, extension: InstalledExtension) => {

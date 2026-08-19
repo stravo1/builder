@@ -6,19 +6,24 @@ vi.mock("../../host/bridge", () => ({
 	bridge: { onTeardown: (_extension: string, unregister: () => void) => teardowns.push(unregister) },
 }));
 
-import { dismissDialog, openDialogs, uiMethods } from "../uiMethods";
+import { dismissDialog, dismissPopover, openDialogs, openPopovers, uiMethods } from "../uiMethods";
 import type { InstalledExtension } from "../../types";
 
 const record = (name = "acme/icons"): InstalledExtension => ({
 	name,
 	label: "Icon Library",
 	entry: `/builder_extension_asset/${name}@1.0.0/main.js`,
-	capabilities: ["ui.dialog"],
+	capabilities: ["ui.dialog", "ui.popover"],
 });
 
 const open = (params: unknown = {}, extension = record()) =>
 	uiMethods["ui.openDialog"].run(params, extension) as Promise<unknown>;
 const close = (params: unknown, extension = record()) => uiMethods["ui.closeDialog"].run(params, extension);
+
+const openPopover = (params: unknown = {}, extension = record()) =>
+	uiMethods["ui.openPopover"].run(params, extension) as Promise<unknown>;
+const closePopover = (params: unknown, extension = record()) =>
+	uiMethods["ui.closePopover"].run(params, extension);
 
 const codeOf = (call: () => unknown) => {
 	try {
@@ -32,13 +37,20 @@ const codeOf = (call: () => unknown) => {
 beforeEach(() => {
 	teardowns.splice(0).forEach((stop) => stop());
 	openDialogs.clear();
+	openPopovers.clear();
 });
 
 describe("the capability", () => {
-	it("gates both methods behind ui.dialog", () => {
+	it("gates both dialog methods behind ui.dialog", () => {
 		expect(uiMethods["ui.openDialog"].needs).toBe("ui.dialog");
 		expect(uiMethods["ui.closeDialog"].needs).toBe("ui.dialog");
 		expect(uiMethods["ui.setHeight"]).toBeUndefined();
+	});
+
+	// a popover leaves the editor usable, so a modal is not what it should grant
+	it("gates both popover methods behind ui.popover", () => {
+		expect(uiMethods["ui.openPopover"].needs).toBe("ui.popover");
+		expect(uiMethods["ui.closePopover"].needs).toBe("ui.popover");
 	});
 });
 
@@ -102,5 +114,68 @@ describe("how it ends", () => {
 
 	it("refuses a close with no dialog open", () => {
 		expect(codeOf(() => close({ result: 1 }))).toBe("unknown_item");
+	});
+});
+
+describe("the popover", () => {
+	it("records one the host can render", () => {
+		void openPopover({ title: "Palette", props: { set: "lucide" } });
+
+		expect(openPopovers.get("acme/icons")).toEqual({ title: "Palette", props: { set: "lucide" } });
+	});
+
+	it("titles it with the extension's label when the call names none", () => {
+		void openPopover();
+
+		expect(openPopovers.get("acme/icons")?.title).toBe("Icon Library");
+	});
+
+	it("resolves the opener with the result the popover passed", async () => {
+		const opened = openPopover();
+		closePopover({ result: { name: "star" } });
+
+		await expect(opened).resolves.toEqual({ name: "star" });
+		expect(openPopovers.has("acme/icons")).toBe(false);
+	});
+
+	it("resolves with nothing when the user closes it", async () => {
+		const opened = openPopover();
+		dismissPopover("acme/icons");
+
+		await expect(opened).resolves.toBeUndefined();
+	});
+
+	it("settles the caller when the extension is torn down", async () => {
+		const opened = openPopover();
+		teardowns.splice(0).forEach((stop) => stop());
+
+		await expect(opened).resolves.toBeUndefined();
+		expect(openPopovers.has("acme/icons")).toBe(false);
+	});
+
+	it("refuses a close with no popover open", () => {
+		expect(codeOf(() => closePopover({ result: 1 }))).toBe("unknown_item");
+	});
+
+	// the two are separate surfaces: a dialog must not answer a popover's close
+	it("keeps the dialog and the popover apart", async () => {
+		const dialog = open({ title: "Modal" });
+		const popover = openPopover({ title: "Floating" });
+
+		closePopover({ result: "popover" });
+
+		await expect(popover).resolves.toBe("popover");
+		expect(openDialogs.get("acme/icons")?.title).toBe("Modal");
+
+		close({ result: "dialog" });
+		await expect(dialog).resolves.toBe("dialog");
+	});
+
+	it("keeps one extension's popover out of another's", () => {
+		void openPopover({ title: "Mine" });
+		void openPopover({ title: "Theirs" }, record("acme/other"));
+
+		expect(openPopovers.get("acme/icons")?.title).toBe("Mine");
+		expect(openPopovers.get("acme/other")?.title).toBe("Theirs");
 	});
 });

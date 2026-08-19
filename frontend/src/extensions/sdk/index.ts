@@ -40,6 +40,9 @@ const builder = {
 	 */
 	dialog: (entry: SlotEntry) => registerSlot("dialog", entry),
 
+	/** The same, for the floating panel `ui.openPopover` opens. */
+	popover: (entry: SlotEntry) => registerSlot("popover", entry),
+
 	/** One tab, registered from the entry frame and drawn by the host (Tier C). */
 	leftPanel,
 
@@ -64,7 +67,7 @@ const builder = {
 	/** The whole tree, when one block is not enough. */
 	page,
 
-	/** A modal the host draws, holding a document of this extension's own. */
+	/** A modal, and a draggable popover, the host draws around this extension's own document. */
 	ui,
 
 	/** This extension's own storage. No capability, because Builder never reads it. */

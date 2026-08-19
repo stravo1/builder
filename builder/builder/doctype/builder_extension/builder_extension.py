@@ -27,6 +27,7 @@ CAPABILITIES = (
 	"page.read",
 	"token.write",
 	"ui.dialog",
+	"ui.popover",
 )
 
 

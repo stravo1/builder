@@ -25,6 +25,12 @@
 			v-for="extension in installedExtensions"
 			:key="`dialog-${frameKey(extension)}`"
 			:extension="extension" />
+
+		<!-- the same, for ui.openPopover. A popover is not modal, so both can stand -->
+		<ExtensionPopover
+			v-for="extension in installedExtensions"
+			:key="`popover-${frameKey(extension)}`"
+			:extension="extension" />
 	</div>
 </template>
 
@@ -32,6 +38,7 @@
 import DevExtensionDialog from "@/components/DevExtensionDialog.vue";
 import ExtensionDialog from "@/components/ExtensionDialog.vue";
 import ExtensionFrame from "@/components/ExtensionFrame.vue";
+import ExtensionPopover from "@/components/ExtensionPopover.vue";
 import { installedExtensions, loadExtensions } from "@/data/extensions";
 import { connectExtension, disconnectExtension, dispatcherFor, teardownExtension } from "@/extensions";
 import type { InstalledExtension } from "@/extensions/types";

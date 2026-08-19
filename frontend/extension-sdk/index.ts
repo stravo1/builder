@@ -27,6 +27,6 @@ export type {
 	SlotLoader,
 	ToolbarRegistration,
 } from "../src/extensions/sdk/namespaces";
-export type { DialogOptions } from "../src/extensions/sdk/ui";
+export type { FrameOptions } from "../src/extensions/sdk/ui";
 export type { SlotEntry } from "../src/extensions/sdk/slots";
 export type { Breakpoint, EditorContext, EditorSelection } from "../src/extensions/types";
