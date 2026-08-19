@@ -1,0 +1,19 @@
+{
+	"name": "@builder/extension-sdk",
+	"version": "1.0.0",
+	"description": "The package an extension author installs. The runtime half is served by Builder.",
+	"type": "module",
+	"exports": {
+		".": "./index.ts",
+		"./vue": "./vue.ts",
+		"./vite": "./vite.js"
+	},
+	"peerDependencies": {
+		"vue": "^3.4.0"
+	},
+	"peerDependenciesMeta": {
+		"vue": {
+			"optional": true
+		}
+	}
+}

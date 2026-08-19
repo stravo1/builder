@@ -22,7 +22,8 @@
         "src/*"
       ],
       "tslib" : ["/node_modules/tslib/tslib.d.ts"],
-      "vue": ["../node_modules/vue"]
+      "vue": ["../node_modules/vue"],
+      "@builder/extension-sdk": ["extension-sdk/index.ts"]
     },
     "lib": [
       "esnext",
@@ -35,6 +36,7 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
+    "extension-sdk/**/*.ts",
     "tests/**/*.ts",
     "tests/**/*.tsx"
   ],
