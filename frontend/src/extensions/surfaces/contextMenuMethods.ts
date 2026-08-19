@@ -40,7 +40,7 @@ type Registration = {
 	enabled: boolean;
 };
 
-const read = (params: unknown): Registration => {
+const readRegistration = (params: unknown): Registration => {
 	const sent = fields(params);
 	assertRule(sent.showWhen as ShowWhenRule | undefined);
 	assertRule(sent.enableWhen as ShowWhenRule | undefined, "enableWhen");
@@ -60,7 +60,7 @@ const read = (params: unknown): Registration => {
 	};
 };
 
-const merge = (current: Registration, patch: Record<string, unknown>): Registration => ({
+const mergeRegistration = (current: Registration, patch: Record<string, unknown>): Registration => ({
 	...current,
 	label: optionalText(patch.label, "label") ?? current.label,
 	visible: flag(patch.visible, current.visible),
@@ -103,14 +103,14 @@ const toRegistryItem = (key: string, { extension, registration }: SurfaceItem<Re
 const rows = createSurfaceItems<Registration, ContextMenuOption>({
 	kind: "context menu item",
 	registry: blockContextMenuOptions,
-	read,
-	merge,
+	readRegistration,
+	mergeRegistration,
 	toRegistryItem,
 });
 
 export const contextMenuMethods: MethodTable = {
 	// the host draws the row and runs the action through the bridge
-	"contextMenu.register": { needs: null, run: rows.add },
-	"contextMenu.unregister": { needs: null, run: rows.drop },
-	"contextMenu.update": { needs: null, run: rows.patch },
+	"contextMenu.register": { needs: null, run: rows.register },
+	"contextMenu.unregister": { needs: null, run: rows.unregister },
+	"contextMenu.update": { needs: null, run: rows.update },
 };

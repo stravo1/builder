@@ -42,7 +42,7 @@ type Registration = {
 const badgeOf = (value: unknown) =>
 	typeof value === "string" || typeof value === "number" ? value : null;
 
-const read = (params: unknown): Registration => {
+const readRegistration = (params: unknown): Registration => {
 	const sent = fields(params);
 	assertRule(sent.showWhen as ShowWhenRule | undefined);
 	assertRule(sent.enableWhen as ShowWhenRule | undefined, "enableWhen");
@@ -64,7 +64,7 @@ const read = (params: unknown): Registration => {
 	};
 };
 
-const merge = (current: Registration, patch: Record<string, unknown>): Registration => ({
+const mergeRegistration = (current: Registration, patch: Record<string, unknown>): Registration => ({
 	...current,
 	icon: optionalText(patch.icon, "icon") ?? current.icon,
 	label: optionalText(patch.label, "label") ?? current.label,
@@ -98,14 +98,14 @@ const toRegistryItem = (key: string, { extension, registration }: SurfaceItem<Re
 const buttons = createSurfaceItems<Registration, ToolbarItem>({
 	kind: "toolbar item",
 	registry: toolbarItems,
-	read,
-	merge,
+	readRegistration,
+	mergeRegistration,
 	toRegistryItem,
 });
 
 export const toolbarMethods: MethodTable = {
 	// Builder draws the button, so the extension gains nothing it did not have
-	"toolbar.register": { needs: null, run: buttons.add },
-	"toolbar.unregister": { needs: null, run: buttons.drop },
-	"toolbar.update": { needs: null, run: buttons.patch },
+	"toolbar.register": { needs: null, run: buttons.register },
+	"toolbar.unregister": { needs: null, run: buttons.unregister },
+	"toolbar.update": { needs: null, run: buttons.update },
 };

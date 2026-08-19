@@ -25,7 +25,7 @@ type Registration = {
 	visible: boolean;
 };
 
-const read = (params: unknown): Registration => {
+const readRegistration = (params: unknown): Registration => {
 	const sent = fields(params);
 	assertRule(sent.showWhen as ShowWhenRule | undefined);
 
@@ -40,7 +40,7 @@ const read = (params: unknown): Registration => {
 	};
 };
 
-const merge = (current: Registration, patch: Record<string, unknown>): Registration => ({
+const mergeRegistration = (current: Registration, patch: Record<string, unknown>): Registration => ({
 	...current,
 	label: optionalText(patch.label, "label") ?? current.label,
 	icon: optionalText(patch.icon, "icon") ?? current.icon,
@@ -74,15 +74,15 @@ const toRegistryItem = (key: string, { extension, registration }: SurfaceItem<Re
 const tabs = createSurfaceItems<Registration, LeftPanelTab>({
 	kind: "left panel tab",
 	registry: leftPanelTabs,
-	oneEach: true,
-	read,
-	merge,
+	limitToOnePerExtension: true,
+	readRegistration,
+	mergeRegistration,
 	toRegistryItem,
 });
 
 export const leftPanelMethods: MethodTable = {
 	// the host draws the tab strip and mounts the frame, so no capability gates this
-	"leftPanel.register": { needs: null, run: tabs.add },
-	"leftPanel.unregister": { needs: null, run: tabs.drop },
-	"leftPanel.update": { needs: null, run: tabs.patch },
+	"leftPanel.register": { needs: null, run: tabs.register },
+	"leftPanel.unregister": { needs: null, run: tabs.unregister },
+	"leftPanel.update": { needs: null, run: tabs.update },
 };

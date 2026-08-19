@@ -30,7 +30,7 @@ type Registration = {
 	visible: boolean;
 };
 
-const read = (params: unknown, extension: InstalledExtension): Registration => {
+const readRegistration = (params: unknown, extension: InstalledExtension): Registration => {
 	const sent = fields(params);
 	assertRule(sent.showWhen as ShowWhenRule | undefined);
 
@@ -46,7 +46,7 @@ const read = (params: unknown, extension: InstalledExtension): Registration => {
 	};
 };
 
-const merge = (
+const mergeRegistration = (
 	current: Registration,
 	patch: Record<string, unknown>,
 	extension: InstalledExtension,
@@ -72,8 +72,8 @@ const toRegistryItem = (key: string, { extension, registration }: SurfaceItem<Re
 const sections = createSurfaceItems<Registration, PropertySection>({
 	kind: "property section",
 	registry: propertySections,
-	read,
-	merge,
+	readRegistration,
+	mergeRegistration,
 	toRegistryItem,
 });
 
@@ -83,12 +83,12 @@ const sections = createSurfaceItems<Registration, PropertySection>({
  */
 const setControls = (params: unknown, extension: InstalledExtension) => {
 	const sent = fields(params);
-	return sections.patch({ name: sent.name, patch: { controls: sent.controls } }, extension);
+	return sections.update({ name: sent.name, patch: { controls: sent.controls } }, extension);
 };
 
 export const propertyMethods: MethodTable = {
-	"properties.registerSection": { needs: null, run: sections.add },
-	"properties.unregisterSection": { needs: null, run: sections.drop },
-	"properties.update": { needs: null, run: sections.patch },
+	"properties.registerSection": { needs: null, run: sections.register },
+	"properties.unregisterSection": { needs: null, run: sections.unregister },
+	"properties.update": { needs: null, run: sections.update },
 	"properties.setControls": { needs: null, run: setControls },
 };

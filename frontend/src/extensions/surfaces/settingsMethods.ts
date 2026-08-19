@@ -27,7 +27,7 @@ type Registration = {
 	visible: boolean;
 };
 
-const read = (params: unknown): Registration => {
+const readRegistration = (params: unknown): Registration => {
 	const sent = fields(params);
 	const label = text(sent.label, "label");
 
@@ -43,7 +43,7 @@ const read = (params: unknown): Registration => {
 	};
 };
 
-const merge = (current: Registration, patch: Record<string, unknown>): Registration => ({
+const mergeRegistration = (current: Registration, patch: Record<string, unknown>): Registration => ({
 	...current,
 	label: optionalText(patch.label, "label") ?? current.label,
 	title: optionalText(patch.title, "title") ?? current.title,
@@ -79,15 +79,15 @@ const toRegistryItem = (key: string, { extension, registration }: SurfaceItem<Re
 const pages = createSurfaceItems<Registration, SettingsItem>({
 	kind: "settings item",
 	registry: settingsItems,
-	oneEach: true,
-	read,
-	merge,
+	limitToOnePerExtension: true,
+	readRegistration,
+	mergeRegistration,
 	toRegistryItem,
 });
 
 export const settingsMethods: MethodTable = {
 	// the host draws the sidebar entry and mounts the frame, so no capability gates this
-	"settings.registerItem": { needs: null, run: pages.add },
-	"settings.unregisterItem": { needs: null, run: pages.drop },
-	"settings.update": { needs: null, run: pages.patch },
+	"settings.registerItem": { needs: null, run: pages.register },
+	"settings.unregisterItem": { needs: null, run: pages.unregister },
+	"settings.update": { needs: null, run: pages.update },
 };
