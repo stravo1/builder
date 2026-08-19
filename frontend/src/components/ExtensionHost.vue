@@ -4,20 +4,29 @@
 		and paints nothing, so it is display:none. An extension's visible frames
 		are mounted by the surfaces that own them, never here.
 	-->
-	<div class="hidden" aria-hidden="true">
-		<ExtensionFrame
+	<div>
+		<div class="hidden" aria-hidden="true">
+			<ExtensionFrame
+				v-for="extension in installedExtensions"
+				:key="extension.name"
+				:extension="extension.name"
+				:entry="extension.entry"
+				slot="main"
+				:dispatch="dispatcherFor(extension)"
+				@connect="(channel) => connectExtension(extension.name, channel)"
+				@disconnect="(channel) => disconnectExtension(extension.name, channel)" />
+		</div>
+
+		<!-- one per extension, each rendering nothing until ui.openDialog (1.15) -->
+		<ExtensionDialog
 			v-for="extension in installedExtensions"
-			:key="extension.name"
-			:extension="extension.name"
-			:entry="extension.entry"
-			slot="main"
-			:dispatch="dispatcherFor(extension)"
-			@connect="(channel) => connectExtension(extension.name, channel)"
-			@disconnect="(channel) => disconnectExtension(extension.name, channel)" />
+			:key="`dialog-${extension.name}`"
+			:extension="extension" />
 	</div>
 </template>
 
 <script setup lang="ts">
+import ExtensionDialog from "@/components/ExtensionDialog.vue";
 import ExtensionFrame from "@/components/ExtensionFrame.vue";
 import { installedExtensions, loadExtensions } from "@/data/extensions";
 import { connectExtension, disconnectExtension, dispatcherFor, teardownExtension } from "@/extensions";

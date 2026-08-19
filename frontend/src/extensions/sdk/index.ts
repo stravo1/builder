@@ -8,6 +8,7 @@
 import { getChannel, listenForHandshake } from "./connect";
 import { actions, block, context, contextMenu, leftPanel, page, properties, settings, toolbar } from "./namespaces";
 import { registerMain, registerSlot, type SlotEntry } from "./slots";
+import { ui } from "./ui";
 
 export type HostInfo = { version: string; protocol: number };
 
@@ -50,6 +51,9 @@ const builder = {
 
 	/** The whole tree, when one block is not enough. */
 	page,
+
+	/** A modal the host draws, holding a document of this extension's own. */
+	ui,
 
 	/** The functions this extension owns. A descriptor names one, the host calls it. */
 	actions,

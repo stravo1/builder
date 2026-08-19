@@ -50,7 +50,9 @@ const start = async (message: ConnectMessage, port: MessagePort) => {
 
 	// the shell names no extension, so the entry to import arrives here (D5)
 	await import(/* @vite-ignore */ message.entry);
-	runSlot();
+	// the props travel to the document the slot mounts, so a dialog can be opened
+	// with call-time arguments (1.15)
+	await runSlot(slotProps);
 };
 
 /**

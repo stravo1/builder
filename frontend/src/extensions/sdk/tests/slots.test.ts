@@ -1,3 +1,9 @@
+/**
+ * @vitest-environment jsdom
+ *
+ * The mount contract puts a module into the shell's `#app`, so this file needs a
+ * document. Every other test here runs without one.
+ */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // each test needs a fresh module, because a slot is claimed once per frame
@@ -64,13 +70,63 @@ describe("slots", () => {
 		);
 	});
 
-	it("does not load a visual slot's module", () => {
-		const load = vi.fn(() => Promise.resolve({}));
-		slots.registerSlot("panel", { load });
+	describe("mounting a visual slot", () => {
+		let root: HTMLElement;
 
-		slots.setActiveSlot("panel");
-		slots.runSlot();
+		beforeEach(() => {
+			document.body.innerHTML = `<div id="app"></div>`;
+			root = document.getElementById("app") as HTMLElement;
+		});
 
-		expect(load).not.toHaveBeenCalled();
+		it("loads the module and mounts it into the shell's root", async () => {
+			const mount = vi.fn();
+			slots.registerSlot("panel", { load: () => Promise.resolve({ mount }) });
+
+			slots.setActiveSlot("panel");
+			await slots.runSlot({ query: "star" });
+
+			expect(mount).toHaveBeenCalledWith(root, { query: "star" });
+		});
+
+		it("loads nothing for the slot this frame is not", async () => {
+			const load = vi.fn(() => Promise.resolve({ mount: () => {} }));
+			slots.registerSlot("panel", { load });
+			slots.registerSlot("dialog", { load: () => Promise.resolve({ mount: () => {} }) });
+
+			slots.setActiveSlot("dialog");
+			await slots.runSlot();
+
+			expect(load).not.toHaveBeenCalled();
+		});
+
+		// the C2 shape, before the vue layer exists: a component object, not a mount
+		it("names the vue layer when the module exports no mount", async () => {
+			slots.registerSlot("panel", { load: () => Promise.resolve({ default: { render: () => {} } }) });
+
+			slots.setActiveSlot("panel");
+
+			await expect(slots.runSlot()).rejects.toThrow(/extension-sdk\/vue/);
+		});
+
+		it("runs the cleanup the module returned when the frame goes away", async () => {
+			const cleanup = vi.fn();
+			slots.registerSlot("panel", { load: () => Promise.resolve({ mount: () => cleanup }) });
+
+			slots.setActiveSlot("panel");
+			await slots.runSlot();
+			window.dispatchEvent(new Event("pagehide"));
+
+			expect(cleanup).toHaveBeenCalled();
+		});
+
+		it("warns and mounts nothing when this frame's slot was never registered", async () => {
+			const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+			slots.setActiveSlot("panel");
+			await slots.runSlot();
+
+			expect(warn).toHaveBeenCalled();
+			expect(root.innerHTML).toBe("");
+			warn.mockRestore();
+		});
 	});
 });

@@ -1,0 +1,50 @@
+<template>
+	<!--
+		The host owns the chrome, so every extension dialog looks the same and only
+		the document inside it belongs to the extension (1.15). `Controls/Dialog.vue`
+		is what Builder's own settings dialog uses, so the backdrop, Escape and the
+		click outside all come from there.
+	-->
+	<Dialog v-if="dialog" :modelValue="true" @update:modelValue="dismiss">
+		<template #body>
+			<div class="bg-surface-modal p-5" :style="{ width: `${dialog.width}px` }">
+				<div class="flex items-center justify-between pb-4">
+					<h3 class="text-lg-semibold text-ink-gray-9">{{ dialog.title }}</h3>
+					<Button icon="lucide-x" variant="ghost" @click="dismiss" />
+				</div>
+				<ExtensionFrame
+					:extension="extension.name"
+					:entry="extension.entry"
+					slot="dialog"
+					:initialProps="dialog.props"
+					:dispatch="dispatch"
+					:style="{ height: `${dialog.height ?? DEFAULT_HEIGHT}px` }"
+					@connect="(channel) => connectExtension(extension.name, channel)"
+					@disconnect="(channel) => disconnectExtension(extension.name, channel)" />
+			</div>
+		</template>
+	</Dialog>
+</template>
+
+<script setup lang="ts">
+import Dialog from "@/components/Controls/Dialog.vue";
+import ExtensionFrame from "@/components/ExtensionFrame.vue";
+import { connectExtension, disconnectExtension, dispatcherFor } from "@/extensions";
+import { dismissDialog, openDialogs } from "@/extensions/editor/uiMethods";
+import type { InstalledExtension } from "@/extensions/types";
+import { computed } from "vue";
+
+/** Until `ui.setHeight` says otherwise. Tall enough to hold a short form. */
+const DEFAULT_HEIGHT = 320;
+
+const props = defineProps<{ extension: InstalledExtension }>();
+
+const dialog = computed(() => openDialogs.get(props.extension.name));
+const dispatch = computed(() => dispatcherFor(props.extension));
+
+/**
+ * Escape, the close button and a click outside all end the same way: the pending
+ * `openDialog` resolves with nothing, and the host does that itself (1.15).
+ */
+const dismiss = () => dismissDialog(props.extension.name);
+</script>

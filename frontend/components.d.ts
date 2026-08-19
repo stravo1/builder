@@ -74,6 +74,7 @@ declare module 'vue' {
     DynamicValueDropdown: typeof import('./src/components/DynamicValueDropdown.vue')['default']
     DynamicValueHandler: typeof import('./src/components/Controls/DynamicValueHandler.vue')['default']
     EditableSpan: typeof import('./src/components/EditableSpan.vue')['default']
+    ExtensionDialog: typeof import('./src/components/ExtensionDialog.vue')['default']
     ExtensionFrame: typeof import('./src/components/ExtensionFrame.vue')['default']
     ExtensionHost: typeof import('./src/components/ExtensionHost.vue')['default']
     ExtensionToolbarButton: typeof import('./src/components/ToolbarItems/ExtensionToolbarButton.vue')['default']
