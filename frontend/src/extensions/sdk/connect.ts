@@ -53,6 +53,9 @@ const start = async (message: ConnectMessage, port: MessagePort) => {
 	// the props travel to the document the slot mounts, so a dialog can be opened
 	// with call-time arguments (1.15)
 	await runSlot(slotProps);
+	// The iframe document loading is not enough: the extension's entry and its
+	// visual slot may still be importing. The host removes its loader only now.
+	channel.emit("slot.ready");
 };
 
 /**

@@ -1,15 +1,25 @@
 <template>
-	<!-- no allow-same-origin: the opaque origin is the whole isolation guarantee (1.7) -->
-	<iframe
-		ref="frame"
-		:src="SHELL_URL"
-		class="h-full w-full border-0"
-		sandbox="allow-scripts allow-forms"
-		@load="connect" />
+	<div class="relative h-full w-full">
+		<div v-if="loading" class="absolute inset-0 grid place-items-center bg-surface-base">
+			<LoadingIcon class="h-6 w-6 text-ink-gray-5" />
+		</div>
+		<!-- no allow-same-origin: the opaque origin is the whole isolation guarantee (1.7) -->
+		<iframe
+			ref="frame"
+			:src="SHELL_URL"
+			class="h-full w-full border-0"
+			sandbox="allow-scripts allow-forms"
+			@load="connect" />
+	</div>
 </template>
 
 <script setup lang="ts">
-import { createPortChannel, type Dispatcher, type PortChannel } from "@/extensions/transport/createPortChannel";
+import LoadingIcon from "@/components/Icons/Loading.vue";
+import {
+	createPortChannel,
+	type Dispatcher,
+	type PortChannel,
+} from "@/extensions/transport/createPortChannel";
 import { PROTOCOL_VERSION, type ConnectMessage, type ExtensionSlot } from "@/extensions/types";
 import useBuilderStore from "@/stores/builderStore";
 import { onBeforeUnmount, ref, watch } from "vue";
@@ -39,6 +49,7 @@ const emit = defineEmits<{
 
 const store = useBuilderStore();
 const frame = ref<HTMLIFrameElement | null>(null);
+const loading = ref(true);
 let channel: PortChannel | null = null;
 
 const theme = () => (store.isDark ? "dark" : "light");
@@ -66,8 +77,10 @@ const disconnect = () => {
  */
 const connect = () => {
 	disconnect();
+	loading.value = true;
 	const pair = new MessageChannel();
 	channel = createPortChannel(pair.port1, props.dispatch);
+	channel.listen("slot.ready", () => (loading.value = false));
 	// "*" is the only target that reaches an opaque origin. The port makes the
 	// broadcast safe: it is transferred once, and this is the last window message
 	frame.value?.contentWindow?.postMessage(handshake(), "*", [pair.port2]);
