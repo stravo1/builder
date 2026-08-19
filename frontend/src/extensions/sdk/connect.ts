@@ -65,6 +65,10 @@ export const listenForHandshake = () => {
 		if (message.origin !== HOST_ORIGIN) return;
 		if (channel) return; // the port transfers once, so the handshake happens once
 		if (!isConnectMessage(message.data) || !message.ports[0]) return;
-		void start(message.data, message.ports[0]);
+		// a frame that cannot import its entry, or whose slot throws while it
+		// mounts, would otherwise fail with nothing printed anywhere
+		start(message.data, message.ports[0]).catch((error) =>
+			console.error(`[builder] the "${message.data.slot}" frame could not start`, error),
+		);
 	});
 };

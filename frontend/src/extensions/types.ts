@@ -9,13 +9,16 @@
 export type ExtensionSlot = "main" | "panel" | "dialog" | "settings";
 
 /** Every capability the bridge gates a method by. Mirrors CAPABILITIES in builder_extension.py. */
-export type Capability =
-	| "context.read"
-	| "block.read"
-	| "block.update"
-	| "page.read"
-	| "token.write"
-	| "ui.dialog";
+export const CAPABILITIES = [
+	"context.read",
+	"block.read",
+	"block.update",
+	"page.read",
+	"token.write",
+	"ui.dialog",
+] as const;
+
+export type Capability = (typeof CAPABILITIES)[number];
 
 /** One enabled record, as get_enabled_extensions returns it. */
 export type InstalledExtension = {
@@ -143,6 +146,10 @@ export type PortMessage = RequestMessage | ResponseMessage | EventMessage;
  * The channel answers such a message instead of dropping it, so an extension
  * built against a newer Builder learns why its call failed.
  */
-export type AnyVersionMessage = (Omit<RequestMessage, "v"> | Omit<ResponseMessage, "v"> | Omit<EventMessage, "v">) & {
+export type AnyVersionMessage = (
+	| Omit<RequestMessage, "v">
+	| Omit<ResponseMessage, "v">
+	| Omit<EventMessage, "v">
+) & {
 	v: number;
 };

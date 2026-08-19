@@ -2,11 +2,13 @@
 # See license.txt
 
 import re
+from unittest.mock import patch
 
+import frappe
 from frappe.tests.utils import FrappeTestCase
 from frappe.website.serve import get_response_content
 
-from builder.utils import csp_hash
+from builder.utils import csp_hash, extension_dev_origins
 
 IMPORT_MAP = re.compile(r'<script type="importmap">(.*?)</script>', re.DOTALL)
 
@@ -36,3 +38,38 @@ class TestExtensionShell(FrappeTestCase):
 	def test_the_shell_names_no_extension(self):
 		"""One document serves every extension and every slot (D5)."""
 		self.assertNotIn("extension_name", self.html)
+
+	def test_a_production_site_allows_no_dev_server(self):
+		self.assertNotIn("localhost:*", self.html)
+
+
+class TestExtensionDevOrigins(FrappeTestCase):
+	def test_nothing_without_developer_mode(self):
+		with patch.dict(frappe.conf, {"developer_mode": 0}):
+			self.assertEqual(extension_dev_origins("http", "ws"), "")
+
+	def test_both_hosts_on_any_port(self):
+		with patch.dict(frappe.conf, {"developer_mode": 1}):
+			sources = extension_dev_origins("http")
+
+		self.assertEqual(sources, "http://localhost:* http://127.0.0.1:*")
+
+	def test_one_source_per_scheme_and_host(self):
+		"""A module is fetched over http, and hot reload opens a websocket."""
+		with patch.dict(frappe.conf, {"developer_mode": 1}):
+			sources = extension_dev_origins("http", "ws").split()
+
+		self.assertEqual(len(sources), 4)
+		self.assertIn("ws://localhost:*", sources)
+
+	def test_the_shell_carries_them_in_developer_mode(self):
+		with patch.dict(frappe.conf, {"developer_mode": 1}):
+			html = get_response_content("/builder_extension")
+
+		script_src = re.search(r"script-src ([^;]*);", html).group(1)
+		connect_src = re.search(r"connect-src ([^;]*);", html).group(1)
+
+		self.assertIn("http://localhost:*", script_src)
+		# the module is a script, and its hot reload is a connection
+		self.assertNotIn("ws://localhost:*", script_src)
+		self.assertIn("ws://localhost:*", connect_src)

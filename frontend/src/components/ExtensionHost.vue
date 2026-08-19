@@ -8,7 +8,7 @@
 		<div class="hidden" aria-hidden="true">
 			<ExtensionFrame
 				v-for="extension in installedExtensions"
-				:key="extension.name"
+				:key="frameKey(extension)"
 				:extension="extension.name"
 				:entry="extension.entry"
 				slot="main"
@@ -17,28 +17,41 @@
 				@disconnect="(channel) => disconnectExtension(extension.name, channel)" />
 		</div>
 
+		<!-- editor chrome, not an extension's: it is how one is loaded at all -->
+		<DevExtensionDialog />
+
 		<!-- one per extension, each rendering nothing until ui.openDialog (1.15) -->
 		<ExtensionDialog
 			v-for="extension in installedExtensions"
-			:key="`dialog-${extension.name}`"
+			:key="`dialog-${frameKey(extension)}`"
 			:extension="extension" />
 	</div>
 </template>
 
 <script setup lang="ts">
+import DevExtensionDialog from "@/components/DevExtensionDialog.vue";
 import ExtensionDialog from "@/components/ExtensionDialog.vue";
 import ExtensionFrame from "@/components/ExtensionFrame.vue";
 import { installedExtensions, loadExtensions } from "@/data/extensions";
 import { connectExtension, disconnectExtension, dispatcherFor, teardownExtension } from "@/extensions";
+import type { InstalledExtension } from "@/extensions/types";
 import { onMounted, watch } from "vue";
 
 onMounted(loadExtensions);
 
+/**
+ * The entry joins the key, so loading a dev version of an installed extension
+ * remounts its frames. The name alone would keep the frame, which read its entry
+ * once at the handshake and would go on running the installed code.
+ */
+const frameKey = (extension: InstalledExtension) => `${extension.name}@${extension.entry}`;
+
 // unmounting a frame only closes its channel. What an extension registered
-// outlives it, so a record that left the list is torn down by name (B2)
+// outlives it, so an extension that left the list, or that is now served from
+// somewhere else, is torn down by name first (B2)
 watch(installedExtensions, (current, previous) => {
 	previous
-		?.filter((extension) => !current.some((row) => row.name === extension.name))
+		?.filter((extension) => !current.some((row) => frameKey(row) === frameKey(extension)))
 		.forEach((extension) => teardownExtension(extension.name));
 });
 </script>

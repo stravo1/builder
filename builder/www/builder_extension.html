@@ -10,6 +10,11 @@
 	reached on a second hostname, where the site URL would name the wrong origin.
 	The site URL covers a browser that does not match 'self' at an opaque origin.
 
+	extension_dev_origins adds localhost on any port, but only where the site runs
+	in developer mode. An extension loaded from a dev server imports its entry from
+	there, and its hot reload opens a websocket back to it. Both are refused by the
+	policy above, and neither can name its port in advance.
+
 	An import map is an inline script, so script-src blocks it without a hash or a
 	nonce. The map never changes, so it takes a hash. Both the hash and the script
 	body come from import_map below, which is what stops the two drifting apart.
@@ -23,11 +28,11 @@
 		<meta
 			http-equiv="Content-Security-Policy"
 			content="default-src 'none';
-				script-src 'self' {{ frappe.utils.get_url() }} {{ csp_hash(import_map) }};
+				script-src 'self' {{ frappe.utils.get_url() }} {{ csp_hash(import_map) }} {{ extension_dev_origins("http", "https") }};
 				style-src 'self' {{ frappe.utils.get_url() }} 'unsafe-inline';
 				img-src 'self' {{ frappe.utils.get_url() }} data: blob:;
 				font-src 'self' {{ frappe.utils.get_url() }} data:;
-				connect-src 'self' {{ frappe.utils.get_url() }};
+				connect-src 'self' {{ frappe.utils.get_url() }} {{ extension_dev_origins("http", "https", "ws", "wss") }};
 				base-uri 'none';
 				form-action 'none'" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />

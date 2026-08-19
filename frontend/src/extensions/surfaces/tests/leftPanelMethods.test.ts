@@ -78,6 +78,12 @@ describe("register", () => {
 		expect(() => register(tab("more"), icons)).toThrow(/already registers/);
 	});
 
+	it("takes the same tab again, because a reloaded frame registers it again", () => {
+		register(tab("panel"), icons);
+
+		expect(() => register(tab("panel"), icons)).not.toThrow();
+	});
+
 	it("carries the label, the icon and the anchor", () => {
 		register(tab("icons", { after: "Assets" }), icons);
 
@@ -172,9 +178,7 @@ describe("update", () => {
 	it("refuses another extension's tab", () => {
 		register(tab(), icons);
 
-		expect(() => update({ name: "icons", patch: { label: "Stolen" } }, charts)).toThrow(
-			/No left panel tab/,
-		);
+		expect(() => update({ name: "icons", patch: { label: "Stolen" } }, charts)).toThrow(/No left panel tab/);
 	});
 });
 

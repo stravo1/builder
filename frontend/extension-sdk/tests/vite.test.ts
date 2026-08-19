@@ -25,7 +25,15 @@ const project = (files: Record<string, string>) => {
 	return root;
 };
 
-const configure = (root: string) => builderExtension({ builderUrl: BUILDER_URL }).config({ root });
+const configure = (root: string, command = "build") =>
+	builderExtension({ builderUrl: BUILDER_URL }).config({ root }, { command });
+
+/** Both hooks read what `config` worked out, so a plugin is configured before it is asked. */
+const configured = (root: string, command: string) => {
+	const plugin = builderExtension({ builderUrl: BUILDER_URL });
+	plugin.config({ root }, { command });
+	return plugin;
+};
 
 afterEach(() => {
 	roots.forEach((root) => fs.rmSync(root, { recursive: true, force: true }));
@@ -72,10 +80,9 @@ describe("builderExtension", () => {
 
 	it("copies the manifest into the build", () => {
 		const root = project({ "src/main.js": "", "manifest.json": '{"name":"acme/icons"}' });
-		const plugin = builderExtension({ builderUrl: BUILDER_URL });
+		const plugin = configured(root, "build");
 		const emitFile = vi.fn();
 
-		plugin.config({ root });
 		plugin.generateBundle.call({ emitFile });
 
 		expect(emitFile).toHaveBeenCalledWith({
@@ -87,10 +94,139 @@ describe("builderExtension", () => {
 
 	it("refuses a build with no manifest", () => {
 		const root = project({ "src/main.js": "" });
-		const plugin = builderExtension({ builderUrl: BUILDER_URL });
-
-		plugin.config({ root });
+		const plugin = configured(root, "build");
 
 		expect(() => plugin.generateBundle.call({ emitFile: vi.fn() })).toThrow(/manifest.json/);
+	});
+
+	it("answers a null-origin frame, which Vite does not do on its own", () => {
+		const root = project({ "src/main.js": "" });
+
+		expect(configure(root).server.cors).toEqual({ origin: "*" });
+	});
+
+	it("lets the dev server read the project and the linked package", () => {
+		const root = project({ "src/main.js": "" });
+
+		// the list replaces Vite's default, so the project has to be named too
+		const [project_, packaged] = configure(root).server.fs.allow;
+		expect(project_).toBe(root);
+		expect(packaged).toMatch(/extension-sdk$/);
+	});
+});
+
+describe("the SDK import", () => {
+	it("resolves before Vite's own resolver, which would find a file on disk", () => {
+		expect(builderExtension({ builderUrl: BUILDER_URL }).enforce).toBe("pre");
+	});
+
+	it("names Builder's own URL in a dev server", () => {
+		const root = project({ "src/main.js": "" });
+
+		expect(configured(root, "serve").resolveId("@builder/extension-sdk")).toEqual({
+			id: `${BUILDER_URL}/builder_extension_asset/sdk/extension-sdk.js`,
+			external: true,
+		});
+	});
+
+	it("keeps the bare specifier in a build, where the import map resolves it", () => {
+		const root = project({ "src/main.js": "" });
+
+		expect(configured(root, "build").resolveId("@builder/extension-sdk")).toBe(undefined);
+	});
+
+	it("takes a builderUrl with a trailing slash", () => {
+		const root = project({ "src/main.js": "" });
+		const plugin = builderExtension({ builderUrl: `${BUILDER_URL}/` });
+		plugin.config({ root }, { command: "serve" });
+
+		expect(plugin.resolveId("@builder/extension-sdk").id).toBe(
+			`${BUILDER_URL}/builder_extension_asset/sdk/extension-sdk.js`,
+		);
+	});
+
+	it("leaves every other import alone", () => {
+		const root = project({ "src/main.js": "" });
+
+		expect(configured(root, "serve").resolveId("vue")).toBe(undefined);
+	});
+});
+
+describe("hot reload", () => {
+	const entryOf = (root: string) => path.join(root, "src/main.js");
+
+	it("loads Vite's client from the entry, because no HTML here does", () => {
+		const root = project({ "src/main.js": "" });
+
+		const result = configured(root, "serve").transform("REST", entryOf(root));
+
+		expect(result.code).toBe('import "/@vite/client";\nREST');
+	});
+
+	it("leaves every other module alone", () => {
+		const root = project({ "src/main.js": "" });
+
+		expect(configured(root, "serve").transform("REST", `${entryOf(root)}x`)).toBe(undefined);
+	});
+
+	it("adds nothing to a build", () => {
+		const root = project({ "src/main.js": "" });
+
+		expect(configured(root, "build").transform("REST", entryOf(root))).toBe(undefined);
+	});
+});
+
+describe("the descriptor", () => {
+	/** What the middleware wrote, by driving the response object it is handed. */
+	const read = (root: string) => {
+		const plugin = configured(root, "serve");
+		let handler = (_request: unknown, _response: unknown) => {};
+		plugin.configureServer({ middlewares: { use: (_path: string, fn: never) => (handler = fn) } });
+
+		let body = "";
+		const headers: Record<string, string> = {};
+		handler(
+			{},
+			{
+				setHeader: (name: string, value: string) => (headers[name] = value),
+				end: (written: string) => (body = written),
+			},
+		);
+		return { body: JSON.parse(body), headers };
+	};
+
+	it("names the extension, its grants and the entry the frame imports", () => {
+		const root = project({
+			"src/main.js": "",
+			"manifest.json": JSON.stringify({
+				name: "acme/icons",
+				label: "Icons",
+				version: "2.1.0",
+				capabilities: ["block.update"],
+			}),
+		});
+
+		expect(read(root).body).toEqual({
+			v: 1,
+			name: "acme/icons",
+			label: "Icons",
+			version: "2.1.0",
+			capabilities: ["block.update"],
+			// the dev server serves the source path, not the built name
+			entry: "/src/main.js",
+		});
+	});
+
+	it("asks for nothing when the manifest grants nothing", () => {
+		const root = project({ "src/main.js": "", "manifest.json": JSON.stringify({ name: "acme/icons" }) });
+
+		expect(read(root).body.capabilities).toEqual([]);
+	});
+
+	it("is readable from the editor, which is another origin", () => {
+		const root = project({ "src/main.js": "", "manifest.json": JSON.stringify({ name: "acme/icons" }) });
+
+		// this middleware runs before Vite's own, so it sets the header itself
+		expect(read(root).headers["Access-Control-Allow-Origin"]).toBe("*");
 	});
 });

@@ -66,12 +66,15 @@ export const createSurfaceItems = <TRegistration extends Named, TItem extends Re
 
 	const add = (params: unknown, extension: InstalledExtension) => {
 		const registration = options.read(params, extension);
-		const owned = [...items.values()].some((item) => item.extension.name === extension.name);
+		const key = keyOf(extension, registration.name);
+
+		// registering the same one again replaces it, which is what a reloaded frame
+		// does on every edit. Only a second, differently named one is refused
+		const owned = [...items].some(([held, item]) => item.extension.name === extension.name && held !== key);
 		if (options.oneEach && owned) {
 			throw refuse(`"${extension.name}" already registers a ${options.kind}.`, "already_registered");
 		}
 
-		const key = keyOf(extension, registration.name);
 		// a re-registration replaces the item, so its teardown must not be added twice
 		if (!items.has(key)) bridge.onTeardown(extension.name, () => remove(key));
 		mount(key, { extension, registration });

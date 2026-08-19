@@ -819,6 +819,20 @@ def csp_hash(content: str) -> str:
 	return f"'sha256-{base64.b64encode(digest).decode()}'"
 
 
+def extension_dev_origins(*schemes: str) -> str:
+	"""CSP sources for an extension served from a dev server on this machine.
+
+	Empty unless the site runs in developer mode, so no production site widens
+	its policy. A dev server picks its own port and nothing can predict it, so a
+	source names the host and leaves the port open.
+	"""
+	if not frappe.conf.developer_mode:
+		return ""
+
+	hosts = ("localhost", "127.0.0.1")
+	return " ".join(f"{scheme}://{host}:*" for scheme in schemes for host in hosts)
+
+
 def to_safe_json(data):
 	return frappe.as_json(data or {}).replace("</", r"<\/")
 

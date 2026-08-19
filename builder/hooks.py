@@ -58,6 +58,7 @@ jinja = {
 	"methods": [
 		"builder.builder.doctype.builder_component.builder_component.get_component_data",
 		"builder.utils.csp_hash",
+		"builder.utils.extension_dev_origins",
 	],
 	"filters": [
 		"builder.utils.combine",
