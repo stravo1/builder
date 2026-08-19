@@ -17,7 +17,7 @@ import { editorContext } from "../editor/editorContext";
 import { assertRule, matches, type ShowWhenRule } from "../editor/showWhen";
 import type { MethodTable } from "../host/capabilities";
 import { invokeAction } from "./actionMethods";
-import { fields, flag, oneOf, optionalText, text } from "./params";
+import { fields, flag, oneOf, optionalText, text } from "../params";
 import { createSurfaceItems, type SurfaceItem } from "./surfaceItems";
 
 const REGIONS = ["left", "center", "right"] as const;

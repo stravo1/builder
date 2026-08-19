@@ -5,7 +5,7 @@
  * all of them (1.12). A refusal carries a code, so the SDK can branch on it.
  */
 
-import { ChannelCallError } from "../transport/createPortChannel";
+import { ChannelCallError } from "./transport/createPortChannel";
 
 export const refuse = (message: string, code: string) => new ChannelCallError({ message, code });
 

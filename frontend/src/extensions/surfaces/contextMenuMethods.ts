@@ -20,7 +20,7 @@ import { assertRule, matches, type ShowWhenRule } from "../editor/showWhen";
 import type { MethodTable } from "../host/capabilities";
 import type { EditorContext } from "../types";
 import { invokeAction } from "./actionMethods";
-import { fields, flag, oneOf, optionalText, text } from "./params";
+import { fields, flag, oneOf, optionalText, text } from "../params";
 import { createSurfaceItems, type SurfaceItem } from "./surfaceItems";
 
 const MENUS = ["canvas", "layers", "both"] as const;

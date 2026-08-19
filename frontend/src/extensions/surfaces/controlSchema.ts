@@ -28,9 +28,9 @@ import blockController from "@/utils/blockController";
 import { editorContext } from "../editor/editorContext";
 import { assertRule, matches, type ShowWhenRule } from "../editor/showWhen";
 import { canWrite } from "../host/capabilities";
+import { fields, oneOf, optionalText, refuse, text } from "../params";
 import type { InstalledExtension } from "../types";
 import { invokeAction } from "./actionMethods";
-import { fields, oneOf, optionalText, refuse, text } from "./params";
 
 /**
  * The widgets Builder's own sections use most, less the ones an extension

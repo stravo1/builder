@@ -19,7 +19,7 @@
 import useCanvasStore from "@/stores/canvasStore";
 import { getBlockObject } from "@/utils/helpers";
 import type { MethodTable } from "../host/capabilities";
-import { refuse } from "../surfaces/params";
+import { refuse } from "../params";
 
 /**
  * A list, because that is the shape Builder stores a page in, even though the

@@ -18,8 +18,8 @@
 import { markRaw, reactive } from "vue";
 import { bridge } from "../host/bridge";
 import type { MethodTable } from "../host/capabilities";
+import { fields, optionalText, refuse } from "../params";
 import type { InstalledExtension } from "../types";
-import { fields, optionalText, refuse } from "../surfaces/params";
 
 /** Wide enough for a picker, narrow enough to stay a dialog. */
 const WIDTH = { min: 280, max: 900, fallback: 480 };

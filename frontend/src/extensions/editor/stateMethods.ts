@@ -16,8 +16,8 @@
  */
 
 import type { MethodTable } from "../host/capabilities";
+import { fields, refuse, text } from "../params";
 import type { InstalledExtension } from "../types";
-import { fields, refuse, text } from "../surfaces/params";
 
 /** Namespaced, the way `pageStore.ts:63` namespaces a page's route variables. */
 const keyFor = (extension: InstalledExtension) => `builder-extension:${extension.name}`;

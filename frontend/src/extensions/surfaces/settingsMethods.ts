@@ -14,7 +14,7 @@ import { settingsItems, type SettingsItem } from "@/components/Settings";
 import { bridge } from "../host/bridge";
 import type { MethodTable } from "../host/capabilities";
 import type { PortChannel } from "../transport/createPortChannel";
-import { fields, flag, optionalText, text } from "./params";
+import { fields, flag, optionalText, text } from "../params";
 import { createSurfaceItems, type SurfaceItem } from "./surfaceItems";
 
 type Registration = {

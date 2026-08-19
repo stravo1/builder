@@ -19,7 +19,7 @@ import { toast } from "frappe-ui";
 import { bridge } from "../host/bridge";
 import type { MethodTable } from "../host/capabilities";
 import type { InstalledExtension } from "../types";
-import { fields, refuse, text } from "./params";
+import { fields, refuse, text } from "../params";
 
 const actions = new Set<string>();
 

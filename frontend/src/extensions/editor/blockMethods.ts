@@ -18,8 +18,8 @@ import type Block from "@/block";
 import useCanvasStore from "@/stores/canvasStore";
 import { getBlockObject } from "@/utils/helpers";
 import type { MethodTable } from "../host/capabilities";
+import { fields, oneOf, optionalText, refuse, text } from "../params";
 import type { Breakpoint } from "../types";
-import { fields, oneOf, optionalText, refuse, text } from "../surfaces/params";
 
 const BREAKPOINTS = ["desktop", "tablet", "mobile"] as const;
 

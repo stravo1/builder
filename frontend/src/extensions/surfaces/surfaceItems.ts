@@ -13,7 +13,7 @@
 import type { RegistryEntry, createRegistry } from "@/utils/createRegistry";
 import { bridge } from "../host/bridge";
 import type { InstalledExtension } from "../types";
-import { fields, refuse, text } from "./params";
+import { fields, refuse, text } from "../params";
 
 type Named = { name: string };
 
