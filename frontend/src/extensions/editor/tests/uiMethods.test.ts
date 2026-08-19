@@ -19,7 +19,6 @@ const record = (name = "acme/icons"): InstalledExtension => ({
 const open = (params: unknown = {}, extension = record()) =>
 	uiMethods["ui.openDialog"].run(params, extension) as Promise<unknown>;
 const close = (params: unknown, extension = record()) => uiMethods["ui.closeDialog"].run(params, extension);
-const setHeight = (params: unknown, extension = record()) => uiMethods["ui.setHeight"].run(params, extension);
 
 const codeOf = (call: () => unknown) => {
 	try {
@@ -36,10 +35,10 @@ beforeEach(() => {
 });
 
 describe("the capability", () => {
-	it("gates all three behind ui.dialog", () => {
+	it("gates both methods behind ui.dialog", () => {
 		expect(uiMethods["ui.openDialog"].needs).toBe("ui.dialog");
 		expect(uiMethods["ui.closeDialog"].needs).toBe("ui.dialog");
-		expect(uiMethods["ui.setHeight"].needs).toBe("ui.dialog");
+		expect(uiMethods["ui.setHeight"]).toBeUndefined();
 	});
 });
 
@@ -49,8 +48,6 @@ describe("opening one", () => {
 
 		expect(openDialogs.get("acme/icons")).toEqual({
 			title: "Pick an icon",
-			width: 520,
-			height: null,
 			props: { set: "lucide" },
 		});
 	});
@@ -59,16 +56,6 @@ describe("opening one", () => {
 		void open();
 
 		expect(openDialogs.get("acme/icons")?.title).toBe("Icon Library");
-	});
-
-	it("clamps a width that would stop being a dialog", () => {
-		void open({ width: 5000 });
-
-		expect(openDialogs.get("acme/icons")?.width).toBe(900);
-	});
-
-	it("refuses a width that is not a number", () => {
-		expect(codeOf(() => open({ width: "wide" }))).toBe("invalid_params");
 	});
 
 	it("keeps one extension's dialog out of another's", () => {
@@ -115,31 +102,5 @@ describe("how it ends", () => {
 
 	it("refuses a close with no dialog open", () => {
 		expect(codeOf(() => close({ result: 1 }))).toBe("unknown_item");
-	});
-});
-
-describe("ui.setHeight", () => {
-	it("resizes the open dialog", () => {
-		void open();
-		setHeight({ height: 400 });
-
-		expect(openDialogs.get("acme/icons")?.height).toBe(400);
-	});
-
-	it("clamps a height taller than the editor", () => {
-		void open();
-		setHeight({ height: 5000 });
-
-		expect(openDialogs.get("acme/icons")?.height).toBe(720);
-	});
-
-	it("refuses a height with no dialog open", () => {
-		expect(codeOf(() => setHeight({ height: 400 }))).toBe("unknown_item");
-	});
-
-	it("refuses a missing height", () => {
-		void open();
-
-		expect(codeOf(() => setHeight({}))).toBe("invalid_params");
 	});
 });

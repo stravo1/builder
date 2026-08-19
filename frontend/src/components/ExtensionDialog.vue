@@ -5,9 +5,9 @@
 		is what Builder's own settings dialog uses, so the backdrop, Escape and the
 		click outside all come from there.
 	-->
-	<Dialog v-if="dialog" :modelValue="true" @update:modelValue="dismiss">
+	<Dialog v-if="dialog" :modelValue="true" size="lg" @update:modelValue="dismiss">
 		<template #body>
-			<div class="bg-surface-modal p-5" :style="{ width: `${dialog.width}px` }">
+			<div class="bg-surface-modal p-5">
 				<div class="flex items-center justify-between pb-4">
 					<h3 class="text-lg-semibold text-ink-gray-9">{{ dialog.title }}</h3>
 					<Button icon="lucide-x" variant="ghost" @click="dismiss" />
@@ -18,7 +18,7 @@
 					slot="dialog"
 					:initialProps="dialog.props"
 					:dispatch="dispatch"
-					:style="{ height: `${dialog.height ?? DEFAULT_HEIGHT}px` }"
+					:style="{ height: `${FRAME_HEIGHT}px` }"
 					@connect="(channel) => connectExtension(extension.name, channel)"
 					@disconnect="(channel) => disconnectExtension(extension.name, channel)" />
 			</div>
@@ -34,8 +34,8 @@ import { dismissDialog, openDialogs } from "@/extensions/editor/uiMethods";
 import type { InstalledExtension } from "@/extensions/types";
 import { computed } from "vue";
 
-/** Until `ui.setHeight` says otherwise. Tall enough to hold a short form. */
-const DEFAULT_HEIGHT = 320;
+/** A compact host-owned canvas. Dialog content scrolls within this frame. */
+const FRAME_HEIGHT = 192;
 
 const props = defineProps<{ extension: InstalledExtension }>();
 

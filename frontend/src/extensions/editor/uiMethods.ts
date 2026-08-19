@@ -7,8 +7,7 @@
  * `openDialog` and `closeDialog` arrive on different frames' ports: one frame
  * asks, and the frame the host then opens answers. 1.15 says to correlate them
  * by request id, because the host cannot tell which frame called. As built the
- * key is the extension, because an extension has one dialog at a time — the same
- * limit that lets `setHeight` work without knowing its caller.
+ * key is the extension, because an extension has one dialog at a time.
  *
  * This module holds Vue state that a component renders, which no other method
  * file does. A dialog is the one thing an extension asks for that the host has
@@ -21,14 +20,8 @@ import type { MethodTable } from "../host/capabilities";
 import { fields, optionalText, refuse } from "../params";
 import type { InstalledExtension } from "../types";
 
-/** Wide enough for a picker, narrow enough to stay a dialog. */
-const WIDTH = { min: 280, max: 900, fallback: 480 };
-const HEIGHT = { min: 120, max: 720 };
-
 export type OpenDialog = {
 	title: string;
-	width: number;
-	height: number | null;
 	/**
 	 * Travels to the dialog frame at its connect handshake (B1).
 	 *
@@ -47,17 +40,6 @@ const waiting = new Map<string, (result: unknown) => void>();
 
 /** Which extensions already have a teardown hook, so opening twice adds one hook. */
 const hooked = new Set<string>();
-
-const clamp = (value: number, { min, max }: { min: number; max: number }) =>
-	Math.min(Math.max(value, min), max);
-
-const number = (value: unknown, name: string) => {
-	if (value === undefined) return undefined;
-	if (typeof value !== "number" || !Number.isFinite(value)) {
-		throw refuse(`"${name}" must be a number.`, "invalid_params");
-	}
-	return value;
-};
 
 /**
  * Settles whoever is waiting, and forgets the dialog.
@@ -83,8 +65,6 @@ const openDialog = (params: unknown, extension: InstalledExtension) => {
 	const sent = fields(params);
 	const dialog: OpenDialog = {
 		title: optionalText(sent.title, "title") ?? extension.label,
-		width: clamp(number(sent.width, "width") ?? WIDTH.fallback, WIDTH),
-		height: null,
 		props: markRaw(fields(sent.props)),
 	};
 
@@ -109,18 +89,8 @@ const closeDialog = (params: unknown, extension: InstalledExtension) => {
 	settle(extension.name, fields(params).result);
 };
 
-const setHeight = (params: unknown, extension: InstalledExtension) => {
-	const dialog = openDialogs.get(extension.name);
-	if (!dialog) throw refuse(`"${extension.name}" has no open dialog to resize.`, "unknown_item");
-
-	const height = number(fields(params).height, "height");
-	if (height === undefined) throw refuse(`"height" is required.`, "invalid_params");
-	dialog.height = clamp(height, HEIGHT);
-};
-
 export const uiMethods: MethodTable = {
 	// a modal covers the editor, so it is the intrusive case (1.7)
 	"ui.openDialog": { needs: "ui.dialog", run: openDialog },
 	"ui.closeDialog": { needs: "ui.dialog", run: closeDialog },
-	"ui.setHeight": { needs: "ui.dialog", run: setHeight },
 };
