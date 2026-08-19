@@ -58,7 +58,7 @@ const merge = (
 	controls: "controls" in patch ? readControls(patch.controls, extension) : current.controls,
 });
 
-const describe = (key: string, { extension, registration }: SurfaceItem<Registration>): PropertySection => ({
+const toRegistryItem = (key: string, { extension, registration }: SurfaceItem<Registration>): PropertySection => ({
 	name: key,
 	label: registration.label,
 	before: registration.before,
@@ -74,7 +74,7 @@ const sections = createSurfaceItems<Registration, PropertySection>({
 	registry: propertySections,
 	read,
 	merge,
-	describe,
+	toRegistryItem,
 });
 
 /**

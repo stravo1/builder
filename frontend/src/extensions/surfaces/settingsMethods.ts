@@ -51,7 +51,7 @@ const merge = (current: Registration, patch: Record<string, unknown>): Registrat
 	visible: flag(patch.visible, current.visible),
 });
 
-const describe = (key: string, { extension, registration }: SurfaceItem<Registration>): SettingsItem => {
+const toRegistryItem = (key: string, { extension, registration }: SurfaceItem<Registration>): SettingsItem => {
 	const dispatch = bridge.dispatcherFor(extension);
 
 	return {
@@ -82,7 +82,7 @@ const pages = createSurfaceItems<Registration, SettingsItem>({
 	oneEach: true,
 	read,
 	merge,
-	describe,
+	toRegistryItem,
 });
 
 export const settingsMethods: MethodTable = {

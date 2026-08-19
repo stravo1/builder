@@ -32,7 +32,7 @@ type Options<TRegistration extends Named, TItem extends RegistryEntry> = {
 		patch: Record<string, unknown>,
 		extension: InstalledExtension,
 	) => TRegistration;
-	describe: (key: string, item: SurfaceItem<TRegistration>) => TItem;
+	toRegistryItem: (key: string, item: SurfaceItem<TRegistration>) => TItem;
 	/** One per extension, as 1.10 requires of leftPanel and settings. */
 	oneEach?: boolean;
 };
@@ -55,7 +55,7 @@ export const createSurfaceItems = <TRegistration extends Named, TItem extends Re
 	};
 
 	const mount = (key: string, item: SurfaceItem<TRegistration>) => {
-		const unregister = options.registry.register(options.describe(key, item));
+		const unregister = options.registry.register(options.toRegistryItem(key, item));
 		items.set(key, { ...item, unregister });
 	};
 

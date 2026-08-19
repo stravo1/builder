@@ -87,7 +87,7 @@ const portable = (menu: BlockMenuContext) => ({
 	fromLayersPanel: menu.fromLayersPanel,
 });
 
-const describe = (key: string, { extension, registration }: SurfaceItem<Registration>): ContextMenuOption => ({
+const toRegistryItem = (key: string, { extension, registration }: SurfaceItem<Registration>): ContextMenuOption => ({
 	name: key,
 	label: registration.label,
 	before: registration.before,
@@ -105,7 +105,7 @@ const rows = createSurfaceItems<Registration, ContextMenuOption>({
 	registry: blockContextMenuOptions,
 	read,
 	merge,
-	describe,
+	toRegistryItem,
 });
 
 export const contextMenuMethods: MethodTable = {

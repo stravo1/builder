@@ -59,6 +59,19 @@ describe("register", () => {
 		expect(item()).toMatchObject({ region: "left" });
 	});
 
+	it("puts right-side buttons before built-in buttons by default", () => {
+		register(button(), icons);
+
+		expect(item()).toMatchObject({ before: "viewers" });
+	});
+
+	it("honors an explicit right-side position", () => {
+		register(button({ after: "publish" }), icons);
+
+		expect(item()).toMatchObject({ after: "publish" });
+		expect(item()!.before).toBeUndefined();
+	});
+
 	it("refuses a region the toolbar does not have", () => {
 		expect(() => register(button({ region: "middle" }), icons)).toThrow(/region/);
 	});

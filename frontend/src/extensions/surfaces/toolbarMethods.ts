@@ -21,6 +21,7 @@ import { fields, flag, oneOf, optionalText, text } from "../params";
 import { createSurfaceItems, type SurfaceItem } from "./surfaceItems";
 
 const REGIONS = ["left", "center", "right"] as const;
+const FIRST_RIGHT_BUILT_IN = "viewers";
 
 type Registration = {
 	name: string;
@@ -73,10 +74,12 @@ const merge = (current: Registration, patch: Record<string, unknown>): Registrat
 	enabled: flag(patch.enabled, current.enabled),
 });
 
-const describe = (key: string, { extension, registration }: SurfaceItem<Registration>): ToolbarItem => ({
+const toRegistryItem = (key: string, { extension, registration }: SurfaceItem<Registration>): ToolbarItem => ({
 	name: key,
 	region: registration.region,
-	before: registration.before,
+	before:
+		registration.before ??
+		(registration.region === "right" && !registration.after ? FIRST_RIGHT_BUILT_IN : undefined),
 	after: registration.after,
 	component: ExtensionToolbarButton,
 	props: () => ({
@@ -97,7 +100,7 @@ const buttons = createSurfaceItems<Registration, ToolbarItem>({
 	registry: toolbarItems,
 	read,
 	merge,
-	describe,
+	toRegistryItem,
 });
 
 export const toolbarMethods: MethodTable = {

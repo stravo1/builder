@@ -47,7 +47,7 @@ const merge = (current: Registration, patch: Record<string, unknown>): Registrat
 	visible: flag(patch.visible, current.visible),
 });
 
-const describe = (key: string, { extension, registration }: SurfaceItem<Registration>): LeftPanelTab => {
+const toRegistryItem = (key: string, { extension, registration }: SurfaceItem<Registration>): LeftPanelTab => {
 	const dispatch = bridge.dispatcherFor(extension);
 
 	return {
@@ -77,7 +77,7 @@ const tabs = createSurfaceItems<Registration, LeftPanelTab>({
 	oneEach: true,
 	read,
 	merge,
-	describe,
+	toRegistryItem,
 });
 
 export const leftPanelMethods: MethodTable = {
