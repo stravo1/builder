@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * and the shape that travels, not the round trip.
  */
 const submitted: Array<{ url: string; params: unknown }> = [];
+const reloaded = vi.hoisted(() => vi.fn());
 
 vi.mock("frappe-ui", () => ({
 	createResource: ({ url }: { url: string }) => ({
@@ -13,6 +14,7 @@ vi.mock("frappe-ui", () => ({
 			return Promise.resolve(null);
 		},
 	}),
+	createListResource: () => ({ reload: reloaded }),
 }));
 
 import { tokenMethods } from "../tokenMethods";
@@ -45,7 +47,10 @@ const codeOf = (call: () => unknown) => {
 	return undefined;
 };
 
-beforeEach(() => (submitted.length = 0));
+beforeEach(() => {
+	submitted.length = 0;
+	reloaded.mockClear();
+});
 
 describe("the capability", () => {
 	// token.write is a write capability, so the bridge also refuses it read-only
@@ -64,6 +69,12 @@ describe("tokens.set", () => {
 		const params = submitted[0].params as { extension: string; tokens: unknown[] };
 		expect(params.extension).toBe("acme/material");
 		expect(params.tokens).toHaveLength(2);
+	});
+
+	it("refreshes the shared token list after writing", async () => {
+		await set([token()]);
+
+		expect(reloaded).toHaveBeenCalledOnce();
 	});
 
 	it("carries the optional fields as null when the call omits them", () => {
@@ -123,6 +134,12 @@ describe("tokens.unset", () => {
 
 		expect(submitted[0].url).toBe("builder.extensions.unset_extension_token");
 		expect(submitted[0].params).toEqual({ extension: "acme/material", key: "accent-9" });
+	});
+
+	it("refreshes the shared token list after removing a token", async () => {
+		await unset("accent-9");
+
+		expect(reloaded).toHaveBeenCalledOnce();
 	});
 
 	it("refuses a missing key", () => {

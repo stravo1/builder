@@ -16,6 +16,7 @@
  */
 
 import { createResource } from "frappe-ui";
+import builderTokens from "@/data/builderToken";
 import type { MethodTable } from "../host/capabilities";
 import { fields, refuse, text } from "../params";
 import type { InstalledExtension } from "../types";
@@ -54,20 +55,27 @@ const readToken = (value: unknown) => {
 const set = (params: unknown, extension: InstalledExtension) => {
 	const sent = fields(params).tokens;
 	if (!Array.isArray(sent) || !sent.length) {
-		throw refuse(`"tokens" must be a non-empty list.`, "invalid_params");
+		throw refuse("\"tokens\" must be a non-empty list.", "invalid_params");
 	}
 
 	return invoke("builder.extensions.set_extension_tokens", {
 		extension: extension.name,
 		tokens: sent.map(readToken),
+	}).then(async (result) => {
+		await builderTokens.reload();
+		return result;
 	});
 };
 
-const unset = (params: unknown, extension: InstalledExtension) =>
-	invoke("builder.extensions.unset_extension_token", {
+const unset = (params: unknown, extension: InstalledExtension) => {
+	return invoke("builder.extensions.unset_extension_token", {
 		extension: extension.name,
 		key: text(fields(params).key, "key"),
+	}).then(async (result) => {
+		await builderTokens.reload();
+		return result;
 	});
+};
 
 export const tokenMethods: MethodTable = {
 	// a network call, not a client write, so read-only refuses it in the bridge too
