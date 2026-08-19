@@ -172,8 +172,7 @@ export const properties = {
 		declare("properties.registerSection", registration),
 	unregisterSection: (name: string) => call("properties.unregisterSection", { name }),
 	/** Replaces the whole list, for a control list that depends on the extension's own state. */
-	setControls: (name: string, controls: Control[]) =>
-		call("properties.setControls", { name, controls }),
+	setControls: (name: string, controls: Control[]) => call("properties.setControls", { name, controls }),
 	update: (name: string, patch: ItemPatch) => call("properties.update", { name, patch }),
 };
 
@@ -241,6 +240,23 @@ export const block = {
 	get: (blockId: string) => call("block.get", { blockId }) as Promise<Record<string, unknown>>,
 	/** Refused without `block.update`, and refused again while the page is read-only. */
 	update: (blockId: string, patch: BlockPatch) => call("block.update", { blockId, ...patch }),
+	/**
+	 * A new block inside `parentId`, appended unless `index` names a place.
+	 *
+	 * Answers with the new `blockId`, so a tree is built by inserting into what
+	 * came back. The new block is not selected: the selection stays the user's.
+	 */
+	insert: (parentId: string, block: NewBlock, index?: number) =>
+		call("block.insert", { parentId, block, index }) as Promise<{ blockId: string }>,
+};
+
+/** What `block.insert` draws. `element` is required, and everything else is optional. */
+export type NewBlock = {
+	element: string;
+	attributes?: Record<string, string | null>;
+	styles?: Record<string, string | number | null>;
+	classes?: string[];
+	innerHTML?: string;
 };
 
 export const page = {

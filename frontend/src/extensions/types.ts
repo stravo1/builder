@@ -13,6 +13,7 @@ export const CAPABILITIES = [
 	"context.read",
 	"block.read",
 	"block.update",
+	"block.insert",
 	"page.read",
 	"token.write",
 	"ui.dialog",

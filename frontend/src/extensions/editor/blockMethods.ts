@@ -18,17 +18,21 @@ import type Block from "@/block";
 import useCanvasStore from "@/stores/canvasStore";
 import { getBlockObject } from "@/utils/helpers";
 import type { MethodTable } from "../host/capabilities";
-import { fields, oneOf, optionalText, refuse, text } from "../params";
+import { fields, oneOf, optionalText, refuse, text, wholeNumber } from "../params";
 import type { Breakpoint } from "../types";
 
 const BREAKPOINTS = ["desktop", "tablet", "mobile"] as const;
 
-const findBlock = (params: unknown): Block => {
-	const blockId = text(fields(params).blockId, "blockId");
+/** A tag name, and nothing that could carry markup of its own. */
+const ELEMENT_NAME = /^[a-z][a-z0-9-]*$/;
+
+const findBlock = (blockId: string): Block => {
 	const block = useCanvasStore().activeCanvas?.findBlock(blockId);
 	if (!block) throw refuse(`This page holds no block named "${blockId}".`, "unknown_block");
 	return block;
 };
+
+const namedBlock = (params: unknown) => findBlock(text(fields(params).blockId, "blockId"));
 
 /**
  * The whole subtree, as a plain object.
@@ -38,7 +42,7 @@ const findBlock = (params: unknown): Block => {
  * things that cannot cross a port — and it is the shape a block is stored in.
  * An extension therefore reads what it would write.
  */
-const get = (params: unknown) => getBlockObject(findBlock(params));
+const get = (params: unknown) => getBlockObject(namedBlock(params));
 
 /** A record of strings, which is what an attribute map and a style map both are. */
 const readMap = (value: unknown, name: string) => {
@@ -81,13 +85,14 @@ const writeStyles = (block: Block, styles: Record<string, unknown>, breakpoint?:
  */
 const update = (params: unknown) => {
 	const sent = fields(params);
-	const block = findBlock(params);
+	const block = namedBlock(params);
 
 	const attributes = readMap(sent.attributes, "attributes");
 	const styles = readMap(sent.styles, "styles");
 	const classes = readClasses(sent.classes);
 	const innerHTML = optionalText(sent.innerHTML, "innerHTML");
-	const breakpoint = sent.breakpoint === undefined ? undefined : oneOf(sent.breakpoint, BREAKPOINTS, "breakpoint");
+	const breakpoint =
+		sent.breakpoint === undefined ? undefined : oneOf(sent.breakpoint, BREAKPOINTS, "breakpoint");
 
 	if (!attributes && !styles && !classes && innerHTML === undefined) {
 		throw refuse(`This patch changes nothing.`, "invalid_params");
@@ -99,8 +104,49 @@ const update = (params: unknown) => {
 	if (innerHTML !== undefined) block.setInnerHTML(innerHTML);
 };
 
+/**
+ * A new block, as a child of one the page already holds.
+ *
+ * One block per call, and no `children`. The new id comes back, so an extension
+ * that wants a tree inserts into what it just made. That keeps the validation
+ * flat, and each call is its own undo step.
+ *
+ * **The new block is not selected.** The selection is the user's, and an
+ * extension writing to the page has no business taking it.
+ */
+const insert = (params: unknown) => {
+	const sent = fields(params);
+	const parent = findBlock(text(sent.parentId, "parentId"));
+	const wanted = fields(sent.block);
+
+	const element = text(wanted.element, "block.element");
+	if (!ELEMENT_NAME.test(element)) throw refuse(`"${element}" is not an element name.`, "invalid_params");
+
+	const inserted = parent.addChild(
+		{
+			element,
+			classes: readClasses(wanted.classes),
+			innerHTML: optionalText(wanted.innerHTML, "block.innerHTML"),
+		},
+		sent.index === undefined ? undefined : wholeNumber(sent.index, "index"),
+		false,
+	);
+
+	const attributes = readMap(wanted.attributes, "block.attributes");
+	const styles = readMap(wanted.styles, "block.styles");
+	const breakpoint =
+		sent.breakpoint === undefined ? undefined : oneOf(sent.breakpoint, BREAKPOINTS, "breakpoint");
+	if (attributes) writeAttributes(inserted, attributes);
+	if (styles) writeStyles(inserted, styles, breakpoint);
+
+	return { blockId: inserted.blockId };
+};
+
 export const blockMethods: MethodTable = {
 	"block.get": { needs: "block.read", run: get },
 	// read-only is refused in the bridge, once, for every write capability (1.12)
 	"block.update": { needs: "block.update", run: update },
+	// adding a block changes what the page is, not what one block holds, so it is
+	// its own grant. A user reading an install list can tell the two apart
+	"block.insert": { needs: "block.insert", run: insert },
 };

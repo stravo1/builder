@@ -6,7 +6,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * `setStyle` choosing a breakpoint's style map.
  */
 const tree = new Map<string, unknown>();
-const canvas = { activeCanvas: { findBlock: (id: string) => tree.get(id) ?? null, activeBreakpoint: "desktop" } };
+const canvas = {
+	activeCanvas: { findBlock: (id: string) => tree.get(id) ?? null, activeBreakpoint: "desktop" },
+};
 
 vi.mock("@/stores/canvasStore", () => ({ default: () => canvas }));
 vi.mock("@/utils/helpers", () => ({
@@ -39,13 +41,20 @@ const block = (blockId: string) => {
 		setInnerHTML(html: string) {
 			node.innerHTML = html;
 		},
+		children: [] as Array<Record<string, unknown>>,
+		addChild(options: Record<string, unknown>, index: number | undefined, select: boolean) {
+			const child = block(`block-child-${node.children.length}`);
+			Object.assign(child, options, { selected: select });
+			node.children.splice(index ?? node.children.length, 0, child);
+			return child;
+		},
 		setStyle(style: string, value: unknown, breakpoint?: string) {
 			const target =
 				breakpoint === "mobile"
 					? node.mobileStyles
 					: breakpoint === "tablet"
-						? node.tabletStyles
-						: node.baseStyles;
+					? node.tabletStyles
+					: node.baseStyles;
 			if (value === null || value === "") delete target[style];
 			else target[style] = value;
 		},
@@ -55,6 +64,7 @@ const block = (blockId: string) => {
 };
 
 const update = (params: unknown) => blockMethods["block.update"].run(params, record());
+const insert = (params: unknown) => blockMethods["block.insert"].run(params, record()) as { blockId: string };
 const get = (params: unknown) => blockMethods["block.get"].run(params, record());
 
 const codeOf = (call: () => unknown) => {
@@ -72,6 +82,11 @@ describe("the capabilities", () => {
 	it("gates the read and the write separately", () => {
 		expect(blockMethods["block.get"].needs).toBe("block.read");
 		expect(blockMethods["block.update"].needs).toBe("block.update");
+	});
+
+	// adding a block changes what the page is, not what one block holds
+	it("gates inserting apart from updating", () => {
+		expect(blockMethods["block.insert"].needs).toBe("block.insert");
 	});
 });
 
@@ -208,5 +223,88 @@ describe("what a patch may not say", () => {
 		codeOf(() => update({ blockId: "block-2", attributes: { "data-icon": "star" } }));
 
 		expect(node.attributes["data-icon"]).toBeUndefined();
+	});
+});
+
+describe("inserting a block", () => {
+	const parent = () => tree.get("block-1") as Record<string, any>;
+
+	it("appends a child and answers with its id", () => {
+		block("block-1");
+		const { blockId } = insert({ parentId: "block-1", block: { element: "div" } });
+
+		expect(parent().children).toHaveLength(1);
+		expect(parent().children[0].blockId).toBe(blockId);
+		expect(parent().children[0].element).toBe("div");
+	});
+
+	it("puts it where index says", () => {
+		block("block-1");
+		insert({ parentId: "block-1", block: { element: "span" } });
+		const { blockId } = insert({ parentId: "block-1", block: { element: "div" }, index: 0 });
+
+		expect(parent().children[0].blockId).toBe(blockId);
+	});
+
+	it("writes the attributes, the classes, the markup and the styles", () => {
+		block("block-1");
+		insert({
+			parentId: "block-1",
+			block: {
+				element: "div",
+				attributes: { "data-icon": "star" },
+				classes: ["sample"],
+				innerHTML: "<svg />",
+				styles: { color: "red" },
+			},
+		});
+
+		const child = parent().children[0];
+		expect(child.attributes["data-icon"]).toBe("star");
+		expect(child.classes).toEqual(["sample"]);
+		expect(child.innerHTML).toBe("<svg />");
+		expect(child.baseStyles.color).toBe("red");
+	});
+
+	it("puts a style on the breakpoint the call names", () => {
+		block("block-1");
+		insert({
+			parentId: "block-1",
+			block: { element: "div", styles: { color: "red" } },
+			breakpoint: "mobile",
+		});
+
+		expect(parent().children[0].mobileStyles.color).toBe("red");
+	});
+
+	// the selection is the user's, not the extension's
+	it("leaves the new block unselected", () => {
+		block("block-1");
+		insert({ parentId: "block-1", block: { element: "div" } });
+
+		expect(parent().children[0].selected).toBe(false);
+	});
+
+	it("refuses a parent the page does not hold", () => {
+		expect(codeOf(() => insert({ parentId: "block-nope", block: { element: "div" } }))).toBe("unknown_block");
+	});
+
+	it("refuses a block with no element", () => {
+		block("block-1");
+		expect(codeOf(() => insert({ parentId: "block-1", block: {} }))).toBe("invalid_params");
+	});
+
+	it("refuses an element name that is not one", () => {
+		block("block-1");
+		expect(codeOf(() => insert({ parentId: "block-1", block: { element: "<script>" } }))).toBe(
+			"invalid_params",
+		);
+	});
+
+	it("refuses an index that is not a whole number", () => {
+		block("block-1");
+		expect(codeOf(() => insert({ parentId: "block-1", block: { element: "div" }, index: -1 }))).toBe(
+			"invalid_params",
+		);
 	});
 });

@@ -30,7 +30,7 @@ export type MethodTable = Record<string, HostMethod>;
  * write method (1.12). Naming the capabilities rather than the methods means a
  * write method added later is covered before it is written.
  */
-const WRITE_CAPABILITIES: Capability[] = ["block.update", "token.write"];
+const WRITE_CAPABILITIES: Capability[] = ["block.update", "block.insert", "token.write"];
 
 export const assertWritable = (extension: InstalledExtension, method: string, needs: Capability | null) => {
 	if (!needs || !WRITE_CAPABILITIES.includes(needs)) return;

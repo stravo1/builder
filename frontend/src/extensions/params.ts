@@ -29,4 +29,11 @@ export const oneOf = <T extends string>(value: unknown, allowed: readonly T[], f
 	return value as T;
 };
 
+export const wholeNumber = (value: unknown, field: string) => {
+	if (!Number.isInteger(value) || (value as number) < 0) {
+		throw refuse(`"${field}" must be a whole number.`, "invalid_params");
+	}
+	return value as number;
+};
+
 export const fields = (params: unknown) => (params ?? {}) as Record<string, unknown>;

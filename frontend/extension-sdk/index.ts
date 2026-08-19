@@ -21,6 +21,7 @@ export type {
 	ExtensionToken,
 	ItemPatch,
 	LeftPanelRegistration,
+	NewBlock,
 	PropertiesRegistration,
 	SettingsRegistration,
 	ShowWhen,
