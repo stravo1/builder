@@ -9,8 +9,10 @@
 import type { MethodTable } from "../host/capabilities";
 import { blockMethods } from "./blockMethods";
 import { contextMethods } from "./contextMethods";
+import { pageMethods } from "./pageMethods";
 
 export const editorMethods: MethodTable = {
 	...contextMethods,
 	...blockMethods,
+	...pageMethods,
 };

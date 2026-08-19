@@ -6,7 +6,7 @@
  */
 
 import { getChannel, listenForHandshake } from "./connect";
-import { actions, block, context, contextMenu, leftPanel, properties, settings, toolbar } from "./namespaces";
+import { actions, block, context, contextMenu, leftPanel, page, properties, settings, toolbar } from "./namespaces";
 import { registerMain, registerSlot, type SlotEntry } from "./slots";
 
 export type HostInfo = { version: string; protocol: number };
@@ -47,6 +47,9 @@ const builder = {
 
 	/** One block, by the id a menu row or the snapshot handed over. */
 	block,
+
+	/** The whole tree, when one block is not enough. */
+	page,
 
 	/** The functions this extension owns. A descriptor names one, the host calls it. */
 	actions,

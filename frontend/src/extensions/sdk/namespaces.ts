@@ -243,6 +243,18 @@ export const block = {
 	update: (blockId: string, patch: BlockPatch) => call("block.update", { blockId, ...patch }),
 };
 
+export const page = {
+	/**
+	 * The tree the canvas holds, as a list of roots. A node carries its own
+	 * `children`, so walk it to reach every block.
+	 *
+	 * While the user edits a component this answers with that component, because
+	 * those are the ids `block.get` and `block.update` can resolve. Read
+	 * `context.editingMode` to tell the two apart.
+	 */
+	getBlocks: () => call("page.getBlocks") as Promise<Array<Record<string, unknown>>>,
+};
+
 export const actions = {
 	/**
 	 * The handler stays in this frame, and the host learns only the name.
