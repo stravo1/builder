@@ -38,6 +38,22 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Builder Extension</title>
 		<script type="importmap">{{ import_map | safe }}</script>
+		<!--
+			The frame is the whole viewport, so the element an extension mounts into
+			has to be the frame's own size. Without this, `height: 100%` in a slot's
+			document resolves against `auto` and the frame scrolls as one page,
+			instead of the slot scrolling the part it means to.
+		-->
+		<style>
+			html,
+			body {
+				height: 100%;
+				margin: 0;
+			}
+			#app {
+				height: 100%;
+			}
+		</style>
 	</head>
 	<body>
 		<div id="app"></div>

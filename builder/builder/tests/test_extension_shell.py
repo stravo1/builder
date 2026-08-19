@@ -40,7 +40,9 @@ class TestExtensionShell(FrappeTestCase):
 		self.assertNotIn("extension_name", self.html)
 
 	def test_a_production_site_allows_no_dev_server(self):
-		self.assertNotIn("localhost:*", self.html)
+		"""The shell in setUp renders on this site, which is in developer mode. Render it again without."""
+		with patch.dict(frappe.conf, {"developer_mode": 0}):
+			self.assertNotIn("localhost:*", get_response_content("/builder_extension"))
 
 
 class TestExtensionDevOrigins(FrappeTestCase):

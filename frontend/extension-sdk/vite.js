@@ -30,6 +30,10 @@ const HMR_CLIENT = "/@vite/client";
 /** The record derives one URL per install, and it ends in this name. */
 const OUTPUT_ENTRY = "main.js";
 
+/** Runs in every frame, because every frame imports the entry. */
+const STYLE_TAG = (css) =>
+	`(() => { const style = document.createElement("style"); style.textContent = ${JSON.stringify(css)}; document.head.append(style); })();`;
+
 /** One entry, so Rollup sees the whole graph and shared code lands in one chunk. */
 const ENTRY_CANDIDATES = ["src/main.ts", "src/main.js"];
 
@@ -158,9 +162,33 @@ export default function builderExtension({ builderUrl } = {}) {
 			});
 		},
 
-		/** The install reads it for the identity, the version and the capabilities. */
-		generateBundle() {
-			this.emitFile({ type: "asset", fileName: MANIFEST, source: readManifest(root) });
+		/**
+		 * Emits the manifest, and moves the stylesheet into the entry.
+		 *
+		 * The frame shell is one static document that names no extension, so it can
+		 * link no stylesheet of one. A built extension's CSS therefore has to carry
+		 * itself, or every frame paints unstyled while the file sits in the install
+		 * directory unread.
+		 *
+		 * `order: "post"`, because Vite's own CSS plugin emits that file in this
+		 * same hook and this has to run after it.
+		 */
+		generateBundle: {
+			order: "post",
+			handler(_options, bundle) {
+				this.emitFile({ type: "asset", fileName: MANIFEST, source: readManifest(root) });
+
+				const sheets = Object.values(bundle).filter(
+					(file) => file.type === "asset" && file.fileName.endsWith(".css"),
+				);
+				if (!sheets.length) return;
+
+				const css = sheets.map((sheet) => sheet.source).join("\n");
+				sheets.forEach((sheet) => delete bundle[sheet.fileName]);
+
+				const entryChunk = Object.values(bundle).find((file) => file.type === "chunk" && file.isEntry);
+				entryChunk.code = `${STYLE_TAG(css)}\n${entryChunk.code}`;
+			},
 		},
 	};
 }

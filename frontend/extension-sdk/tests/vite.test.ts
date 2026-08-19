@@ -83,7 +83,7 @@ describe("builderExtension", () => {
 		const plugin = configured(root, "build");
 		const emitFile = vi.fn();
 
-		plugin.generateBundle.call({ emitFile });
+		plugin.generateBundle.handler.call({ emitFile }, {}, {});
 
 		expect(emitFile).toHaveBeenCalledWith({
 			type: "asset",
@@ -96,7 +96,7 @@ describe("builderExtension", () => {
 		const root = project({ "src/main.js": "" });
 		const plugin = configured(root, "build");
 
-		expect(() => plugin.generateBundle.call({ emitFile: vi.fn() })).toThrow(/manifest.json/);
+		expect(() => plugin.generateBundle.handler.call({ emitFile: vi.fn() }, {}, {})).toThrow(/manifest.json/);
 	});
 
 	it("answers a null-origin frame, which Vite does not do on its own", () => {
