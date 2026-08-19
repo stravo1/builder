@@ -59,10 +59,11 @@ describe("register", () => {
 		expect(item()).toMatchObject({ region: "left" });
 	});
 
-	it("puts right-side buttons before built-in buttons by default", () => {
+	it("leaves right-side buttons unanchored by default", () => {
 		register(button(), icons);
 
-		expect(item()).toMatchObject({ before: "viewers" });
+		expect(item()).toMatchObject({ isExtension: true });
+		expect(item()!.before).toBeUndefined();
 	});
 
 	it("honors an explicit right-side position", () => {
@@ -144,6 +145,18 @@ describe("showWhen and enableWhen", () => {
 });
 
 describe("update", () => {
+	it("keeps an unanchored button in its registry position", () => {
+		register(button(), icons);
+		register(button({ name: "settings", icon: "lucide-settings" }), icons);
+
+		update({ name: "search", patch: { badge: 7 } }, icons);
+
+		expect(toolbarItems.all.value.map((entry) => entry.name)).toEqual([
+			"acme/icons:search",
+			"acme/icons:settings",
+		]);
+	});
+
 	it("changes the badge and the tooltip", () => {
 		register(button(), icons);
 		update({ name: "search", patch: { badge: 7, tooltip: "7 issues" } }, icons);
