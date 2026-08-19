@@ -66,7 +66,7 @@ describe("builderExtension", () => {
 	it("keeps the SDK out of the bundle", () => {
 		const root = project({ "src/main.js": "" });
 
-		expect(configure(root).build.rollupOptions.external).toEqual(["@builder/extension-sdk"]);
+		expect(configure(root).build.rollupOptions.external).toEqual(["frappe-builder-extension-sdk"]);
 	});
 
 	it("emits the entry under the one name the record's URL ends in", () => {
@@ -123,7 +123,7 @@ describe("the SDK import", () => {
 	it("names Builder's own URL in a dev server", () => {
 		const root = project({ "src/main.js": "" });
 
-		expect(configured(root, "serve").resolveId("@builder/extension-sdk")).toEqual({
+		expect(configured(root, "serve").resolveId("frappe-builder-extension-sdk")).toEqual({
 			id: `${BUILDER_URL}/builder_extension_asset/sdk/extension-sdk.js`,
 			external: true,
 		});
@@ -132,7 +132,7 @@ describe("the SDK import", () => {
 	it("keeps the bare specifier in a build, where the import map resolves it", () => {
 		const root = project({ "src/main.js": "" });
 
-		expect(configured(root, "build").resolveId("@builder/extension-sdk")).toBe(undefined);
+		expect(configured(root, "build").resolveId("frappe-builder-extension-sdk")).toBe(undefined);
 	});
 
 	it("takes a builderUrl with a trailing slash", () => {
@@ -140,7 +140,7 @@ describe("the SDK import", () => {
 		const plugin = builderExtension({ builderUrl: `${BUILDER_URL}/` });
 		plugin.config({ root }, { command: "serve" });
 
-		expect(plugin.resolveId("@builder/extension-sdk").id).toBe(
+		expect(plugin.resolveId("frappe-builder-extension-sdk").id).toBe(
 			`${BUILDER_URL}/builder_extension_asset/sdk/extension-sdk.js`,
 		);
 	});

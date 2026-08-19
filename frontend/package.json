@@ -41,6 +41,7 @@
     "@vueuse/core": "^10.2.1",
     "autoprefixer": "^10.4.2",
     "codemirror": "^6.0.2",
+    "frappe-builder-extension-sdk": "link:./extension-sdk",
     "frappe-ui": "1.0.0-beta.21",
     "js-yaml": "^4.1.1",
     "opentype.js": "^1.3.4",

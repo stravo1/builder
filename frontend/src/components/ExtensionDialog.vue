@@ -31,7 +31,7 @@ import Dialog from "@/components/Controls/Dialog.vue";
 import ExtensionFrame from "@/components/ExtensionFrame.vue";
 import { connectExtension, disconnectExtension, dispatcherFor } from "@/extensions";
 import { dismissDialog, openDialogs } from "@/extensions/editor/uiMethods";
-import type { InstalledExtension } from "@/extensions/types";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { computed } from "vue";
 
 /** A compact host-owned canvas. Dialog content scrolls within this frame. */

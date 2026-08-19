@@ -1,7 +1,7 @@
 /**
  * The `.` entry: types only, in practice.
  *
- * No build ever reads this file. `vite.js` marks `@builder/extension-sdk`
+ * No extension build reads this file. `vite.js` marks `frappe-builder-extension-sdk`
  * external, so the specifier survives into the output and the frame shell's
  * import map resolves it to the one instance Builder serves. In a dev server the
  * plugin rewrites the same specifier to an absolute URL on the Builder origin,
@@ -10,7 +10,7 @@
  * It exists so an author's editor and type checker can follow the import.
  */
 
-export { default, type HostInfo } from "../src/extensions/sdk/index";
+export { default, type HostInfo } from "./sdk/index";
 export type {
 	BlockPatch,
 	Control,
@@ -27,7 +27,7 @@ export type {
 	ShowWhen,
 	SlotLoader,
 	ToolbarRegistration,
-} from "../src/extensions/sdk/namespaces";
-export type { FrameOptions } from "../src/extensions/sdk/ui";
-export type { SlotEntry } from "../src/extensions/sdk/slots";
-export type { Breakpoint, EditorContext, EditorSelection } from "../src/extensions/types";
+} from "./sdk/namespaces";
+export type { FrameOptions } from "./sdk/ui";
+export type { SlotEntry } from "./sdk/slots";
+export type { Breakpoint, EditorContext, EditorSelection } from "./types";

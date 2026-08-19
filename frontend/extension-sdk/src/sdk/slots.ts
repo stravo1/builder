@@ -68,7 +68,7 @@ const assertMountable = (module: SlotModule, slot: ExtensionSlot) => {
 	if (typeof module.mount === "function") return;
 	throw new Error(
 		`The module loaded for the "${slot}" slot exports no "mount(element, props)". ` +
-			`Export one, or wrap a component with "@builder/extension-sdk/vue".`,
+			`Export one, or wrap a component with "frappe-builder-extension-sdk/vue".`,
 	);
 };
 

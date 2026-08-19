@@ -13,7 +13,7 @@
 import { markRaw, reactive } from "vue";
 import { bridge } from "../host/bridge";
 import { fields, optionalText, refuse } from "../params";
-import type { InstalledExtension } from "../types";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 
 export type OpenFrame = {
 	title: string;

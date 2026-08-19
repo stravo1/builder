@@ -11,14 +11,14 @@ const subscribe = vi.fn();
 const get = vi.fn();
 const run = vi.fn();
 
-vi.mock("@builder/extension-sdk", () => ({
+vi.mock("frappe-builder-extension-sdk", () => ({
 	default: {
 		context: { get: () => get(), subscribe: (...args: unknown[]) => subscribe(...args) },
 		actions: { run: (...args: unknown[]) => run(...args) },
 	},
 }));
 
-const { defineSlot, useAction, useBuilderContext } = await import("../vue");
+const { defineSlot, useAction, useBuilderContext } = await import("../src/vue");
 
 /** The handler the last `subscribe` call was given, which is how a push is faked. */
 const push = (payload: Record<string, unknown>) => subscribe.mock.calls.at(-1)?.[1](payload);

@@ -19,7 +19,7 @@ import useCanvasStore from "@/stores/canvasStore";
 import { getBlockObject } from "@/utils/helpers";
 import type { MethodTable } from "../host/capabilities";
 import { fields, oneOf, optionalText, refuse, text, wholeNumber } from "../params";
-import type { Breakpoint } from "../types";
+import type { Breakpoint } from "frappe-builder-extension-sdk/types";
 
 const BREAKPOINTS = ["desktop", "tablet", "mobile"] as const;
 

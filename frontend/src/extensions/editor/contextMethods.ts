@@ -18,7 +18,7 @@ import { watch } from "vue";
 import { bridge } from "../host/bridge";
 import type { MethodTable } from "../host/capabilities";
 import { fields as asFields, oneOf, refuse } from "../params";
-import type { EditorContext, InstalledExtension } from "../types";
+import type { EditorContext, InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { editorContext } from "./editorContext";
 
 /** The snapshot's own keys. A field an extension names must be one of these. */

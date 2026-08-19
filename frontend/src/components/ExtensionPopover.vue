@@ -42,7 +42,7 @@ import DraggablePopup from "@/components/Controls/DraggablePopup.vue";
 import ExtensionFrame from "@/components/ExtensionFrame.vue";
 import { connectExtension, disconnectExtension, dispatcherFor } from "@/extensions";
 import { dismissPopover, openPopovers } from "@/extensions/editor/uiMethods";
-import type { InstalledExtension } from "@/extensions/types";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { computed, ref } from "vue";
 
 const WIDTH = 320;

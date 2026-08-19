@@ -1,12 +1,12 @@
 /**
- * `@builder/extension-sdk/vite` — the build an extension author runs.
+ * `frappe-builder-extension-sdk/vite` — the build an extension author runs.
  *
  * Plain JavaScript on purpose. Vite hands a config's own imports to Node, and
  * Node refuses to strip types from any file under `node_modules`, so a
  * TypeScript plugin cannot be loaded by the config that uses it.
  *
  * ```js
- * import builderExtension from "@builder/extension-sdk/vite";
+ * import builderExtension from "frappe-builder-extension-sdk/vite";
  * export default defineConfig({ plugins: [vue(), builderExtension({ builderUrl })] });
  * ```
  */
@@ -15,7 +15,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const SDK = "@builder/extension-sdk";
+const SDK = "frappe-builder-extension-sdk";
 const MANIFEST = "manifest.json";
 
 /** Where Builder serves the one SDK instance every frame of an extension shares. */
@@ -115,7 +115,7 @@ export default function builderExtension({ builderUrl } = {}) {
 		 * for the frame's import map.
 		 *
 		 * Measured: `external: true` alone does not survive a dev server. Vite
-		 * rewrites the bare specifier to `/@id/@builder/extension-sdk`, the browser
+		 * rewrites the bare specifier to `/@id/frappe-builder-extension-sdk`, the browser
 		 * asks the dev server for it, and the import map never sees it. The frame
 		 * would then hold a second SDK instance, with no port and no channel.
 		 *

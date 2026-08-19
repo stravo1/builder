@@ -14,7 +14,7 @@ import ExtensionFrame from "@/components/ExtensionFrame.vue";
 import { settingsItems } from "@/components/Settings";
 import { toRaw } from "vue";
 import { bridge } from "../../host/bridge";
-import type { InstalledExtension } from "../../types";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { settingsMethods } from "../settingsMethods";
 
 const register = settingsMethods["settings.registerItem"].run;

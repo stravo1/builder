@@ -18,7 +18,7 @@ import type { BlockMenuContext, ContextMenuOption } from "@/types/blockContextMe
 import { editorContext, factsFor } from "../editor/editorContext";
 import { assertRule, matches, type ShowWhenRule } from "../editor/showWhen";
 import type { MethodTable } from "../host/capabilities";
-import type { EditorContext } from "../types";
+import type { EditorContext } from "frappe-builder-extension-sdk/types";
 import { invokeAction } from "./actionMethods";
 import { fields, flag, oneOf, optionalText, text } from "../params";
 import { createSurfaceItems, type SurfaceItem } from "./surfaceItems";

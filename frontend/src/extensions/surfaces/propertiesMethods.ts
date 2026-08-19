@@ -15,7 +15,7 @@ import { propertySections, type PropertySection } from "@/components/BlockProper
 import { editorContext } from "../editor/editorContext";
 import { assertRule, matches, type ShowWhenRule } from "../editor/showWhen";
 import type { MethodTable } from "../host/capabilities";
-import type { InstalledExtension } from "../types";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { readControls, toBlockProperty, type Control } from "./controlSchema";
 import { fields, flag, optionalText, text } from "../params";
 import { createSurfaceItems, type SurfaceItem } from "./surfaceItems";

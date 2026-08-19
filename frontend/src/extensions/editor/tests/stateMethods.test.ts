@@ -6,7 +6,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { stateMethods } from "../stateMethods";
-import type { InstalledExtension } from "../../types";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 
 const record = (name = "acme/icons"): InstalledExtension => ({
 	name,

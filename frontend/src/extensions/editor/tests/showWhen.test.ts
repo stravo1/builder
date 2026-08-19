@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ChannelCallError } from "../../transport/createPortChannel";
-import type { EditorContext, EditorSelection } from "../../types";
+import type { ChannelCallError } from "frappe-builder-extension-sdk/transport";
+import type { EditorContext, EditorSelection } from "frappe-builder-extension-sdk/types";
 import { assertRule, matches, type ShowWhenRule } from "../showWhen";
 
 const context = (

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ChannelCallError, createPortChannel } from "../../transport/createPortChannel";
-import type { Capability, InstalledExtension } from "../../types";
+import { ChannelCallError, createPortChannel } from "frappe-builder-extension-sdk/transport";
+import type { Capability, InstalledExtension } from "frappe-builder-extension-sdk/types";
 import type { MethodTable } from "../capabilities";
 import { createExtensionBridge } from "../extensionBridge";
 

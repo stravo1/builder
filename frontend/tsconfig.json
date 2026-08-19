@@ -6,6 +6,7 @@
     "jsx": "preserve",
     "importHelpers": true,
     "moduleResolution": "bundler",
+    "customConditions": ["source"],
     "experimentalDecorators": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -22,8 +23,7 @@
         "src/*"
       ],
       "tslib" : ["/node_modules/tslib/tslib.d.ts"],
-      "vue": ["../node_modules/vue"],
-      "@builder/extension-sdk": ["extension-sdk/index.ts"]
+      "vue": ["../node_modules/vue"]
     },
     "lib": [
       "esnext",

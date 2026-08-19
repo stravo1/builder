@@ -1,5 +1,5 @@
 /**
- * `@builder/extension-sdk/vue` — the optional Vue layer (1.14).
+ * `frappe-builder-extension-sdk/vue` — the optional Vue layer (1.14).
  *
  * It ships in the author's bundle, not in `extension-sdk.js`, because it needs a
  * Vue runtime and the SDK ships none. That is also why it imports the SDK by its
@@ -8,8 +8,8 @@
  * channel, and every call through it would throw.
  */
 
-import builder from "@builder/extension-sdk";
-import type { ContextField, EditorContext } from "@builder/extension-sdk";
+import builder from "frappe-builder-extension-sdk";
+import type { ContextField, EditorContext } from "frappe-builder-extension-sdk";
 import { createApp, getCurrentScope, onScopeDispose, reactive, type Component } from "vue";
 
 /**

@@ -6,8 +6,8 @@
  * runs on, and a test builds its own with its own method table.
  */
 
-import { ChannelCallError, unknownMethod, type Dispatcher, type PortChannel } from "../transport/createPortChannel";
-import type { InstalledExtension } from "../types";
+import { ChannelCallError, unknownMethod, type Dispatcher, type PortChannel } from "frappe-builder-extension-sdk/transport";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { assertGranted, assertWritable, type MethodTable } from "./capabilities";
 import { createBudget, type Budget } from "./rateLimit";
 

@@ -38,7 +38,7 @@ vi.mock("../../host/bridge", () => ({
 	},
 }));
 
-import type { Capability, InstalledExtension } from "../../types";
+import type { Capability, InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { contextMethods } from "../contextMethods";
 
 const record = (name = "acme/icons", capabilities: Capability[] = ["context.read"]): InstalledExtension => ({

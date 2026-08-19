@@ -26,7 +26,7 @@ class TestExtensionShell(FrappeTestCase):
 	def test_the_import_map_names_the_sdk(self):
 		body = IMPORT_MAP.search(self.html).group(1)
 
-		self.assertIn("@builder/extension-sdk", body)
+		self.assertIn("frappe-builder-extension-sdk", body)
 		self.assertIn("/builder_extension_asset/sdk/extension-sdk.js", body)
 
 	def test_the_shell_loads_the_sdk_as_a_module(self):

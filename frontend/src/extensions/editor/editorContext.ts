@@ -15,7 +15,7 @@ import useCanvasStore from "@/stores/canvasStore";
 import usePageStore from "@/stores/pageStore";
 import blockController from "@/utils/blockController";
 import { computed } from "vue";
-import type { BlockFacts, Breakpoint, EditorContext } from "../types";
+import type { BlockFacts, Breakpoint, EditorContext } from "frappe-builder-extension-sdk/types";
 
 /**
  * One block's own answers. Read from the block, not from `blockController`,

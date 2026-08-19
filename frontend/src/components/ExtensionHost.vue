@@ -41,7 +41,7 @@ import ExtensionFrame from "@/components/ExtensionFrame.vue";
 import ExtensionPopover from "@/components/ExtensionPopover.vue";
 import { installedExtensions, loadExtensions } from "@/data/extensions";
 import { connectExtension, disconnectExtension, dispatcherFor, teardownExtension } from "@/extensions";
-import type { InstalledExtension } from "@/extensions/types";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { onMounted, watch } from "vue";
 
 onMounted(loadExtensions);

@@ -29,7 +29,7 @@ import { editorContext } from "../editor/editorContext";
 import { assertRule, matches, type ShowWhenRule } from "../editor/showWhen";
 import { canWrite } from "../host/capabilities";
 import { fields, oneOf, optionalText, refuse, text } from "../params";
-import type { InstalledExtension } from "../types";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { invokeAction } from "./actionMethods";
 
 /**

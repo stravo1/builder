@@ -1,5 +1,5 @@
 /**
- * `@builder/extension-sdk` — the object an extension imports.
+ * `frappe-builder-extension-sdk` — the object an extension imports.
  *
  * The shell loads this file, and the import map resolves the same URL for the
  * extension's own import, so both get one module instance and one channel.

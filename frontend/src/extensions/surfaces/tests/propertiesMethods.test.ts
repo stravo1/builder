@@ -35,7 +35,7 @@ import OptionToggle from "@/components/Controls/OptionToggle.vue";
 import RangeInput from "@/components/Controls/RangeInput.vue";
 import StylePropertyControl from "@/components/Controls/StylePropertyControl.vue";
 import { bridge } from "../../host/bridge";
-import type { InstalledExtension } from "../../types";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { propertyMethods } from "../propertiesMethods";
 
 const register = propertyMethods["properties.registerSection"].run;

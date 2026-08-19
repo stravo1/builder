@@ -11,7 +11,7 @@ import { editorContext } from "../editor/editorContext";
 import { assertRule, matches, type ShowWhenRule } from "../editor/showWhen";
 import { bridge } from "../host/bridge";
 import type { MethodTable } from "../host/capabilities";
-import type { PortChannel } from "../transport/createPortChannel";
+import type { PortChannel } from "frappe-builder-extension-sdk/transport";
 import { fields, flag, optionalText, text } from "../params";
 import { createSurfaceItems, type SurfaceItem } from "./surfaceItems";
 

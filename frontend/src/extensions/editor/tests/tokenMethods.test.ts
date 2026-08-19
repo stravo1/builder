@@ -18,7 +18,7 @@ vi.mock("frappe-ui", () => ({
 }));
 
 import { tokenMethods } from "../tokenMethods";
-import type { InstalledExtension } from "../../types";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 
 const record = (): InstalledExtension => ({
 	name: "acme/material",

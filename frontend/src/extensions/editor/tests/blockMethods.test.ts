@@ -16,7 +16,7 @@ vi.mock("@/utils/helpers", () => ({
 }));
 
 import { blockMethods } from "../blockMethods";
-import type { Capability, InstalledExtension } from "../../types";
+import type { Capability, InstalledExtension } from "frappe-builder-extension-sdk/types";
 
 const record = (capabilities: Capability[] = ["block.read", "block.update"]): InstalledExtension => ({
 	name: "acme/icons",

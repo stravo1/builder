@@ -1,5 +1,5 @@
 import { devExtension } from "@/extensions/devExtension";
-import type { InstalledExtension } from "@/extensions/types";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { createResource } from "frappe-ui";
 import { computed } from "vue";
 

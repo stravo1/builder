@@ -19,8 +19,8 @@ import {
 	createPortChannel,
 	type Dispatcher,
 	type PortChannel,
-} from "@/extensions/transport/createPortChannel";
-import { PROTOCOL_VERSION, type ConnectMessage, type ExtensionSlot } from "@/extensions/types";
+} from "frappe-builder-extension-sdk/transport";
+import { PROTOCOL_VERSION, type ConnectMessage, type ExtensionSlot } from "frappe-builder-extension-sdk/types";
 import useBuilderStore from "@/stores/builderStore";
 import { onBeforeUnmount, ref, watch } from "vue";
 

@@ -12,7 +12,7 @@
 
 import type { RegistryEntry, createRegistry } from "@/utils/createRegistry";
 import { bridge } from "../host/bridge";
-import type { InstalledExtension } from "../types";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { fields, refuse, text } from "../params";
 
 type Named = { name: string };

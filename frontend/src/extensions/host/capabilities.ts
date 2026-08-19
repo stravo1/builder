@@ -6,8 +6,8 @@
  * spelling the SDK reads.
  */
 
-import { ChannelCallError } from "../transport/createPortChannel";
-import type { Capability, InstalledExtension } from "../types";
+import { ChannelCallError } from "frappe-builder-extension-sdk/transport";
+import type { Capability, InstalledExtension } from "frappe-builder-extension-sdk/types";
 
 /**
  * One method the host answers.

@@ -5,7 +5,7 @@ import { defineConfig } from "vite";
 const root = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * Builds `@builder/extension-sdk`, the one module every extension frame loads.
+ * Builds `frappe-builder-extension-sdk`, the one module every extension frame loads.
  *
  * It lands in `builder/public/extension_sdk`, which the asset route serves under
  * `/builder_extension_asset/sdk/` with the CORS header a null-origin frame needs.
@@ -21,7 +21,7 @@ export default defineConfig({
 		// the frame is a modern browser by definition: it runs module scripts
 		target: "es2020",
 		lib: {
-			entry: path.resolve(root, "src/extensions/sdk/index.ts"),
+			entry: path.resolve(root, "extension-sdk/src/sdk/index.ts"),
 			formats: ["es"],
 			fileName: () => "extension-sdk.js",
 		},

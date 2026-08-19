@@ -7,7 +7,7 @@ vi.mock("../../host/bridge", () => ({
 }));
 
 import { dismissDialog, dismissPopover, openDialogs, openPopovers, uiMethods } from "../uiMethods";
-import type { InstalledExtension } from "../../types";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 
 const record = (name = "acme/icons"): InstalledExtension => ({
 	name,

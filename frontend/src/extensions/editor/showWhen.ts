@@ -10,8 +10,8 @@
  * at a time. Adding a key later is cheap. Removing one is not.
  */
 
-import { ChannelCallError } from "../transport/createPortChannel";
-import type { Breakpoint, EditorContext } from "../types";
+import { ChannelCallError } from "frappe-builder-extension-sdk/transport";
+import type { Breakpoint, EditorContext } from "frappe-builder-extension-sdk/types";
 
 /** The vocabulary itself: one reader per key, and the only place it grows. */
 const READERS = {

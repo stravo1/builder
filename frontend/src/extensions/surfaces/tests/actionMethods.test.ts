@@ -4,8 +4,8 @@ const toastError = vi.hoisted(() => vi.fn());
 vi.mock("frappe-ui", () => ({ toast: { error: toastError } }));
 
 import { bridge } from "../../host/bridge";
-import { createPortChannel, type PortChannel } from "../../transport/createPortChannel";
-import type { InstalledExtension } from "../../types";
+import { createPortChannel, type PortChannel } from "frappe-builder-extension-sdk/transport";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { actionMethods, invokeAction } from "../actionMethods";
 
 const register = actionMethods["actions.register"].run;

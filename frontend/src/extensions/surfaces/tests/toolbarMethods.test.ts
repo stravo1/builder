@@ -22,7 +22,7 @@ vi.mock("../actionMethods", () => ({ invokeAction: invoked, actionMethods: {} })
 
 import { toolbarItems } from "@/components/ToolbarItems";
 import { bridge } from "../../host/bridge";
-import type { InstalledExtension } from "../../types";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { toolbarMethods } from "../toolbarMethods";
 
 const register = toolbarMethods["toolbar.register"].run;

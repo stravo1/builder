@@ -19,7 +19,7 @@ import { createResource } from "frappe-ui";
 import builderTokens from "@/data/builderToken";
 import type { MethodTable } from "../host/capabilities";
 import { fields, refuse, text } from "../params";
-import type { InstalledExtension } from "../types";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 
 const TOKEN_TYPES = ["Color", "Dimension", "Font"] as const;
 

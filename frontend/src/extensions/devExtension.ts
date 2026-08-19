@@ -11,7 +11,7 @@
  * remembered, so nobody retypes it.
  */
 
-import { CAPABILITIES, type Capability, type InstalledExtension } from "@/extensions/types";
+import { CAPABILITIES, type Capability, type InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { ref } from "vue";
 
 /** Served by the build plugin, and by nothing else. */

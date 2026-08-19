@@ -17,7 +17,7 @@ vi.mock("../actionMethods", () => ({ invokeAction: invoked, actionMethods: {} })
 import { blockContextMenuOptions } from "@/components/BlockContextMenuOptions";
 import type { BlockMenuContext } from "@/types/blockContextMenu";
 import { bridge } from "../../host/bridge";
-import type { InstalledExtension } from "../../types";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { contextMenuMethods } from "../contextMenuMethods";
 
 const register = contextMenuMethods["contextMenu.register"].run;
