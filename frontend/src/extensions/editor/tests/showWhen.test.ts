@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { ChannelCallError } from "../transport/createPortChannel";
-import type { EditorContext, EditorSelection } from "../types";
-import { assertRule, matches, type ShowWhenRule } from "./showWhen";
+import type { ChannelCallError } from "../../transport/createPortChannel";
+import type { EditorContext, EditorSelection } from "../../types";
+import { assertRule, matches, type ShowWhenRule } from "../showWhen";
 
 const context = (
 	selection: Partial<EditorSelection> = {},

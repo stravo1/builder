@@ -13,8 +13,8 @@ vi.mock("@/utils/helpers", () => ({
 	getBlockObject: (block: Record<string, unknown>) => ({ copied: block.blockId }),
 }));
 
-import { blockMethods } from "./blockMethods";
-import type { Capability, InstalledExtension } from "../types";
+import { blockMethods } from "../blockMethods";
+import type { Capability, InstalledExtension } from "../../types";
 
 const record = (capabilities: Capability[] = ["block.read", "block.update"]): InstalledExtension => ({
 	name: "acme/icons",

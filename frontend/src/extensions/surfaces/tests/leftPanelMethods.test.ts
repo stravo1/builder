@@ -20,13 +20,13 @@ const context = vi.hoisted(() => ({
 		readOnly: false,
 	},
 }));
-vi.mock("../editor/editorContext", () => ({ editorContext: context }));
+vi.mock("../../editor/editorContext", () => ({ editorContext: context }));
 
 import ExtensionFrame from "@/components/ExtensionFrame.vue";
 import { leftPanelTabs } from "@/components/LeftPanelTabs";
-import { bridge } from "../host/bridge";
-import type { InstalledExtension } from "../types";
-import { leftPanelMethods } from "./leftPanelMethods";
+import { bridge } from "../../host/bridge";
+import type { InstalledExtension } from "../../types";
+import { leftPanelMethods } from "../leftPanelMethods";
 
 const register = leftPanelMethods["leftPanel.register"].run;
 const unregister = leftPanelMethods["leftPanel.unregister"].run;

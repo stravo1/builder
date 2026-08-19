@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const toastError = vi.hoisted(() => vi.fn());
 vi.mock("frappe-ui", () => ({ toast: { error: toastError } }));
 
-import { bridge } from "../host/bridge";
-import { createPortChannel, type PortChannel } from "../transport/createPortChannel";
-import type { InstalledExtension } from "../types";
-import { actionMethods, invokeAction } from "./actionMethods";
+import { bridge } from "../../host/bridge";
+import { createPortChannel, type PortChannel } from "../../transport/createPortChannel";
+import type { InstalledExtension } from "../../types";
+import { actionMethods, invokeAction } from "../actionMethods";
 
 const register = actionMethods["actions.register"].run;
 const unregister = actionMethods["actions.unregister"].run;

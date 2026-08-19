@@ -15,15 +15,15 @@ vi.mock("frappe-ui", () => ({ toast: { error: vi.fn() } }));
 const context = vi.hoisted(() => ({
 	value: { selection: { count: 1, isImage: false }, breakpoint: "desktop", readOnly: false },
 }));
-vi.mock("../editor/editorContext", () => ({ editorContext: context }));
+vi.mock("../../editor/editorContext", () => ({ editorContext: context }));
 
 const invoked = vi.hoisted(() => vi.fn());
-vi.mock("./actionMethods", () => ({ invokeAction: invoked, actionMethods: {} }));
+vi.mock("../actionMethods", () => ({ invokeAction: invoked, actionMethods: {} }));
 
 import { toolbarItems } from "@/components/ToolbarItems";
-import { bridge } from "../host/bridge";
-import type { InstalledExtension } from "../types";
-import { toolbarMethods } from "./toolbarMethods";
+import { bridge } from "../../host/bridge";
+import type { InstalledExtension } from "../../types";
+import { toolbarMethods } from "../toolbarMethods";
 
 const register = toolbarMethods["toolbar.register"].run;
 const unregister = toolbarMethods["toolbar.unregister"].run;

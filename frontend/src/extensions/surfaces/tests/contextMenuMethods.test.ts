@@ -9,16 +9,16 @@ const snapshot = vi.hoisted(() => ({
 	value: { selection: { count: 1, blockIds: ["block-1"] }, breakpoint: "desktop", readOnly: false },
 }));
 const facts = vi.hoisted(() => vi.fn());
-vi.mock("../editor/editorContext", () => ({ editorContext: snapshot, factsFor: facts }));
+vi.mock("../../editor/editorContext", () => ({ editorContext: snapshot, factsFor: facts }));
 
 const invoked = vi.hoisted(() => vi.fn());
-vi.mock("./actionMethods", () => ({ invokeAction: invoked, actionMethods: {} }));
+vi.mock("../actionMethods", () => ({ invokeAction: invoked, actionMethods: {} }));
 
 import { blockContextMenuOptions } from "@/components/BlockContextMenuOptions";
 import type { BlockMenuContext } from "@/types/blockContextMenu";
-import { bridge } from "../host/bridge";
-import type { InstalledExtension } from "../types";
-import { contextMenuMethods } from "./contextMenuMethods";
+import { bridge } from "../../host/bridge";
+import type { InstalledExtension } from "../../types";
+import { contextMenuMethods } from "../contextMenuMethods";
 
 const register = contextMenuMethods["contextMenu.register"].run;
 const unregister = contextMenuMethods["contextMenu.unregister"].run;

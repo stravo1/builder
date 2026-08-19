@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // each test needs a fresh module, because a slot is claimed once per frame
 const loadSlots = async () => {
 	vi.resetModules();
-	return import("./slots");
+	return import("../slots");
 };
 
 describe("slots", () => {

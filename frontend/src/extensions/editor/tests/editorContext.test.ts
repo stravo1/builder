@@ -24,7 +24,7 @@ vi.mock("@/stores/pageStore", () => ({ default: () => page }));
 vi.stubGlobal("window", { is_developer_mode: 0, is_fc_site: 0 });
 
 import type Block from "@/block";
-import { editorContext, factsFor } from "./editorContext";
+import { editorContext, factsFor } from "../editorContext";
 
 const KINDS = [
 	"isRoot",

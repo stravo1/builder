@@ -21,12 +21,12 @@ const blocks = vi.hoisted(() => ({ setAttribute: vi.fn(), setStyle: vi.fn() }));
 vi.mock("@/utils/blockController", () => ({ default: blocks }));
 
 const invoked = vi.hoisted(() => vi.fn());
-vi.mock("./actionMethods", () => ({ invokeAction: invoked }));
+vi.mock("../actionMethods", () => ({ invokeAction: invoked }));
 
 const context = vi.hoisted(() => ({
 	value: { selection: { count: 1, blockId: "block-1", isText: false }, readOnly: false },
 }));
-vi.mock("../editor/editorContext", () => ({ editorContext: context }));
+vi.mock("../../editor/editorContext", () => ({ editorContext: context }));
 
 import { propertySections } from "@/components/BlockPropertySections";
 import AttributePropertyControl from "@/components/Controls/AttributePropertyControl.vue";
@@ -34,9 +34,9 @@ import BasePropertyControl from "@/components/Controls/BasePropertyControl.vue";
 import OptionToggle from "@/components/Controls/OptionToggle.vue";
 import RangeInput from "@/components/Controls/RangeInput.vue";
 import StylePropertyControl from "@/components/Controls/StylePropertyControl.vue";
-import { bridge } from "../host/bridge";
-import type { InstalledExtension } from "../types";
-import { propertyMethods } from "./propertiesMethods";
+import { bridge } from "../../host/bridge";
+import type { InstalledExtension } from "../../types";
+import { propertyMethods } from "../propertiesMethods";
 
 const register = propertyMethods["properties.registerSection"].run;
 const unregister = propertyMethods["properties.unregisterSection"].run;

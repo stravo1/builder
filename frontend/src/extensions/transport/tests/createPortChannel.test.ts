@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ChannelCallError, createPortChannel, type Dispatcher } from "./createPortChannel";
+import { ChannelCallError, createPortChannel, type Dispatcher } from "../createPortChannel";
 
 const connect = (onRequest?: { host?: Dispatcher; frame?: Dispatcher }) => {
 	const channel = new MessageChannel();

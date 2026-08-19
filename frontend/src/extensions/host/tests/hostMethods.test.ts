@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { hostMethods } from "./hostMethods";
-import type { InstalledExtension } from "../types";
+import { hostMethods } from "../hostMethods";
+import type { InstalledExtension } from "../../types";
 
 const extension: InstalledExtension = {
 	name: "acme/icons",

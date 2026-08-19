@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { describe, expect, it } from "vitest";
-import { createRegistry, type RegistryItem } from "./createRegistry";
+import { createRegistry, type RegistryItem } from "../createRegistry";
 
 type TestItem = RegistryItem & { label?: string };
 

@@ -7,8 +7,8 @@ vi.mock("@/utils/helpers", () => ({
 	getBlockObject: (block: Record<string, unknown>) => ({ copied: block.blockId }),
 }));
 
-import { pageMethods } from "./pageMethods";
-import type { InstalledExtension } from "../types";
+import { pageMethods } from "../pageMethods";
+import type { InstalledExtension } from "../../types";
 
 const record = (): InstalledExtension => ({
 	name: "acme/a11y",

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ChannelCallError, createPortChannel } from "../transport/createPortChannel";
-import type { Capability, InstalledExtension } from "../types";
-import type { MethodTable } from "./capabilities";
-import { createExtensionBridge } from "./extensionBridge";
+import { ChannelCallError, createPortChannel } from "../../transport/createPortChannel";
+import type { Capability, InstalledExtension } from "../../types";
+import type { MethodTable } from "../capabilities";
+import { createExtensionBridge } from "../extensionBridge";
 
 const channel = () => createPortChannel(new MessageChannel().port1);
 

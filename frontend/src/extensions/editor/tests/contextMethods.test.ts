@@ -31,15 +31,15 @@ const channelsOf = (extension: string) =>
 		emit: (event: string, payload: unknown) => emitted.push({ frame, event, payload }),
 	}));
 
-vi.mock("../host/bridge", () => ({
+vi.mock("../../host/bridge", () => ({
 	bridge: {
 		getChannels: (extension: string) => channelsOf(extension),
 		onTeardown: (_extension: string, unregister: () => void) => teardowns.push(unregister),
 	},
 }));
 
-import type { Capability, InstalledExtension } from "../types";
-import { contextMethods } from "./contextMethods";
+import type { Capability, InstalledExtension } from "../../types";
+import { contextMethods } from "../contextMethods";
 
 const record = (name = "acme/icons", capabilities: Capability[] = ["context.read"]): InstalledExtension => ({
 	name,

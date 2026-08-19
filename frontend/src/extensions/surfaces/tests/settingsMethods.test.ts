@@ -13,9 +13,9 @@ vi.mock("@/components/ExtensionFrame.vue", () => ({ default: { name: "ExtensionF
 import ExtensionFrame from "@/components/ExtensionFrame.vue";
 import { settingsItems } from "@/components/Settings";
 import { toRaw } from "vue";
-import { bridge } from "../host/bridge";
-import type { InstalledExtension } from "../types";
-import { settingsMethods } from "./settingsMethods";
+import { bridge } from "../../host/bridge";
+import type { InstalledExtension } from "../../types";
+import { settingsMethods } from "../settingsMethods";
 
 const register = settingsMethods["settings.registerItem"].run;
 const unregister = settingsMethods["settings.unregisterItem"].run;
