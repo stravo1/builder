@@ -9,7 +9,9 @@
   "group",
   "type",
   "value",
-  "dark_value"
+  "dark_value",
+  "extension",
+  "key"
  ],
  "fields": [
   {
@@ -52,6 +54,21 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Group"
+  },
+  {
+   "fieldname": "extension",
+   "fieldtype": "Link",
+   "label": "Extension",
+   "options": "Builder Extension",
+   "read_only": 1,
+   "description": "Set only for a token an extension created. A user may still retint or delete it."
+  },
+  {
+   "fieldname": "key",
+   "fieldtype": "Data",
+   "label": "Key",
+   "read_only": 1,
+   "description": "The extension's own stable id for this token, unique within that extension."
   }
  ],
  "grid_page_length": 50,

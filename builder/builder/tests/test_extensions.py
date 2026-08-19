@@ -4,7 +4,7 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from builder.extensions import get_enabled_extensions
+from builder.extensions import get_enabled_extensions, set_extension_tokens, unset_extension_token
 
 
 def make_extension(**kwargs):
@@ -58,3 +58,100 @@ class TestGetEnabledExtensions(FrappeTestCase):
 		make_extension(extension_name="acme/quiet", capabilities='["page.read"]')
 
 		self.assertIsNotNone(self.listed("acme/quiet"))
+
+
+class TestExtensionTokens(FrappeTestCase):
+	def setUp(self):
+		self.extension = "acme/material"
+		if not frappe.db.exists("Builder Extension", {"extension_name": self.extension}):
+			make_extension(extension_name=self.extension, label="Material")
+
+		# a token insert clears a page cache, which commits, so a rollback between
+		# tests does not reach these rows. Each test starts from none of its own
+		for row in frappe.get_all("Builder Token", filters={"extension": ("is", "set")}, pluck="name"):
+			frappe.delete_doc("Builder Token", row, force=True)
+
+	def tokens_of(self, extension=None):
+		# a Link holds the record name, which is the slug, not the extension_name
+		installed = frappe.db.get_value("Builder Extension", {"extension_name": extension or self.extension})
+		return frappe.get_all(
+			"Builder Token",
+			filters={"extension": installed},
+			fields=["name", "key", "token_name", "value", "dark_value", "group"],
+		)
+
+	def shade(self, key="accent-0", **over):
+		return {"key": key, "token_name": "Accent 0", "type": "Color", "value": "#4285f4", **over}
+
+	def test_creates_a_token(self):
+		set_extension_tokens(self.extension, [self.shade()])
+
+		rows = self.tokens_of()
+		self.assertEqual(len(rows), 1)
+		self.assertEqual(rows[0]["key"], "accent-0")
+		self.assertEqual(rows[0]["value"], "#4285f4")
+
+	def test_updates_in_place_rather_than_piling_up(self):
+		set_extension_tokens(self.extension, [self.shade()])
+		set_extension_tokens(self.extension, [self.shade(value="#ea4335")])
+
+		rows = self.tokens_of()
+		self.assertEqual(len(rows), 1)
+		self.assertEqual(rows[0]["value"], "#ea4335")
+
+	def test_keeps_the_uuid_across_an_update(self):
+		set_extension_tokens(self.extension, [self.shade()])
+		first = self.tokens_of()[0]["name"]
+		set_extension_tokens(self.extension, [self.shade(value="#ea4335")])
+
+		self.assertEqual(self.tokens_of()[0]["name"], first)
+
+	def test_survives_a_rename_by_the_user(self):
+		"""The reason `key` exists. `token_name` is editable in the UI."""
+		set_extension_tokens(self.extension, [self.shade()])
+		row = self.tokens_of()[0]
+		frappe.db.set_value("Builder Token", row["name"], "token_name", "Brand Blue")
+
+		set_extension_tokens(self.extension, [self.shade(value="#ea4335")])
+
+		self.assertEqual(len(self.tokens_of()), 1)
+
+	def test_leaves_an_unmentioned_token_alone(self):
+		set_extension_tokens(self.extension, [self.shade(), self.shade(key="accent-1")])
+		set_extension_tokens(self.extension, [self.shade(value="#ea4335")])
+
+		self.assertEqual(len(self.tokens_of()), 2)
+
+	def test_unset_removes_one_token(self):
+		set_extension_tokens(self.extension, [self.shade(), self.shade(key="accent-1")])
+		unset_extension_token(self.extension, "accent-1")
+
+		self.assertEqual([row["key"] for row in self.tokens_of()], ["accent-0"])
+
+	def test_unset_is_quiet_about_a_key_that_is_gone(self):
+		set_extension_tokens(self.extension, [self.shade()])
+		unset_extension_token(self.extension, "never-existed")
+
+		self.assertEqual(len(self.tokens_of()), 1)
+
+	def test_keeps_one_extension_out_of_another(self):
+		other = "acme/other-palette"
+		if not frappe.db.exists("Builder Extension", {"extension_name": other}):
+			make_extension(extension_name=other, label="Other")
+		set_extension_tokens(self.extension, [self.shade()])
+		set_extension_tokens(other, [self.shade(value="#34a853")])
+
+		self.assertEqual(len(self.tokens_of()), 1)
+		self.assertEqual(self.tokens_of(other)[0]["value"], "#34a853")
+
+	def test_refuses_a_token_with_no_key(self):
+		with self.assertRaises(frappe.ValidationError):
+			set_extension_tokens(self.extension, [self.shade(key="")])
+
+	def test_refuses_a_type_the_doctype_does_not_have(self):
+		with self.assertRaises(frappe.ValidationError):
+			set_extension_tokens(self.extension, [self.shade(type="Shadow")])
+
+	def test_refuses_an_extension_that_is_not_installed(self):
+		with self.assertRaises(frappe.DoesNotExistError):
+			set_extension_tokens("acme/never-installed", [self.shade()])

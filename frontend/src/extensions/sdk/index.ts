@@ -17,6 +17,7 @@ import {
 	settings,
 	state,
 	toolbar,
+	tokens,
 } from "./namespaces";
 import { registerMain, registerSlot, type SlotEntry } from "./slots";
 import { ui } from "./ui";
@@ -68,6 +69,9 @@ const builder = {
 
 	/** This extension's own storage. No capability, because Builder never reads it. */
 	state,
+
+	/** Real `Builder Token` rows, so they reach the published site too. */
+	tokens,
 
 	/** The functions this extension owns. A descriptor names one, the host calls it. */
 	actions,

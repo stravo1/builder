@@ -20,8 +20,10 @@ class BuilderToken(Document):
 		from frappe.types import DF
 
 		dark_value: DF.Data | None
+		extension: DF.Link | None
 		group: DF.Data | None
 		is_standard: DF.Check
+		key: DF.Data | None
 		type: DF.Literal["Color", "Dimension", "Font"]
 		value: DF.Data
 		token_name: DF.Data

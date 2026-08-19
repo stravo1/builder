@@ -11,6 +11,7 @@ import { blockMethods } from "./blockMethods";
 import { contextMethods } from "./contextMethods";
 import { pageMethods } from "./pageMethods";
 import { stateMethods } from "./stateMethods";
+import { tokenMethods } from "./tokenMethods";
 import { uiMethods } from "./uiMethods";
 
 export const editorMethods: MethodTable = {
@@ -19,4 +20,5 @@ export const editorMethods: MethodTable = {
 	...pageMethods,
 	...uiMethods,
 	...stateMethods,
+	...tokenMethods,
 };

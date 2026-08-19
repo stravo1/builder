@@ -263,6 +263,28 @@ export const state = {
 	unset: (key: string) => call("state.unset", { key }),
 };
 
+/** One row in `Builder Token`, as an extension describes it (D6). */
+export type ExtensionToken = {
+	/** This extension's own stable id for the token. The record's name is a uuid. */
+	key: string;
+	token_name: string;
+	type: "Color" | "Dimension" | "Font";
+	value: string;
+	dark_value?: string;
+	group?: string;
+};
+
+export const tokens = {
+	/**
+	 * Upserts by `key`, and never deletes what the call leaves unmentioned.
+	 *
+	 * A network call, not a client write: the row has to exist server-side to
+	 * reach the published site, so this resolves only once Frappe answers.
+	 */
+	set: (tokens: ExtensionToken[]) => call("tokens.set", { tokens }),
+	unset: (key: string) => call("tokens.unset", { key }),
+};
+
 export const actions = {
 	/**
 	 * The handler stays in this frame, and the host learns only the name.
