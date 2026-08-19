@@ -31,21 +31,42 @@ def describe_extension(name: str) -> dict:
 
 TOKEN_TYPES = {"Color", "Dimension", "Font"}
 TOKEN_FIELDS = ("token_name", "type", "value", "dark_value", "group")
+DEV_EXTENSION_VERSION = "0.0.0-dev"
 
 
 def resolve_extension(extension: str) -> str:
 	"""Turns an extension_name such as "acme/icons" into the record name a Link holds.
 
 	The doctype names itself by slug (`builder_extension.py:51`), and the client
-	only ever knows the extension_name. Refuses a name no extension owns, so a
-	direct caller cannot attach tokens to something that was never installed.
+	only ever knows the extension_name. In developer mode, a dev extension gets a
+	disabled record so its tokens have a Link owner; production still refuses an
+	unknown name.
 
 	The permission is the doctype's own, which is the rule that already governs a
 	user retinting a token by hand. The client capability is a separate check the
 	bridge makes, and neither replaces the other.
 	"""
 	frappe.has_permission("Builder Token", ptype="write", throw=True)
+	name = frappe.db.get_value("Builder Extension", {"extension_name": extension}, "name")
+	if name:
+		return name
+	if frappe.conf.get("developer_mode"):
+		return create_dev_extension(extension)
 	return frappe.get_cached_doc("Builder Extension", {"extension_name": extension}).name
+
+
+def create_dev_extension(extension: str) -> str:
+	"""Give a session-only development extension a token owner without enabling it."""
+	extension = frappe.get_doc(
+		{
+			"doctype": "Builder Extension",
+			"extension_name": extension,
+			"label": extension,
+			"version": DEV_EXTENSION_VERSION,
+			"enabled": 0,
+		}
+	).insert(ignore_permissions=True)
+	return extension.name
 
 
 @frappe.whitelist()
@@ -91,6 +112,25 @@ def unset_extension_token(extension: str, key: str) -> None:
 	name = find_extension_token(resolve_extension(extension), key)
 	if name:
 		frappe.delete_doc("Builder Token", name)
+
+
+@frappe.whitelist()
+def remove_dev_extension(extension: str) -> None:
+	"""Remove a development extension and the tokens that only exist for its session."""
+	if not frappe.conf.get("developer_mode"):
+		frappe.throw(frappe._("Development extensions are unavailable outside developer mode."))
+
+	name = frappe.db.get_value("Builder Extension", {"extension_name": extension}, "name")
+	if not name:
+		return
+
+	owner = frappe.get_doc("Builder Extension", name)
+	if owner.enabled or owner.version != DEV_EXTENSION_VERSION:
+		frappe.throw(frappe._("Only a development extension can be removed this way."))
+
+	for token in frappe.get_all("Builder Token", filters={"extension": owner.name}, pluck="name"):
+		frappe.delete_doc("Builder Token", token, ignore_permissions=True)
+	frappe.delete_doc("Builder Extension", owner.name, ignore_permissions=True)
 
 
 def find_extension_token(extension: str, key: str) -> str | None:

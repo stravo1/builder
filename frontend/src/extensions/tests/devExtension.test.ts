@@ -124,5 +124,9 @@ describe("loadDevExtension", () => {
 		dev.stopDevExtension();
 
 		expect(dev.devExtension.value).toBe(null);
+		expect(fetch).toHaveBeenLastCalledWith(
+			"/api/method/builder.extensions.remove_dev_extension",
+			expect.objectContaining({ method: "POST", keepalive: true }),
+		);
 	});
 });

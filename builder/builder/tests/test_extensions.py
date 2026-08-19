@@ -4,7 +4,7 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from builder.extensions import get_enabled_extensions, set_extension_tokens, unset_extension_token
+from builder.extensions import get_enabled_extensions, remove_dev_extension, set_extension_tokens, unset_extension_token
 
 
 def make_extension(**kwargs):
@@ -153,5 +153,37 @@ class TestExtensionTokens(FrappeTestCase):
 			set_extension_tokens(self.extension, [self.shade(type="Shadow")])
 
 	def test_refuses_an_extension_that_is_not_installed(self):
-		with self.assertRaises(frappe.DoesNotExistError):
-			set_extension_tokens("acme/never-installed", [self.shade()])
+		previous = frappe.conf.get("developer_mode")
+		frappe.conf.developer_mode = 0
+		try:
+			with self.assertRaises(frappe.DoesNotExistError):
+				set_extension_tokens("acme/never-installed", [self.shade()])
+		finally:
+			frappe.conf.developer_mode = previous
+
+	def test_provisions_a_disabled_owner_for_a_dev_extension(self):
+		extension = "acme/development"
+		previous = frappe.conf.get("developer_mode")
+		frappe.conf.developer_mode = 1
+		try:
+			set_extension_tokens(extension, [self.shade()])
+		finally:
+			frappe.conf.developer_mode = previous
+
+		owner = frappe.get_doc("Builder Extension", "acme-development")
+		self.assertEqual(owner.extension_name, extension)
+		self.assertFalse(owner.enabled)
+		self.assertEqual(owner.version, "0.0.0-dev")
+
+	def test_removes_a_dev_extension_and_its_tokens(self):
+		extension = "acme/temporary"
+		previous = frappe.conf.get("developer_mode")
+		frappe.conf.developer_mode = 1
+		try:
+			set_extension_tokens(extension, [self.shade()])
+			remove_dev_extension(extension)
+		finally:
+			frappe.conf.developer_mode = previous
+
+		self.assertFalse(frappe.db.exists("Builder Extension", "acme-temporary"))
+		self.assertFalse(frappe.db.exists("Builder Token", {"extension": "acme-temporary", "key": "accent-0"}))

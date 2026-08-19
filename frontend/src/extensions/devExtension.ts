@@ -18,6 +18,7 @@ import { ref } from "vue";
 const DESCRIPTOR_PATH = "/__builder-extension";
 
 const LAST_URL_KEY = "builder-extension:dev-url";
+const REMOVE_METHOD = "/api/method/builder.extensions.remove_dev_extension";
 
 /** One at a time: a second load replaces the first, as one dialog replaces another. */
 export const devExtension = ref<InstalledExtension | null>(null);
@@ -53,10 +54,18 @@ const read = async (origin: string) => {
 	return descriptor;
 };
 
+const remove = (extension: InstalledExtension) =>
+	fetch(REMOVE_METHOD, {
+		method: "POST",
+		body: new URLSearchParams({ extension: extension.name }),
+		keepalive: true,
+	}).catch((error) => console.error(`Could not remove development extension "${extension.name}"`, error));
+
 /** Takes any URL on the dev server, because an author pastes what the terminal printed. */
 export const loadDevExtension = async (url: string): Promise<InstalledExtension> => {
 	const origin = new URL(url.trim()).origin;
 	const descriptor = await read(origin);
+	if (devExtension.value) await remove(devExtension.value);
 
 	localStorage.setItem(LAST_URL_KEY, origin);
 	devExtension.value = {
@@ -69,4 +78,9 @@ export const loadDevExtension = async (url: string): Promise<InstalledExtension>
 	return devExtension.value;
 };
 
-export const stopDevExtension = () => (devExtension.value = null);
+export const stopDevExtension = () => {
+	if (devExtension.value) void remove(devExtension.value);
+	devExtension.value = null;
+};
+
+window.addEventListener("pagehide", stopDevExtension);
