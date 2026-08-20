@@ -50,7 +50,7 @@ export const useBuilderContext = (fields: ContextField[]) => {
 	// older than it
 	void builder.context.get().then((snapshot) => Object.assign(context, snapshot, pushed));
 
-	// outside a component there is no scope to dispose, and the caller holds `stop`
+	// outside a Vue scope there is nothing to dispose this subscription; it stops when the extension frame unloads.
 	if (getCurrentScope()) onScopeDispose(stop);
 
 	return context;

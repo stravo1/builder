@@ -1,7 +1,7 @@
 /**
  * The vocabulary the host and the SDK both read.
  *
- * Domain types first, then the shapes that cross a port. `transport/envelope.ts`
+ * Domain types first, then the shapes that cross a port. `transport/messages.ts`
  * holds the guards over these shapes.
  */
 

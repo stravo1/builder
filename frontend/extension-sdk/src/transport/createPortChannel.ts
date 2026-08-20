@@ -15,7 +15,7 @@ import {
 	respond,
 	unsupportedVersion,
 	unsupportedVersionError,
-} from "./envelope";
+} from "./messages";
 
 export type RequestHandler = (params: unknown) => unknown;
 export type EventHandler = (payload: unknown) => void;
