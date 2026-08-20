@@ -133,7 +133,9 @@ def get_list(
 	doctype: str,
 	fields: list[str] | None = None,
 	filters: dict | list | None = None,
+	or_filters: dict | list | None = None,
 	order_by: str | None = None,
+	group_by: str | None = None,
 	limit_start: int = 0,
 	limit_page_length: int = DEFAULT_PAGE_LENGTH,
 ) -> list[dict]:
@@ -142,13 +144,20 @@ def get_list(
 	`frappe.client` does the query and the permission check, so an extension
 	reaches exactly the rows the user reaches, with the field-level rules the
 	user has. The grant is the extra gate in front of that, never a way past it.
+
+	`or_filters` and `group_by` are here because `createListResource` sends them
+	on every fetch. Dropping a filter quietly would answer with more rows than
+	the caller asked for, which is a correctness bug rather than a missing
+	feature.
 	"""
 	assert_grant(extension, doctype, "read")
 	return frappe.client.get_list(
 		doctype=doctype,
 		fields=fields,
 		filters=filters,
+		or_filters=or_filters,
 		order_by=order_by,
+		group_by=group_by,
 		limit_start=limit_start,
 		limit_page_length=read_page_length(limit_page_length),
 	)

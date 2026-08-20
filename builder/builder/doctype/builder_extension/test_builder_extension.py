@@ -29,19 +29,28 @@ class TestBuilderExtension(FrappeTestCase):
 
 	def test_script_url_points_at_the_entry_of_the_installed_version(self):
 		extension = make_extension(extension_name="acme/urls", version="1.2.0", checksum="a1b2c3")
-		self.assertEqual(
-			extension.script_url, "/builder_extension_asset/acme-urls@1.2.0/main.js?v=a1b2c3"
-		)
+		self.assertEqual(extension.script_url, "/builder_extension_asset/acme-urls@1.2.0/main.js")
+
+	def test_the_entry_url_carries_no_query(self):
+		"""A chunk sharing a module with the entry imports `./main.js`.
+
+		A `?v=` query would make the frame's URL a different one, so the browser
+		would hold two copies of the entry and run every registration twice. The
+		asset route revalidates this file by ETag instead.
+		"""
+		extension = make_extension(extension_name="acme/query", checksum="a1b2c3")
+		self.assertNotIn("?", extension.script_url)
 
 	def test_install_path_stays_out_of_the_public_files_folder(self):
 		extension = make_extension(extension_name="acme/private")
 		self.assertIn("/private/files/extensions/", extension.install_path)
 
 	def test_a_new_checksum_busts_the_entry_cache(self):
+		"""Through the ETag, not the URL. The URL is stable so a chunk can name it."""
 		extension = make_extension(extension_name="acme/cache")
-		before = extension.script_url
+		before = extension.checksum
 		extension.db_set("checksum", "d4e5f6")
-		self.assertNotEqual(extension.script_url, before)
+		self.assertNotEqual(extension.checksum, before)
 
 	def test_a_new_version_moves_the_install_folder(self):
 		extension = make_extension(extension_name="acme/versions", version="2.0.0")

@@ -20,6 +20,7 @@ import {
 	toolbar,
 	tokens,
 } from "./namespaces";
+import { resourceFetcher } from "./resourceFetcher";
 import { registerMain, registerSlot, type SlotEntry } from "./slots";
 import { ui } from "./ui";
 
@@ -77,8 +78,22 @@ const builder = {
 	/** Real `Builder Token` rows, so they reach the published site too. */
 	tokens,
 
-	/** Site data. Ask the user for a doctype first: nothing here is granted at install. */
-	data,
+	/**
+	 * Site data. Ask the user for a doctype first: nothing here is granted at install.
+	 *
+	 * `fetcher` is added here rather than in `namespaces.ts` so that file never
+	 * imports the one that reads it back. Wire it once, in the entry:
+	 *
+	 * ```js
+	 * import { setConfig } from "frappe-ui";
+	 * setConfig("resourceFetcher", builder.data.fetcher);
+	 * ```
+	 *
+	 * Then `createListResource` and `createDocumentResource` work as they do in
+	 * any Frappe app. The grant still comes first: a resource errors with
+	 * `grant_required` until `requestAccess` has been answered.
+	 */
+	data: { ...data, fetcher: resourceFetcher },
 
 	/** The functions this extension owns. A descriptor names one, the host calls it. */
 	actions,

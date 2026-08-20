@@ -78,7 +78,7 @@ const readDoc = (value: unknown) => {
 const readFilters = (value: unknown) => {
 	if (value === undefined) return undefined;
 	if (typeof value !== "object" || value === null) {
-		throw refuse("\"filters\" must be an object or a list.", "invalid_params");
+		throw refuse("A filter must be an object or a list.", "invalid_params");
 	}
 	return value;
 };
@@ -101,7 +101,9 @@ const getList = (params: unknown, extension: InstalledExtension) => {
 		doctype: readDoctype(sent),
 		fields: readFields(sent.fields),
 		filters: readFilters(sent.filters),
+		or_filters: readFilters(sent.orFilters),
 		order_by: optionalText(sent.orderBy, "orderBy"),
+		group_by: optionalText(sent.groupBy, "groupBy"),
 		limit_start: optionalCount(sent.start, "start"),
 		// left out rather than defaulted here: the page size is the server's rule
 		limit_page_length: optionalCount(sent.pageLength, "pageLength"),

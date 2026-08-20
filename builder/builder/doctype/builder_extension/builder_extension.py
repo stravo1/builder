@@ -78,8 +78,14 @@ class BuilderExtension(Document):
 
 	@property
 	def script_url(self) -> str:
-		"""Every frame loads this one file. Its chunks resolve relative to it, so they need no URL."""
-		return f"{ASSET_ROUTE}/{self.install_folder}/{ENTRY_FILE}?v={self.checksum}"
+		"""Every frame loads this one file. Its chunks resolve relative to it, so they need no URL.
+
+		No `?v=` query, deliberately. A chunk that shares a module with the entry
+		imports `./main.js`, and a query would make that a second URL, a second
+		module instance, and a second run of every registration in the entry. The
+		asset route revalidates this one file instead, keyed by the checksum.
+		"""
+		return f"{ASSET_ROUTE}/{self.install_folder}/{ENTRY_FILE}"
 
 	@property
 	def granted_capabilities(self) -> list[str]:

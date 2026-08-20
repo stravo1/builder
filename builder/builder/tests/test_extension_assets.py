@@ -51,15 +51,36 @@ class TestExtensionAsset(FrappeTestCase):
 
 		self.assertEqual(renderer.mimetype, "text/javascript")
 
-	def test_the_response_allows_any_origin_and_caches_forever(self):
+	def test_the_response_allows_any_origin(self):
 		extension = make_extension(extension_name="acme/headers")
 		self.install(extension)
 
 		headers = self.asset("/builder_extension_asset/acme-headers@1.0.0/main.js").response_headers
 
 		self.assertEqual(headers["Access-Control-Allow-Origin"], "*")
-		self.assertIn("immutable", headers["Cache-Control"])
 		self.assertEqual(headers["ETag"], '"sum123"')
+
+	def test_a_hashed_chunk_is_immutable(self):
+		extension = make_extension(extension_name="acme/chunks")
+		self.install(extension, files=("main.js", "panel-abc.js"))
+
+		headers = self.asset("/builder_extension_asset/acme-chunks@1.0.0/panel-abc.js").response_headers
+
+		self.assertIn("immutable", headers["Cache-Control"])
+
+	def test_the_entry_revalidates_because_its_name_never_changes(self):
+		"""`main.js` carries no content hash, so it cannot be immutable.
+
+		Its URL has to stay stable, because a chunk sharing a module with the
+		entry imports `./main.js`. The ETag is what busts it.
+		"""
+		extension = make_extension(extension_name="acme/entrycache")
+		self.install(extension)
+
+		headers = self.asset("/builder_extension_asset/acme-entrycache@1.0.0/main.js").response_headers
+
+		self.assertNotIn("immutable", headers["Cache-Control"])
+		self.assertIn("no-cache", headers["Cache-Control"])
 
 	def test_every_file_of_one_install_shares_the_checksum_etag(self):
 		extension = make_extension(extension_name="acme/etag")

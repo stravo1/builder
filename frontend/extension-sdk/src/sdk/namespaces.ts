@@ -324,7 +324,10 @@ export type ListOptions = {
 	fields?: string[];
 	/** A dict of equalities, or Frappe's list form: `[["status", "!=", "Open"]]`. */
 	filters?: Record<string, unknown> | unknown[];
+	/** Matched with OR, beside `filters`, which is matched with AND. */
+	orFilters?: Record<string, unknown> | unknown[];
 	orderBy?: string;
+	groupBy?: string;
 	start?: number;
 	/** Up to 500. The server refuses 0, which Frappe reads as every row. */
 	pageLength?: number;

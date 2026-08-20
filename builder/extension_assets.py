@@ -13,6 +13,17 @@ ROUTE_PREFIX = "builder_extension_asset"
 SDK_FOLDER = "sdk"
 CACHE_CONTROL = "public, max-age=31536000, immutable"
 
+# The build content-hashes every file it emits except these two: the plugin
+# pins the entry to `main.js` and copies the manifest under its own name. A
+# name that never changes cannot be immutable, so these revalidate instead. The
+# ETag is the record's checksum, so an unchanged install answers 304.
+#
+# This is also what lets `script_url` carry no `?v=` query. A query would make
+# the frame's URL differ from the `./main.js` a sibling chunk imports, and the
+# browser would load the entry twice, running every registration twice with it.
+REVALIDATE_FILES = {"main.js", "manifest.json"}
+REVALIDATE_CACHE_CONTROL = "public, no-cache"
+
 # a module script is MIME-strict: the wrong type stops the browser running it,
 # with an error that names neither the type nor the script
 MIME_TYPES = {
@@ -72,9 +83,15 @@ class ExtensionAsset(BaseRenderer):
 	def response_headers(self) -> dict:
 		return {
 			"Access-Control-Allow-Origin": "*",
-			"Cache-Control": CACHE_CONTROL,
+			"Cache-Control": self.cache_control,
 			"ETag": self.quoted_etag,
 		}
+
+	@property
+	def cache_control(self) -> str:
+		if self.file_path.name in REVALIDATE_FILES:
+			return REVALIDATE_CACHE_CONTROL
+		return CACHE_CONTROL
 
 	@property
 	def quoted_etag(self) -> str:
