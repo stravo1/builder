@@ -1,5 +1,5 @@
 /**
- * The dialog and the popover, from inside a frame (1.15).
+ * The dialog, popover, and toast, from inside a frame (1.15).
  *
  * Two frames are involved and neither knows about the other. One frame asks for
  * a dialog and waits. The host opens the dialog slot's document in a new frame,
@@ -9,6 +9,8 @@
  * A popover works the same way, in the `popover` slot. It is not modal: the user
  * keeps editing while it stands, and drags it where they want it. So a caller
  * that wants an answer awaits it, and a caller that only opens a panel does not.
+ *
+ * A toast opens no frame and has no result: the host displays it in Builder.
  *
  * The host controls both sets of dimensions, so an extension only supplies a
  * title, content props, and an eventual result.

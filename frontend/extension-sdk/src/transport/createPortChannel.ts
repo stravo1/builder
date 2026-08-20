@@ -1,5 +1,6 @@
 /**
- * One `MessagePort`, four verbs: `call`, `handle`, `listen`, `emit`.
+ * One `MessagePort` per extension frame, four verbs: `call`, `handle`, `listen`, `emit`.
+ * Builder groups the channels from an extension's frames by extension.
  *
  * The host and the SDK both use this. Neither side is a client, so nothing here
  * knows which end of a channel it runs on, or what methods exist.

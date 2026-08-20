@@ -7,11 +7,9 @@
  * Apart from `namespaces.ts` so that `connect.ts` can register the responder
  * without the two importing each other.
  *
- * Every frame holds the handlers, because every frame imports the same entry
- * module. Only the entry frame names them to the host, so the host always calls
- * back into the frame that outlives the others. B2 asks for that guarantee, and
- * declaring at module scope gives it structurally: a dialog frame cannot leave a
- * dangling handler, because the entry frame declared the same one.
+ * Only the entry frame holds handlers. The host calls that frame because it
+ * outlives visual slots, which can close while an action still appears on a
+ * descriptor.
  */
 
 export type ActionHandler = (context: Record<string, unknown>) => unknown;

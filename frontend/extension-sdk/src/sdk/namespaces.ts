@@ -305,14 +305,16 @@ export const actions = {
 	/**
 	 * The handler stays in this frame, and the host learns only the name.
 	 *
-	 * Held in every frame and named to the host by the entry frame alone, so the
-	 * host always calls the frame that outlives the others.
+	 * Only the entry frame holds and names it, so the host always calls the frame
+	 * that outlives the others.
 	 */
 	register: (name: string, handler: ActionHandler) => {
+		if (getActiveSlot() !== "main") return Promise.resolve();
 		holdAction(name, handler);
 		return declare("actions.register", { name });
 	},
 	unregister: (name: string) => {
+		if (getActiveSlot() !== "main") return Promise.resolve();
 		releaseAction(name);
 		return call("actions.unregister", { name });
 	},
