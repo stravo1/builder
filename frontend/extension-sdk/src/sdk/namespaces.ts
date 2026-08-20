@@ -301,6 +301,36 @@ export const tokens = {
 	unset: (key: string) => call("tokens.unset", { key }),
 };
 
+/** What one extension may do to one doctype, as the host answers it. */
+export type Grant = {
+	doctype: string;
+	read: boolean;
+	write: boolean;
+	delete: boolean;
+	/** The user said no last time, so `requestAccess` returns without a dialog. */
+	denied: boolean;
+};
+
+export type Access = "read" | "write" | "delete";
+
+export const data = {
+	/**
+	 * Asks the user for access to one doctype, in a Builder dialog.
+	 *
+	 * The one method here that can open a dialog. Call it when the user is
+	 * expecting it — behind a button they pressed — because it is modal.
+	 *
+	 * It returns without asking when the grant already covers everything named,
+	 * and when the user said no last time. Read `denied` on the answer to tell
+	 * "not yet asked" from "already refused".
+	 */
+	requestAccess: (doctype: string, access: Access[]) =>
+		call("data.requestAccess", { doctype, access }) as Promise<Grant>,
+
+	/** What this extension may already do, without asking for anything. */
+	getAccess: (doctype: string) => call("data.getAccess", { doctype }) as Promise<Grant>,
+};
+
 export const actions = {
 	/**
 	 * The handler stays in this frame, and the host learns only the name.

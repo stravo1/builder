@@ -11,6 +11,7 @@ import {
 	block,
 	context,
 	contextMenu,
+	data,
 	leftPanel,
 	page,
 	properties,
@@ -75,6 +76,9 @@ const builder = {
 
 	/** Real `Builder Token` rows, so they reach the published site too. */
 	tokens,
+
+	/** Site data. Ask the user for a doctype first: nothing here is granted at install. */
+	data,
 
 	/** The functions this extension owns. A descriptor names one, the host calls it. */
 	actions,

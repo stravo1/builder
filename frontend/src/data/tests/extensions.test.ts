@@ -1,6 +1,11 @@
 /**
+ * @vitest-environment jsdom
+ *
  * What the editor runs is the enabled records plus the one dev extension, and
  * the two lists can name the same extension.
+ *
+ * `devExtension.ts` listens for `pagehide` at module scope, so importing the
+ * list at all needs a window.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

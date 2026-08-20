@@ -34,7 +34,12 @@ TOKEN_FIELDS = ("token_name", "type", "value", "dark_value", "group")
 DEV_EXTENSION_VERSION = "0.0.0-dev"
 
 
-def resolve_extension(extension: str) -> str:
+def find_extension(extension: str) -> str | None:
+	"""The record name behind an extension_name, or None when nothing is installed."""
+	return frappe.db.get_value("Builder Extension", {"extension_name": extension}, "name")
+
+
+def resolve_extension(extension: str, requires_write_on: str) -> str:
 	"""Turns an extension_name such as "acme/icons" into the record name a Link holds.
 
 	The doctype names itself by slug (`builder_extension.py:51`), and the client
@@ -42,12 +47,13 @@ def resolve_extension(extension: str) -> str:
 	disabled record so its tokens have a Link owner; production still refuses an
 	unknown name.
 
-	The permission is the doctype's own, which is the rule that already governs a
-	user retinting a token by hand. The client capability is a separate check the
-	bridge makes, and neither replaces the other.
+	`requires_write_on` names the doctype the caller is about to write, so the
+	permission is that doctype's own rule — for a token, the rule that already
+	governs a user retinting one by hand. The client capability is a separate
+	check the bridge makes, and neither replaces the other.
 	"""
-	frappe.has_permission("Builder Token", ptype="write", throw=True)
-	name = frappe.db.get_value("Builder Extension", {"extension_name": extension}, "name")
+	frappe.has_permission(requires_write_on, ptype="write", throw=True)
+	name = find_extension(extension)
 	if name:
 		return name
 	if frappe.conf.get("developer_mode"):
@@ -79,7 +85,7 @@ def set_extension_tokens(extension: str, tokens: list[dict]) -> None:
 	Never deletes what a call leaves unmentioned. Dropping a token takes an
 	explicit unset.
 	"""
-	installed = resolve_extension(extension)
+	installed = resolve_extension(extension, "Builder Token")
 	for token in frappe.parse_json(tokens):
 		upsert_extension_token(installed, token)
 
@@ -109,7 +115,7 @@ def unset_extension_token(extension: str, key: str) -> None:
 	Quiet about a key that is not there: an extension dropping a palette it has
 	already dropped is not an error, and the end state is the one it asked for.
 	"""
-	name = find_extension_token(resolve_extension(extension), key)
+	name = find_extension_token(resolve_extension(extension, "Builder Token"), key)
 	if name:
 		frappe.delete_doc("Builder Token", name)
 
@@ -120,7 +126,7 @@ def remove_dev_extension(extension: str) -> None:
 	if not frappe.conf.get("developer_mode"):
 		frappe.throw(frappe._("Development extensions are unavailable outside developer mode."))
 
-	name = frappe.db.get_value("Builder Extension", {"extension_name": extension}, "name")
+	name = find_extension(extension)
 	if not name:
 		return
 

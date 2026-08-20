@@ -77,6 +77,7 @@ declare module 'vue' {
     EditableSpan: typeof import('./src/components/EditableSpan.vue')['default']
     ExtensionDialog: typeof import('./src/components/ExtensionDialog.vue')['default']
     ExtensionFrame: typeof import('./src/components/ExtensionFrame.vue')['default']
+    ExtensionGrantDialog: typeof import('./src/components/ExtensionGrantDialog.vue')['default']
     ExtensionHost: typeof import('./src/components/ExtensionHost.vue')['default']
     ExtensionPopover: typeof import('./src/components/ExtensionPopover.vue')['default']
     ExtensionToolbarButton: typeof import('./src/components/ToolbarItems/ExtensionToolbarButton.vue')['default']

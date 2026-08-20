@@ -29,6 +29,7 @@ CAPABILITIES = (
 	"token.write",
 	"ui.dialog",
 	"ui.popover",
+	"data.access",
 )
 
 
@@ -58,6 +59,7 @@ class BuilderExtension(Document):
 
 	def on_trash(self):
 		self.delete_extension_files()
+		self.delete_extension_grants()
 
 	@property
 	def slug(self) -> str:
@@ -107,3 +109,13 @@ class BuilderExtension(Document):
 	def delete_extension_files(self):
 		if os.path.exists(self.install_path):
 			shutil.rmtree(self.install_path)
+
+	def delete_extension_grants(self):
+		"""A grant is a Link to this record, so Frappe refuses the delete while one stands.
+
+		on_trash runs before the link check (`delete_doc.py:165`), so dropping them
+		here is what lets an extension be uninstalled at all. A grant means nothing
+		once the extension it names is gone.
+		"""
+		for grant in frappe.get_all("Builder Extension Grant", filters={"extension": self.name}, pluck="name"):
+			frappe.delete_doc("Builder Extension Grant", grant, ignore_permissions=True)

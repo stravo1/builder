@@ -18,6 +18,7 @@ export const CAPABILITIES = [
 	"token.write",
 	"ui.dialog",
 	"ui.popover",
+	"data.access",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];

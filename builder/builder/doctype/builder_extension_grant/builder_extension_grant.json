@@ -1,0 +1,108 @@
+{
+ "actions": [],
+ "creation": "2026-08-20 10:00:00.000000",
+ "description": "What one extension may do to one doctype. The user answers this in the Builder editor, never here — but an admin can review it, narrow it, or delete it to let the extension ask again.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "extension",
+  "document_type",
+  "can_read",
+  "can_write",
+  "can_delete",
+  "denied",
+  "granted_by"
+ ],
+ "fields": [
+  {
+   "fieldname": "extension",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Extension",
+   "options": "Builder Extension",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "document_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Document Type",
+   "options": "DocType",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "can_read",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Can Read"
+  },
+  {
+   "default": "0",
+   "fieldname": "can_write",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Can Write"
+  },
+  {
+   "default": "0",
+   "fieldname": "can_delete",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Can Delete"
+  },
+  {
+   "default": "0",
+   "description": "The last answer was no. The extension is not asked again until this is cleared.",
+   "fieldname": "denied",
+   "fieldtype": "Check",
+   "label": "Denied"
+  },
+  {
+   "fieldname": "granted_by",
+   "fieldtype": "Link",
+   "label": "Granted By",
+   "options": "User",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-20 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Builder",
+ "name": "Builder Extension Grant",
+ "naming_rule": "By script",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "Website Manager",
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "document_type"
+}

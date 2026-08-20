@@ -20,6 +20,9 @@
 		<!-- editor chrome, not an extension's: it is how one is loaded at all -->
 		<DevExtensionDialog />
 
+		<!-- one for the whole editor: grants.ts queues, so one question stands at a time -->
+		<ExtensionGrantDialog />
+
 		<!-- one per extension, each rendering nothing until ui.openDialog (1.15) -->
 		<ExtensionDialog
 			v-for="extension in installedExtensions"
@@ -38,6 +41,7 @@
 import DevExtensionDialog from "@/components/DevExtensionDialog.vue";
 import ExtensionDialog from "@/components/ExtensionDialog.vue";
 import ExtensionFrame from "@/components/ExtensionFrame.vue";
+import ExtensionGrantDialog from "@/components/ExtensionGrantDialog.vue";
 import ExtensionPopover from "@/components/ExtensionPopover.vue";
 import { installedExtensions, loadExtensions } from "@/data/extensions";
 import { connectExtension, disconnectExtension, dispatcherFor, teardownExtension } from "@/extensions";
