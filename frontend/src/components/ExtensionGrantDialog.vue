@@ -11,14 +11,15 @@
 			<div class="bg-surface-modal p-5">
 				<h3 class="text-lg-semibold text-ink-gray-9">{{ prompt.extension.label }} wants access</h3>
 
-				<!-- the closing tag and the period stay adjacent: a newline between them
-					becomes a text node, and the sentence reads "Contact ." -->
+				<!-- the period is part of the interpolation, not a node beside it: a
+					newline between a closing tag and a bare "." becomes a text node, and
+					the sentence reads "Contact ." Prettier reflows the markup, so the
+					punctuation cannot live in the whitespace -->
 				<p class="pt-4 text-p-sm text-ink-gray-6">
 					It is asking to
 					<span class="font-semibold text-ink-gray-8">{{ verbs }}</span>
 					records of
-					<span class="font-semibold text-ink-gray-8">{{ prompt.doctype }}</span>
-					.
+					<span class="font-semibold text-ink-gray-8">{{ subject }}</span>
 				</p>
 
 				<p class="pt-2 text-p-sm text-ink-gray-5">
@@ -59,6 +60,9 @@ const understood = ref(false);
 watch(prompt, () => (understood.value = false));
 
 const canAllow = computed(() => !prompt.value?.sensitive || understood.value);
+
+/** The doctype and the full stop, so no reflow can put whitespace between them. */
+const subject = computed(() => `${prompt.value?.doctype}.`);
 
 /** "read", "read and write", "read, write and delete". */
 const verbs = computed(() => {

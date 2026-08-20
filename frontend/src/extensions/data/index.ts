@@ -7,8 +7,10 @@
  */
 
 import type { MethodTable } from "../host/capabilities";
+import { documentMethods } from "./documentMethods";
 import { grantMethods } from "./grants";
 
 export const dataMethods: MethodTable = {
 	...grantMethods,
+	...documentMethods,
 };

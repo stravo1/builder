@@ -313,6 +313,23 @@ export type Grant = {
 
 export type Access = "read" | "write" | "delete";
 
+/** One document, as Frappe holds it. Its fields are the doctype's own. */
+export type Doc = Record<string, unknown>;
+
+/**
+ * The options `data.getList` takes, spelled the way `createListResource` spells
+ * them, because an extension author is a frontend author.
+ */
+export type ListOptions = {
+	fields?: string[];
+	/** A dict of equalities, or Frappe's list form: `[["status", "!=", "Open"]]`. */
+	filters?: Record<string, unknown> | unknown[];
+	orderBy?: string;
+	start?: number;
+	/** Up to 500. The server refuses 0, which Frappe reads as every row. */
+	pageLength?: number;
+};
+
 export const data = {
 	/**
 	 * Asks the user for access to one doctype, in a Builder dialog.
@@ -329,6 +346,36 @@ export const data = {
 
 	/** What this extension may already do, without asking for anything. */
 	getAccess: (doctype: string) => call("data.getAccess", { doctype }) as Promise<Grant>,
+
+	/**
+	 * One page of documents. Needs a `read` grant on the doctype.
+	 *
+	 * Every call below refuses with the code `grant_required` when no grant
+	 * covers the doctype. That is the one refusal worth catching: it means ask
+	 * the user. Any other refusal is the site saying no, and asking again will
+	 * not change it.
+	 */
+	getList: (doctype: string, options: ListOptions = {}) =>
+		call("data.getList", { doctype, ...options }) as Promise<Doc[]>,
+
+	/** How many documents match, without fetching them. Needs `read`. */
+	getCount: (doctype: string, filters?: ListOptions["filters"]) =>
+		call("data.getCount", { doctype, filters }) as Promise<number>,
+
+	/** One whole document, child tables included. Needs `read`. */
+	getDoc: (doctype: string, name: string) =>
+		call("data.getDoc", { doctype, name }) as Promise<Doc>,
+
+	/** A new document. Needs `write`. Answers with the inserted document. */
+	insert: (doctype: string, doc: Doc) =>
+		call("data.insert", { doctype, doc }) as Promise<Doc>,
+
+	/** A patch, not a replacement. Needs `write`. Answers with the saved document. */
+	update: (doctype: string, name: string, doc: Doc) =>
+		call("data.update", { doctype, name, doc }) as Promise<Doc>,
+
+	/** Needs its own `delete` grant: losing a record is not changing one. */
+	delete: (doctype: string, name: string) => call("data.delete", { doctype, name }),
 };
 
 export const actions = {
