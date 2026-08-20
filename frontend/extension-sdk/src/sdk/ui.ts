@@ -22,6 +22,13 @@ export type FrameOptions = {
 	props?: Record<string, unknown>;
 };
 
+export type ToastType = "success" | "error" | "warning" | "info";
+
+export type ToastOptions = {
+	/** The visual tone. Omit it for Builder's standard message toast. */
+	type?: ToastType;
+};
+
 const call = (method: string, params?: unknown) => getChannel().call(method, params);
 
 /** Resolves when the dialog closes: with the result, or with nothing if it was dismissed. */
@@ -36,11 +43,15 @@ export const openPopover = (options: FrameOptions = {}) => call("ui.openPopover"
 /** Called by the popover's own frame, or by any frame that wants it shut. */
 export const closePopover = (result?: unknown) => call("ui.closePopover", { result });
 
+/** Displays a notification in Builder, outside the extension frame. */
+export const toast = (message: string, options: ToastOptions = {}) => call("ui.toast", { message, ...options });
+
 export const ui = {
 	openDialog,
 	closeDialog,
 	openPopover,
 	closePopover,
+	toast,
 	/** What the open call was made with. Read by the document the slot mounted. */
 	props: () => getSlotProps(),
 };

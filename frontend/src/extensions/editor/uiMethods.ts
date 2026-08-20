@@ -14,11 +14,23 @@
  * its own capability. Both end the same way, and `frameSurface.ts` holds that.
  */
 
+import { toast } from "frappe-ui";
 import type { MethodTable } from "../host/capabilities";
+import { fields, oneOf, text } from "../params";
 import { createFrameSurface } from "./frameSurface";
 
 const dialog = createFrameSurface("dialog");
 const popover = createFrameSurface("popover");
+const toastTypes = ["success", "error", "warning", "info"] as const;
+
+const showToast = (params: unknown) => {
+	const values = fields(params);
+	const message = text(values.message, "message");
+	const type = values.type === undefined ? undefined : oneOf(values.type, toastTypes, "type");
+
+	if (type) return toast[type](message);
+	return toast(message);
+};
 
 /** Read by `ExtensionDialog.vue` and `ExtensionPopover.vue`. */
 export const openDialogs = dialog.open;
@@ -28,6 +40,8 @@ export const dismissDialog = dialog.dismiss;
 export const dismissPopover = popover.dismiss;
 
 export const uiMethods: MethodTable = {
+	// Toasts are rate limited by the bridge, but need no capability: they do not change editor state.
+	"ui.toast": { needs: null, run: showToast },
 	// a modal covers the editor, so it is the intrusive case (1.7)
 	"ui.openDialog": { needs: "ui.dialog", run: dialog.start },
 	"ui.closeDialog": { needs: "ui.dialog", run: dialog.finish },

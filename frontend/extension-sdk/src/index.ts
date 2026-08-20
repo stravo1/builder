@@ -28,6 +28,6 @@ export type {
 	SlotLoader,
 	ToolbarRegistration,
 } from "./sdk/namespaces";
-export type { FrameOptions } from "./sdk/ui";
+export type { FrameOptions, ToastOptions, ToastType } from "./sdk/ui";
 export type { SlotEntry } from "./sdk/slots";
 export type { Breakpoint, EditorContext, EditorSelection } from "./types";

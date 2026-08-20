@@ -1,6 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const teardowns: Array<() => void> = [];
+const toastMessage = vi.hoisted(() => vi.fn());
+const toastSuccess = vi.hoisted(() => vi.fn());
+const toastError = vi.hoisted(() => vi.fn());
+const toastWarning = vi.hoisted(() => vi.fn());
+const toastInfo = vi.hoisted(() => vi.fn());
+
+vi.mock("frappe-ui", () => ({
+	toast: Object.assign(toastMessage, {
+		success: toastSuccess,
+		error: toastError,
+		warning: toastWarning,
+		info: toastInfo,
+	}),
+}));
 
 vi.mock("../../host/bridge", () => ({
 	bridge: { onTeardown: (_extension: string, unregister: () => void) => teardowns.push(unregister) },
@@ -38,9 +52,14 @@ beforeEach(() => {
 	teardowns.splice(0).forEach((stop) => stop());
 	openDialogs.clear();
 	openPopovers.clear();
+	vi.clearAllMocks();
 });
 
 describe("the capability", () => {
+	it("allows toasts without a capability", () => {
+		expect(uiMethods["ui.toast"].needs).toBeNull();
+	});
+
 	it("gates both dialog methods behind ui.dialog", () => {
 		expect(uiMethods["ui.openDialog"].needs).toBe("ui.dialog");
 		expect(uiMethods["ui.closeDialog"].needs).toBe("ui.dialog");
@@ -51,6 +70,32 @@ describe("the capability", () => {
 	it("gates both popover methods behind ui.popover", () => {
 		expect(uiMethods["ui.openPopover"].needs).toBe("ui.popover");
 		expect(uiMethods["ui.closePopover"].needs).toBe("ui.popover");
+	});
+});
+
+describe("toasts", () => {
+	it("shows Builder's standard toast by default", () => {
+		uiMethods["ui.toast"].run({ message: "Icon copied" }, record());
+
+		expect(toastMessage).toHaveBeenCalledWith("Icon copied");
+	});
+
+	it("uses the requested toast type", () => {
+		uiMethods["ui.toast"].run({ message: "Icon copied", type: "success" }, record());
+
+		expect(toastSuccess).toHaveBeenCalledWith("Icon copied");
+	});
+
+	it("refuses an invalid toast message", () => {
+		expect(codeOf(() => uiMethods["ui.toast"].run({ message: "" }, record()))).toBe(
+			"invalid_params",
+		);
+	});
+
+	it("refuses an unknown toast type", () => {
+		expect(codeOf(() => uiMethods["ui.toast"].run({ message: "Icon copied", type: "urgent" }, record()))).toBe(
+			"invalid_params",
+		);
 	});
 });
 
