@@ -204,6 +204,13 @@ describe("the prompt", () => {
 	it("holds Builder Extension in the sensitive list, because write to it rewrites capabilities", () => {
 		expect(SENSITIVE_DOCTYPES.has("Builder Extension")).toBe(true);
 	});
+
+	/** Frappe puts no gate on Web Form.client_script, so writing one is JS on a public page. */
+	it("holds every doctype that carries code the site later runs", () => {
+		for (const doctype of ["Server Script", "Client Script", "Web Form", "Print Format"]) {
+			expect(SENSITIVE_DOCTYPES.has(doctype)).toBe(true);
+		}
+	});
 });
 
 describe("the answer", () => {

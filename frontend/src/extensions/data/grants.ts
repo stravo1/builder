@@ -63,6 +63,13 @@ export const SENSITIVE_DOCTYPES = new Set([
 	"Server Script",
 	"Client Script",
 	"Builder Client Script",
+	// each of these carries code or a template the site later runs. `Web Form` is
+	// the sharpest: frappe puts no gate on its `client_script` (`web_form.py:90`),
+	// so write access to it is arbitrary JavaScript on a public page, at the
+	// site's own origin, for anonymous visitors
+	"Web Form",
+	"Print Format",
+	"Notification",
 	"Webhook",
 	"System Settings",
 	"Website Settings",
