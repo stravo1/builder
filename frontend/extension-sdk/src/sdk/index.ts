@@ -15,6 +15,7 @@ import {
 	leftPanel,
 	page,
 	properties,
+	schema,
 	settings,
 	state,
 	toolbar,
@@ -94,6 +95,9 @@ const builder = {
 	 * `grant_required` until `requestAccess` has been answered.
 	 */
 	data: { ...data, fetcher: resourceFetcher },
+
+	/** Doctypes this extension creates. The user is asked before a table is made or dropped. */
+	schema,
 
 	/** The functions this extension owns. A descriptor names one, the host calls it. */
 	actions,

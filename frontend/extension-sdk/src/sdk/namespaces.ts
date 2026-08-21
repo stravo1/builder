@@ -381,6 +381,70 @@ export const data = {
 	delete: (doctype: string, name: string) => call("data.delete", { doctype, name }),
 };
 
+/** One field of a doctype an extension creates. */
+export type SchemaField = {
+	fieldname?: string;
+	label?: string;
+	/** A layout break and a Heading need no fieldname. A Table needs a child doctype, so it is refused. */
+	fieldtype: string;
+	/** The linked doctype for a Link, or the newline-separated choices for a Select. */
+	options?: string;
+	reqd?: boolean;
+	unique?: boolean;
+	default?: unknown;
+	in_list_view?: boolean;
+	read_only?: boolean;
+	description?: string;
+};
+
+export type Doctype = {
+	doctype: string;
+	istable: boolean;
+	fields: SchemaField[];
+};
+
+/** How a new document is named. Fixed at creation: changing it later renames nothing. */
+export type Naming = "hash" | "autoincrement" | "prompt";
+
+export const schema = {
+	/**
+	 * A new custom doctype, owned by this extension.
+	 *
+	 * The user is asked first, by name, and the call is refused with the code
+	 * `refused` if they say no. It needs the `schema.write` capability, and it
+	 * needs the **user** to be a System Manager: Frappe wants create permission
+	 * on `DocType` and nothing here lifts that.
+	 *
+	 * The extension is given a full grant on what it made, so `data.*` works on
+	 * it with no second question.
+	 */
+	createDoctype: (
+		doctype: string,
+		fields: SchemaField[],
+		options: { naming?: Naming; istable?: boolean } = {},
+	) => call("schema.createDoctype", { doctype, fields, ...options }) as Promise<Doctype>,
+
+	/** The field list of a doctype this extension may read. */
+	getDoctype: (doctype: string) => call("schema.getDoctype", { doctype }) as Promise<Doctype>,
+
+	/**
+	 * Adds fields, and updates the ones already there by fieldname.
+	 *
+	 * Never removes a field the call leaves unmentioned, because removing one
+	 * drops a column and the data in it. Only the extension that made the
+	 * doctype may call this.
+	 */
+	updateDoctype: (doctype: string, fields: SchemaField[]) =>
+		call("schema.updateDoctype", { doctype, fields }) as Promise<Doctype>,
+
+	/** Drops a doctype this extension made, and its table. The user is asked first. */
+	deleteDoctype: (doctype: string) => call("schema.deleteDoctype", { doctype }),
+
+	/** Every doctype this extension made, and whether each still exists. */
+	listDoctypes: () =>
+		call("schema.listDoctypes") as Promise<Array<{ doctype: string; exists: boolean }>>,
+};
+
 export const actions = {
 	/**
 	 * The handler stays in this frame, and the host learns only the name.

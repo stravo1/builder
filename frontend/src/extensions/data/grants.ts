@@ -74,12 +74,24 @@ export const SENSITIVE_DOCTYPES = new Set([
 /** One-shot, the way `tokenMethods.ts:27` calls a whitelisted method. */
 const invoke = (url: string, params: Record<string, unknown>) => createResource({ url }).submit(params);
 
+/**
+ * Which question the dialog asks.
+ *
+ * `access` is the doctype grant, and its answer becomes a record. `schema` asks
+ * about one act — creating or dropping a doctype — and records nothing, because
+ * there is no standing permission to remember: the next act asks again.
+ */
+export type PromptKind = "access" | "schema";
+
 export type GrantPrompt = {
+	kind: PromptKind;
 	extension: InstalledExtension;
 	doctype: string;
 	/** What is still missing. An access the user already gave is not asked for again. */
 	access: Access[];
 	sensitive: boolean;
+	/** For a schema prompt: the verb, in the words the dialog uses. */
+	act?: "create" | "delete";
 };
 
 /** Read by `ExtensionGrantDialog.vue`. One prompt stands at a time, so this is a single ref. */
@@ -173,9 +185,31 @@ const ask = (request: GrantPrompt) =>
 		pendingPrompt.value = request;
 	});
 
+/**
+ * Asks the user to allow one act on the schema, and remembers nothing.
+ *
+ * Creating a table and dropping one are the two most consequential things this
+ * API can do, and Frappe's own gate — create permission on `DocType` — only
+ * says the user *could* do it by hand, not that they meant this extension to.
+ * So the act is named, once, each time.
+ *
+ * Exported for `schemaMethods.ts`, which is the only caller.
+ */
+export const confirmSchema = (
+	extension: InstalledExtension,
+	doctype: string,
+	act: "create" | "delete",
+) => {
+	hookTeardown(extension);
+	return enqueue(() =>
+		ask({ kind: "schema", extension, doctype, act, access: [], sensitive: act === "delete" }),
+	);
+};
+
 const prompt = async (extension: InstalledExtension, doctype: string, access: Access[]) => {
 	hookTeardown(extension);
 	const granted = await ask({
+		kind: "access",
 		extension,
 		doctype,
 		access,

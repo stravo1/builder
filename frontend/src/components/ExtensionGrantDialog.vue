@@ -18,16 +18,19 @@
 				<p class="pt-4 text-p-sm text-ink-gray-6">
 					It is asking to
 					<span class="font-semibold text-ink-gray-8">{{ verbs }}</span>
-					records of
+					{{ object }}
 					<span class="font-semibold text-ink-gray-8">{{ subject }}</span>
 				</p>
 
 				<p class="pt-2 text-p-sm text-ink-gray-5">
-					It can only do what you can do. Your own permissions still apply to every record.
+					{{ floor }}
 				</p>
 
 				<div v-if="prompt.sensitive" class="mt-4 rounded bg-surface-red-1 p-3">
-					<p class="text-p-sm text-ink-red-6">
+					<p v-if="prompt.kind === 'schema'" class="text-p-sm text-ink-red-6">
+						Dropping a doctype drops its table and every record in it. Nothing here can undo that.
+					</p>
+					<p v-else class="text-p-sm text-ink-red-6">
 						{{ prompt.doctype }} controls how this site works. Access to it can change what other extensions
 						and other people are allowed to do.
 					</p>
@@ -64,12 +67,26 @@ const canAllow = computed(() => !prompt.value?.sensitive || understood.value);
 /** The doctype and the full stop, so no reflow can put whitespace between them. */
 const subject = computed(() => `${prompt.value?.doctype}.`);
 
-/** "read", "read and write", "read, write and delete". */
+/**
+ * "read", "read and write", "read, write and delete" — or the one verb a schema
+ * prompt names.
+ */
 const verbs = computed(() => {
+	if (prompt.value?.kind === "schema") return prompt.value.act ?? "";
 	const asked = prompt.value?.access ?? [];
 	if (asked.length < 2) return asked.join("");
 	return `${asked.slice(0, -1).join(", ")} and ${asked[asked.length - 1]}`;
 });
+
+/** The one sentence that is true of every prompt: the user is still the ceiling. */
+const floor = computed(() =>
+	prompt.value?.kind === "schema"
+		? "It can only do what you can do. Changing a doctype needs your own System Manager role."
+		: "It can only do what you can do. Your own permissions still apply to every record.",
+);
+
+/** What the verbs act on: records of a doctype, or the doctype itself. */
+const object = computed(() => (prompt.value?.kind === "schema" ? "the doctype" : "records of"));
 
 const allow = () => answerPrompt(true);
 

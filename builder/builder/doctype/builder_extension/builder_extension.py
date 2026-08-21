@@ -30,6 +30,7 @@ CAPABILITIES = (
 	"ui.dialog",
 	"ui.popover",
 	"data.access",
+	"schema.write",
 )
 
 
@@ -60,6 +61,7 @@ class BuilderExtension(Document):
 	def on_trash(self):
 		self.delete_extension_files()
 		self.delete_extension_grants()
+		self.forget_extension_resources()
 
 	@property
 	def slug(self) -> str:
@@ -115,6 +117,21 @@ class BuilderExtension(Document):
 	def delete_extension_files(self):
 		if os.path.exists(self.install_path):
 			shutil.rmtree(self.install_path)
+
+	def forget_extension_resources(self):
+		"""Drops the ownership rows, and nothing they name.
+
+		A doctype an extension made holds the user's data, so uninstalling the
+		extension must not drop the table with it. What goes is the claim of
+		ownership: an admin is then free to keep the doctype or delete it in Desk.
+
+		Like the grants below, these are Links to this record, so they have to go
+		before Frappe will delete it.
+		"""
+		for resource in frappe.get_all(
+			"Builder Extension Resource", filters={"extension": self.name}, pluck="name"
+		):
+			frappe.delete_doc("Builder Extension Resource", resource, ignore_permissions=True)
 
 	def delete_extension_grants(self):
 		"""A grant is a Link to this record, so Frappe refuses the delete while one stands.
