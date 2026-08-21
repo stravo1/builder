@@ -646,7 +646,11 @@ The `props` object becomes the root component props. Dialog and popover calls pr
 
 The returned cleanup function runs when the frame closes. `defineSlot` unmounts the Vue application during cleanup.
 
-Use `frappe-ui` components when the project already includes `frappe-ui`. The frame must bundle its own Vue and UI dependencies.
+Build the document with Vue, `frappe-ui` components, and Tailwind. Builder uses the same stack, so the frame then matches the editor.
+
+The frame bundles its own Vue, `frappe-ui`, and CSS. It shares nothing with Builder except the SDK.
+
+Use the semantic classes from the `frappe-ui` Tailwind preset, such as `bg-surface-base` and `text-ink-gray-9`. They follow the Builder theme, and a raw color does not.
 
 Use icon names that Builder already renders. An unknown icon name can produce an empty icon.
 

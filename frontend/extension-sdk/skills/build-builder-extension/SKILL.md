@@ -28,8 +28,8 @@ and naming.
 2. Install the SDK: `npm install --save-dev frappe-builder-extension-sdk`. The package is
    not on npm yet, so until it lands, install it from git:
    `npm install --save-dev github:stravo1/frappe-builder-extension-sdk`.
-3. Install `vite`, `vue`, and `@vitejs/plugin-vue` when the feature needs a frame.
-4. Add `builderExtension({ builderUrl })` to the Vite plugin list.
+3. Add `builderExtension({ builderUrl })` to the Vite plugin list.
+4. Add Vue, frappe-ui, and Tailwind when the feature needs a frame. Read the next section.
 
 ```js
 import vue from "@vitejs/plugin-vue";
@@ -43,6 +43,80 @@ export default defineConfig({
 
 `builderUrl` must be the origin that serves the editor. Another origin loads a second SDK
 instance, and the frame never connects.
+
+## Use Vue, frappe-ui, and Tailwind
+
+Build every frame with Vue, frappe-ui components, and Tailwind. Builder itself uses this
+stack, so an extension that uses it looks like part of the editor. Write a plain HTML control
+only when frappe-ui has nothing for the job.
+
+The frame bundles its own copy of all three. It shares nothing with Builder except the SDK.
+
+```sh
+npm install vue frappe-ui
+npm install --save-dev @vitejs/plugin-vue tailwindcss unplugin-icons @iconify-json/lucide
+```
+
+Add the frappe-ui preset to `tailwind.config.js`:
+
+```js
+import frappeUIPreset from "frappe-ui/tailwind";
+
+export default {
+  presets: [frappeUIPreset],
+  content: ["./src/**/*.{vue,js,ts}"],
+};
+```
+
+Make `src/index.css`, and import it from the entry module. The build plugin folds this CSS
+into the entry, so every frame paints with it:
+
+```css
+@import "frappe-ui/style.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+
+frappe-ui costs two Vite settings. Its components import icons as `~icons/lucide/*`, which
+needs a resolver plugin. Vite prebundles a dependency with esbuild, which runs no Vite
+plugins, so give the same resolver to both:
+
+```js
+import Icons from "unplugin-icons/vite";
+import IconsEsbuild from "unplugin-icons/esbuild";
+
+export default defineConfig({
+  css: { postcss: { plugins: [tailwindcss({ config: "./tailwind.config.js" })] } },
+  plugins: [Icons({ compiler: "vue3" }), vue(), builderExtension({ builderUrl })],
+  optimizeDeps: {
+    // frappe-ui ships source, and several dependencies of it are CommonJS. A frame
+    // that imports one of those unbundled fails on a missing named export.
+    include: [
+      "frappe-ui > feather-icons",
+      "frappe-ui > debug",
+      "engine.io-client",
+      "interactjs",
+      "highlight.js/lib/core",
+    ],
+    esbuildOptions: { plugins: [IconsEsbuild({ compiler: "vue3" })] },
+  },
+});
+```
+
+Use the semantic classes from the preset, such as `bg-surface-base` and `text-ink-gray-9`.
+They follow the Builder theme. A raw color such as `bg-white` does not.
+
+For site data through frappe-ui resources, wire the fetcher once in the entry module:
+
+```js
+import { setConfig } from "frappe-ui";
+setConfig("resourceFetcher", builder.data.fetcher);
+```
+
+It must name this extension's own frappe-ui. Each extension bundles a copy, and the SDK
+cannot reach that copy's config.
 
 ## Choose the surface
 
