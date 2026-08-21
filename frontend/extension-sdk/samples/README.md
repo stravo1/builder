@@ -1,16 +1,22 @@
 # Sample extensions
 
-Three small extensions. Each one does a single job, uses one surface, and ships its own icon. Read
-one when you want the shortest example of a surface. Install them to fill the Extensions panel with
-something real.
+Working extensions, each with its own icon. Read one when you want a short example of a surface.
+Install them to fill the Extensions panel with something real.
 
 For the whole API, read `skills/build-builder-extension/references/extension-api.md`.
+
+Three of them do a single job through a single surface:
 
 | Extension | Surface | Capabilities | What it does |
 |---|---|---|---|
 | `builder/alt-text` | Toolbar button | `page.read` | Counts the images that carry no alt text |
 | `builder/lorem` | Context menu row | `block.read`, `block.update` | Fills a text block with placeholder copy |
 | `builder/brand-palette` | Toolbar button | `token.write` | Writes one brand color ramp as design tokens |
+
+`builder/animate` is a full one. It adds scroll, hover, click and load animations to any block
+through a property section, and it puts a client script on the page to run them. Read
+[its README](animate/README.md) for how the two halves fit together, and read it first if you need
+an example of `page.attachScript`.
 
 ## Install
 
@@ -21,7 +27,7 @@ cd sites
 ../env/bin/python ../apps/builder/frontend/extension-sdk/samples/install.py builder.localhost
 ```
 
-Reload the editor. The three appear in the Extensions panel, each with its icon.
+Reload the editor. They appear in the Extensions panel, each with its icon.
 
 To remove them:
 
@@ -30,7 +36,8 @@ To remove them:
 ```
 
 `builder/brand-palette` writes real `Builder Token` rows, so uninstalling it asks before it drops
-the tokens it wrote.
+the tokens it wrote. Uninstalling `builder/animate` deletes the client scripts it put on your pages,
+and asks nothing: they hold its code and no data of yours.
 
 ## Icons
 
