@@ -1,7 +1,7 @@
 {
  "actions": [],
  "creation": "2026-08-20 10:00:00.000000",
- "description": "What one extension may do to one doctype. The user answers this in the Builder editor, never here — but an admin can review it, narrow it, or delete it to let the extension ask again.",
+ "description": "What one extension may do to one doctype. The user answers this in the Builder editor, never here. The grant applies to every user of the site, so the first editor to allow one answers for all of them — but each call still runs with its own user's permissions, so a grant widens what an extension may attempt, never what the site allows. An admin can narrow a grant here, or delete it to let the extension ask again.",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -63,6 +63,7 @@
    "label": "Denied"
   },
   {
+   "description": "Who answered the dialog. It records the answer; it does not scope the grant to that user.",
    "fieldname": "granted_by",
    "fieldtype": "Link",
    "label": "Granted By",
