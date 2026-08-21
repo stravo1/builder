@@ -38,6 +38,11 @@ class TestGetEnabledExtensions(FrappeTestCase):
 
 		self.assertEqual(self.listed("acme/named")["name"], "acme/named")
 
+	def test_includes_the_extensions_description(self):
+		make_extension(extension_name="acme/described", description="Add and manage icons.")
+
+		self.assertEqual(self.listed("acme/described")["description"], "Add and manage icons.")
+
 	def test_entry_is_the_records_own_script_url(self):
 		extension = make_extension(extension_name="acme/entry")
 

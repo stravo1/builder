@@ -174,6 +174,7 @@ export default function builderExtension({ builderUrl } = {}) {
 						v: 1,
 						name: manifest.name,
 						label: manifest.label,
+						description: manifest.description,
 						version: manifest.version,
 						capabilities: manifest.capabilities ?? [],
 						entry: servedPath(entry),

@@ -236,6 +236,7 @@ describe("the descriptor", () => {
 			"manifest.json": JSON.stringify({
 				name: "acme/icons",
 				label: "Icons",
+				description: "Add and manage icons.",
 				version: "2.1.0",
 				capabilities: ["block.update"],
 			}),
@@ -245,6 +246,7 @@ describe("the descriptor", () => {
 			v: 1,
 			name: "acme/icons",
 			label: "Icons",
+			description: "Add and manage icons.",
 			version: "2.1.0",
 			capabilities: ["block.update"],
 			// the dev server serves the source path, not the built name

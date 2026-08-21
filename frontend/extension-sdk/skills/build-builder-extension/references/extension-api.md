@@ -88,6 +88,7 @@ Put `manifest.json` beside `vite.config.js`.
   "v": 1,
   "name": "acme/image-tools",
   "label": "Image Tools",
+  "description": "Edit and optimize images.",
   "version": "1.0.0",
   "icon": "icon.svg",
   "capabilities": ["context.read", "block.read", "block.update"]
@@ -95,6 +96,8 @@ Put `manifest.json` beside `vite.config.js`.
 ```
 
 Use `publisher/name` for `name`. Use lowercase letters, digits, and hyphens in each part.
+
+`description` is optional. Keep it short; Builder shows it below the label in the Extensions panel.
 
 The `version` value can contain letters, digits, dots, plus signs, and hyphens.
 

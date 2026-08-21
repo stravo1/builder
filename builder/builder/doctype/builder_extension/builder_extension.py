@@ -51,6 +51,7 @@ class BuilderExtension(Document):
 
 		capabilities: DF.SmallText | None
 		checksum: DF.Data | None
+		description: DF.SmallText | None
 		enabled: DF.Check
 		extension_name: DF.Data
 		icon: DF.Data | None

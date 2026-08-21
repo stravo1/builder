@@ -6,6 +6,7 @@
  "field_order": [
   "extension_name",
   "label",
+  "description",
   "icon",
   "version",
   "enabled",
@@ -28,6 +29,12 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Label"
+  },
+  {
+   "description": "A brief summary shown below the label in the Extensions panel.",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
   },
   {
    "description": "One SVG file in the install root, such as icon.svg. The editor draws it beside the extension.",

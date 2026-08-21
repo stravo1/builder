@@ -26,12 +26,12 @@
 								aria-hidden="true" />
 							<span v-else class="lucide-plug size-3.5 text-ink-gray-6" aria-hidden="true" />
 						</template>
-						<!-- the badge sits on the second line, so a label keeps the width of the first -->
+						<!-- The badge sits on the second line, so a label keeps the width of the first. -->
 						<div class="flex min-w-0 flex-col">
 							<span class="truncate">{{ extension.label }}</span>
 							<div class="flex min-w-0 items-center gap-1.5">
-								<span v-if="extension.label !== extension.name" class="truncate text-xs text-ink-gray-5">
-									{{ extension.name }}
+								<span v-if="extension.description" class="truncate text-xs text-ink-gray-5">
+									{{ extension.description }}
 								</span>
 								<Tooltip v-if="isDevExtension(extension)" text="Served by a dev server. A reload drops it.">
 									<Badge size="sm" theme="orange" label="Dev" />
@@ -81,13 +81,13 @@ const isDeveloperMode = Boolean(window.is_developer_mode);
 
 const filter = ref("");
 
-/** The label and the name both, because a user looks for either. */
+/** Search visible details and the package name, which remains a useful lookup key. */
 const installed = computed(() => {
 	const wanted = filter.value.trim().toLowerCase();
 	if (!wanted) return installedExtensions.value;
 
 	return installedExtensions.value.filter((extension) =>
-		`${extension.label} ${extension.name}`.toLowerCase().includes(wanted),
+		`${extension.label} ${extension.description ?? ""} ${extension.name}`.toLowerCase().includes(wanted),
 	);
 });
 </script>

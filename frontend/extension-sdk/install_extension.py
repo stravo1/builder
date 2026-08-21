@@ -116,6 +116,7 @@ class ExtensionInstaller:
 		values = {
 			"extension_name": manifest["name"],
 			"label": manifest.get("label"),
+			"description": manifest.get("description"),
 			"icon": manifest.get("icon"),
 			"version": manifest["version"],
 			"capabilities": frappe.as_json(manifest.get("capabilities") or []),
