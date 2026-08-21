@@ -84,6 +84,10 @@ export default function builderExtension({ builderUrl } = {}) {
 				// the frame is a modern browser by definition: it runs module scripts
 				build: {
 					target: "es2020",
+					// one stylesheet, because the entry carries the CSS itself. Split CSS
+					// also puts a stylesheet in the preload list of every lazy chunk, and
+					// the frame then asks for a file this plugin folded into the entry
+					cssCodeSplit: false,
 					rollupOptions: {
 						input: entry,
 						// never bundled: the frame shell's import map resolves it to the
