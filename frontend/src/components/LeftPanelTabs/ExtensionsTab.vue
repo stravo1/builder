@@ -52,10 +52,9 @@
 				It is here so the panel says that out loud: an empty list a user can see
 				reads as "none yet", where a missing list reads as "this cannot be done".
 			-->
-			<CollapsibleSection section-name="Available" :section-collapsed="Boolean(filter)">
+			<CollapsibleSection section-name="Marketplace" :section-collapsed="Boolean(filter)">
 				<p class="text-p-sm text-ink-gray-5">
-					There is nowhere to install an extension from yet. Until there is, an extension arrives through
-					the install script, or from a dev server.
+					Coming soon...
 				</p>
 			</CollapsibleSection>
 		</div>

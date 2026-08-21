@@ -1,8 +1,0 @@
-{
-	"v": 1,
-	"name": "builder/brand-palette",
-	"label": "Brand Palette",
-	"version": "1.0.0",
-	"icon": "icon.svg",
-	"capabilities": ["token.write"]
-}
