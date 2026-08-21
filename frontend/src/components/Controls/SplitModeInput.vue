@@ -33,6 +33,7 @@
 <script lang="ts" setup>
 import Input from "@/components/Controls/Input.vue";
 import SplitInput from "@/components/Controls/SplitInput.vue";
+import { __ } from "@/translation";
 import blockController from "@/utils/blockController";
 import { expandBoxShorthand } from "@/utils/cssUtils";
 import { TabButtons, type TabButton } from "frappe-ui";
@@ -66,8 +67,8 @@ const props = withDefaults(
 	{
 		modelValue: "",
 		placeholder: "",
-		uniformTitle: "Use for all",
-		splitTitle: "Set separately",
+		uniformTitle: __("Use for all"),
+		splitTitle: __("Set separately"),
 		splitIcon: "lucide-scan",
 		splits: 0,
 		toControlValues: (value: unknown) => (Array.isArray(value) ? value : [value as InputValue]),
@@ -86,7 +87,7 @@ const emit = defineEmits<{
 }>();
 
 const attrs = useAttrs();
-const rootAttrs = computed(() => ({ class: attrs.class, style: attrs.style } as HTMLAttributes));
+const rootAttrs = computed(() => ({ class: attrs.class, style: attrs.style }) as HTMLAttributes);
 const controlAttrs = computed(() =>
 	Object.fromEntries(Object.entries(attrs).filter(([key]) => !["class", "style"].includes(key))),
 );

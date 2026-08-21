@@ -44,21 +44,19 @@
 									v-if="activeScript === script && !builderStore.readOnlyMode"
 									:options="[
 										{
-											label: 'Rename',
+											label: __('Rename'),
 											onClick: () => {
 												script.editable = true;
 											},
 											icon: 'lucide-edit',
 										},
 										{
-											label: 'Remove Script',
+											label: __('Remove Script'),
 											onClick: () => deleteScript(script.name),
 											icon: 'lucide-trash',
 										},
 									]">
-									<template v-slot="{ open }">
-										<Button icon="lucide-more-horizontal" size="sm" variant="ghost" @click="open"></Button>
-									</template>
+									<Button icon="lucide-more-horizontal" size="sm" variant="ghost" @click.stop></Button>
 								</Dropdown>
 							</a>
 						</template>
@@ -74,31 +72,31 @@
 						">
 						<Dropdown
 							:options="[
-								{ label: 'JavaScript', onClick: () => addScript('JavaScript') },
-								{ label: 'CSS', onClick: () => addScript('CSS') },
+								{ label: __('JavaScript'), onClick: () => addScript('JavaScript') },
+								{ label: __('CSS'), onClick: () => addScript('CSS') },
 							]"
 							size="sm"
 							class="[&>div>div>div]:w-full">
 							<template v-slot="{ open }">
-								<Button class="w-full text-xs" @click="open">New Script</Button>
+								<Button class="w-full text-xs" @click="open">{{ __("New Script") }}</Button>
 							</template>
 						</Dropdown>
 
 						<Combobox
 							v-if="clientScriptResource.data && clientScriptResource.data.length > 0"
 							:options="clientScriptOptions"
-							placeholder="Attach Script"
+							:placeholder="__('Attach Script')"
 							@update:modelValue="(value: string | null) => value && attachScript(value)">
 							<template #trigger>
-								<Button class="w-full text-xs">Attach Script</Button>
+								<Button class="w-full text-xs">{{ __("Attach Script") }}</Button>
 							</template>
 						</Combobox>
 					</div>
 				</div>
 
 				<div class="text-xs leading-4 text-ink-gray-6">
-					<b>Note:</b>
-					All client scripts are executed in preview mode and on published pages.
+					<b>{{ __("Note:") }}</b>
+					{{ __("All client scripts are executed in preview mode and on published pages.") }}
 				</div>
 			</div>
 		</div>
@@ -106,7 +104,7 @@
 		<div
 			class="flex h-[calc(65vh+68px)] w-full items-center justify-center rounded border border-dashed border-outline-gray-2 bg-surface-gray-1 text-base text-ink-gray-6"
 			v-show="!activeScript">
-			Add Script
+			{{ __("Add Script") }}
 		</div>
 
 		<div v-if="activeScript" class="flex h-full w-full flex-col">
@@ -138,6 +136,7 @@
 </template>
 
 <script setup lang="ts">
+import { __ } from "@/translation";
 import EditableSpan from "@/components/EditableSpan.vue";
 import PageListModal from "@/components/Modals/PageListModal.vue";
 import useBuilderStore from "@/stores/builderStore";
@@ -188,6 +187,15 @@ const attachedScriptResource = createListResource({
 	orderBy: "`tabBuilder Page Client Script`.idx asc",
 	auto: true,
 	onSuccess: (data: attachedScript[]) => {
+		const pendingName = builderStore.openClientScript;
+		if (pendingName) {
+			builderStore.openClientScript = null;
+			const target = data.find((s: attachedScript) => s.script_name === pendingName);
+			if (target) {
+				selectScript(target);
+				return;
+			}
+		}
 		if (data && data.length > 0 && !activeScript.value) {
 			selectScript(data[0]);
 		}
@@ -221,7 +229,9 @@ const scriptUsageResource = createListResource({
 const scriptUsedInPages = computed<BuilderPage[]>(() => scriptUsageResource.data ?? []);
 const usageMessage = computed(() => {
 	const count = scriptUsedInPages.value.length;
-	return count === usagePageLimit ? `used in ${usagePageLimit - 1}+ pages` : getPageUsageMessage(count);
+	return count === usagePageLimit
+		? __("used in {0}+ pages", [usagePageLimit - 1])
+		: getPageUsageMessage(count);
 });
 
 const selectScript = (script: attachedScript) => {
@@ -237,7 +247,7 @@ const updateScript = (value: string) => {
 	if (!activeScript.value || builderStore.readOnlyMode) return;
 
 	if (!value || !value.trim()) {
-		toast.warning("Script cannot be empty");
+		toast.warning(__("Script cannot be empty"));
 		return;
 	}
 
@@ -260,11 +270,11 @@ const updateScript = (value: string) => {
 					activeScript.value = script;
 				}
 			});
-			toast.success("Script saved successfully");
+			toast.success(__("Script saved successfully"));
 		})
 		.catch((e: { message: string; exc: string }) => {
 			const error_message = e.exc.split("\n").slice(-2)[0];
-			toast.error("Failed to save script", {
+			toast.error(__("Failed to save script"), {
 				description: error_message,
 			});
 		});
@@ -380,15 +390,30 @@ const onScriptReorder = () => {
 			script_order: scriptOrder,
 		})
 		.then(() => {
-			toast.success("Script order updated");
+			toast.success(__("Script order updated"));
 		})
 		.catch((e: { message: string; exc: string }) => {
 			const error_message = e.exc.split("\n").slice(-2)[0];
-			toast.error("Failed to update script order", {
+			toast.error(__("Failed to update script order"), {
 				description: error_message,
 			});
 		});
 };
+
+const selectScriptByName = (name: string) => {
+	const target = attachedScriptResource.data?.find((s: attachedScript) => s.script_name === name);
+	if (target) selectScript(target);
+};
+
+// Handle openClientScript when data is already loaded (component already mounted)
+watch(
+	() => builderStore.openClientScript,
+	(name) => {
+		if (!name || !attachedScriptResource.data?.length) return;
+		builderStore.openClientScript = null;
+		selectScriptByName(name);
+	},
+);
 
 watch(
 	() => props.page,
@@ -402,7 +427,7 @@ watch(
 	},
 );
 
-defineExpose({ scriptEditor });
+defineExpose({ scriptEditor, selectScriptByName });
 </script>
 
 <style scoped>

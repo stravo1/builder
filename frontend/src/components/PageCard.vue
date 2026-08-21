@@ -19,24 +19,25 @@
 						</p>
 					</div>
 					<UseTimeAgo v-slot="{ timeAgo }" :time="page.modified">
-						<p class="mt-1 block text-sm text-ink-gray-5 group-hover:text-ink-gray-6">Edited {{ timeAgo }}</p>
+						<p class="mt-1 block text-sm text-ink-gray-5 group-hover:text-ink-gray-6">
+							{{ __("Edited {0}", [timeAgo]) }}
+						</p>
 					</UseTimeAgo>
 				</span>
 				<PageActionsDropdown :page="page" size="xs" placement="right">
-					<template v-slot="{ open }">
-						<Button
-							icon="lucide-more-horizontal"
-							size="sm"
-							variant="ghost"
-							class="bg-surface-elevation-1 !text-ink-gray-5 hover:!text-ink-gray-9"
-							@click="open"></Button>
-					</template>
+					<Button
+						icon="lucide-more-horizontal"
+						size="sm"
+						variant="ghost"
+						class="bg-surface-elevation-1 !text-ink-gray-5 hover:!text-ink-gray-9"
+						@click.stop></Button>
 				</PageActionsDropdown>
 			</div>
 		</div>
 	</router-link>
 </template>
 <script setup lang="ts">
+import { __ } from "@/translation";
 import PageActionsDropdown from "@/components/PageActionsDropdown.vue";
 import { BuilderPage } from "@/types/doctypes";
 import { getUserInfo } from "@/usersInfo";

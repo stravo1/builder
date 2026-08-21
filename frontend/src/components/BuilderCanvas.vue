@@ -26,7 +26,7 @@
 				colorScheme: builderStore.canvasDarkMode ? 'dark' : 'light',
 			}">
 			<div class="absolute right-0 top-[-60px] flex rounded-md bg-surface-base px-3">
-				<Tooltip text="Toggle Canvas Dark Mode (⌘⇧D)" :hoverDelay="0.6">
+				<Tooltip :text="__('Toggle Canvas Dark Mode (⌘⇧D)')" :hoverDelay="0.6">
 					<div
 						v-show="!canvasProps.scaling && !canvasProps.panning"
 						class="w-auto cursor-pointer p-2"
@@ -110,7 +110,7 @@
 			placement="top-right"
 			:placementOffset="20"
 			v-if="builderStore.showSearchBlock">
-			<template #header>Search Block</template>
+			<template #header>{{ __("Search Block") }}</template>
 			<template #content>
 				<SearchBlock></SearchBlock>
 			</template>
@@ -126,6 +126,7 @@ import { builderSettings } from "@/data/builderSettings";
 import useBuilderStore from "@/stores/builderStore";
 import useCanvasStore from "@/stores/canvasStore";
 import usePageStore from "@/stores/pageStore";
+import { __ } from "@/translation";
 import { BreakpointConfig, CanvasHistory } from "@/types/Builder/BuilderCanvas";
 import { getBlockObject, isCtrlOrCmd } from "@/utils/helpers";
 import {
@@ -135,6 +136,7 @@ import {
 } from "@/utils/scriptSandbox";
 import { useBlockEventHandlers } from "@/utils/useBlockEventHandlers";
 import { useBlockSelection } from "@/utils/useBlockSelection";
+import { useBuildFollow } from "@/utils/useBuildFollow";
 import { setFont } from "@/utils/fontManager";
 import { useBuilderToken } from "@/utils/useBuilderToken";
 import { useCanvasDropZone } from "@/utils/useCanvasDropZone";
@@ -228,7 +230,7 @@ const canvasProps = reactive({
 		{
 			icon: "lucide-monitor",
 			device: "desktop",
-			displayName: "Desktop",
+			displayName: __("Desktop"),
 			width: 1400,
 			visible: true,
 			renderedOnce: true,
@@ -236,14 +238,14 @@ const canvasProps = reactive({
 		{
 			icon: "lucide-tablet",
 			device: "tablet",
-			displayName: "Tablet",
+			displayName: __("Tablet"),
 			width: 800,
 			visible: false,
 		},
 		{
 			icon: "lucide-smartphone",
 			device: "mobile",
-			displayName: "Mobile",
+			displayName: __("Mobile"),
 			width: 420,
 			visible: false,
 		},
@@ -268,6 +270,8 @@ const {
 	findBlock,
 	isDirty,
 } = useCanvasUtils(canvasProps, canvasContainer, canvas, block, selectedBlockIds, history);
+
+const { followBuildEdge, followBlock } = useBuildFollow(canvasProps, canvasContainer, canvas);
 
 const { marquee, marqueeStyle, suppressNextClick, handleMarqueeStart, cleanupMarqueeListeners } =
 	useCanvasMarqueeSelection({
@@ -423,6 +427,8 @@ defineExpose({
 	isDirty,
 	toggleDirty,
 	scrollBlockIntoView,
+	followBuildEdge,
+	followBlock,
 	removeBlock,
 	selectBlockRange,
 	resizingBlock,

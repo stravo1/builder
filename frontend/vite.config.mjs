@@ -22,6 +22,8 @@ export default defineConfig({
 				input: {
 					builder: [
 						"block_template",
+						"builder_ai_model",
+						"builder_ai_provider",
 						"builder_client_script",
 						"builder_component",
 						"builder_page",

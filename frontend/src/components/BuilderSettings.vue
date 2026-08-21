@@ -1,7 +1,7 @@
 <template>
 	<div class="flex h-[88vh] max-h-[800px] overflow-hidden">
 		<div class="flex w-48 shrink-0 flex-col gap-5 bg-surface-gray-1 p-4 px-2">
-			<span class="text-lg-semibold px-2 text-ink-gray-9">Settings</span>
+			<span class="text-lg-semibold px-2 text-ink-gray-9">{{ __("Settings") }}</span>
 			<div class="flex flex-col gap-0.5" v-for="group in visibleGroups" :key="group.title">
 				<span class="text-base-medium mb-2 px-2 text-ink-gray-5">
 					{{ group.title }}
@@ -38,17 +38,18 @@
 					class="pb-16" />
 			</KeepAlive>
 			<div v-else class="flex items-center justify-center">
-				<span class="text-ink-gray-5">Loading...</span>
+				<span class="text-ink-gray-5">{{ __("Loading...") }}</span>
 			</div>
 		</div>
 	</div>
 </template>
 <script setup lang="ts">
-import { settingsGroups, settingsItems } from "@/components/Settings";
+import { settingsGroupLabels, settingsGroups, settingsItems } from "@/components/Settings";
 import builderProjectFolder from "@/data/builderProjectFolder";
 import { builderSettings } from "@/data/builderSettings";
 import useBuilderStore from "@/stores/builderStore";
 import usePageStore from "@/stores/pageStore";
+import { __ } from "@/translation";
 import { computed, onActivated, onMounted, provide, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
@@ -84,7 +85,7 @@ const visibleGroups = computed(() =>
 	settingsGroups
 		.filter((group) => !(props.onlyGlobal && group === "Current Page"))
 		.map((group) => ({
-			title: group,
+			title: settingsGroupLabels[group],
 			items: settingsItems.visible.value.filter((item) => item.group === group),
 		}))
 		.filter((group) => group.items.length),
