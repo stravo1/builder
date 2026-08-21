@@ -1,0 +1,22 @@
+{
+	"name": "@builder/animate",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build"
+	},
+	"dependencies": {
+		"frappe-ui": "1.0.0-beta.21",
+		"vue": "^3.5.0"
+	},
+	"devDependencies": {
+		"@iconify-json/lucide": "^1.2.124",
+		"@vitejs/plugin-vue": "^5.0.0",
+		"frappe-builder-extension-sdk": "link:../..",
+		"tailwindcss": "^3.4.19",
+		"unplugin-icons": "^23.0.1",
+		"vite": "^5.4.0"
+	}
+}

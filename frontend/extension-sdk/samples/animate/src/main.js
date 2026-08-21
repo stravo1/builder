@@ -4,19 +4,23 @@
  * The editor half writes attributes on a block. The published half is one client
  * script this extension puts on the page, which reads those attributes and
  * drives the animation. Neither half knows the other beyond the attribute names
- * in `controls.js`.
+ * in `animation.js`.
  *
  * The split is what makes it work at all. A client script does not run in the
  * editor canvas, so nothing moves while you edit: the panel shows what a block
  * is set to, and the published page shows what it does.
+ *
+ * The left panel is the only surface that writes those attributes. It reads a
+ * block once, when the selection moves, so a second editor for the same six
+ * values would leave the panel showing what the block no longer says.
  *
  * The runtime lands on a page the first time somebody animates a block on it,
  * never at startup. A page nobody animated carries no script of ours.
  */
 
 import builder from "frappe-builder-extension-sdk";
+import "./index.css";
 
-import { ANIMATION_ATTRIBUTES, animationControls } from "./controls.js";
 import { VERSION, runtimeScript } from "./runtime.js";
 
 /** The route the editor has open, and the one we last wrote the runtime to. */
@@ -75,15 +79,6 @@ builder.actions.register("animate.touched", async () => {
 	}
 });
 
-/** Takes every attribute off in one patch, so one undo puts them back. */
-builder.actions.register("animate.clear", async ({ blockId }) => {
-	const attributes = {};
-	ANIMATION_ATTRIBUTES.forEach((name) => (attributes[name] = null));
-
-	await builder.block.update(blockId, { attributes });
-	await builder.ui.toast("Animation cleared");
-});
-
 /** What the page will do, counted from the tree rather than guessed. */
 builder.actions.register("animate.report", async () => {
 	const walk = (block) => [block, ...(block.children ?? []).flatMap(walk)];
@@ -97,24 +92,17 @@ builder.actions.register("animate.report", async () => {
 	await builder.ui.toast(
 		animated.length
 			? `${animated.length} animated block(s). Preview the page to watch them run.`
-			: "Nothing here is animated. Select a block and pick an effect under Animation.",
+			: "Nothing here is animated. Select a block and pick an effect in the Animate panel.",
 		animated.length ? { type: "success" } : {},
 	);
 });
 
-builder.properties.registerSection({
-	name: "animation",
-	label: "Animation",
-	// one block at a time: a bound control cannot answer for a multiple selection
-	showWhen: { count: 1 },
-	controls: animationControls(),
-});
-
-builder.contextMenu.register({
-	name: "clear",
-	label: "Clear animation",
-	action: "animate.clear",
-	showWhen: { count: 1 },
+builder.leftPanel.register({
+	name: "animate",
+	label: "Animate",
+	icon: "lucide-wand-sparkles",
+	// the whole feature, with a preview the canvas cannot give
+	load: () => import("./panel/index.js"),
 });
 
 builder.toolbar.register({

@@ -53,8 +53,11 @@ const effectRules = () =>
  * `anim-armed` is added by the script and never by this sheet. A visitor whose
  * JavaScript failed then sees the page rather than a column of invisible
  * blocks.
+ *
+ * Exported because the left panel replays an animation in its own document, and
+ * a second copy of these keyframes would drift from the page's.
  */
-const styles = () =>
+export const styles = () =>
 	[
 		".anim-armed{opacity:0}",
 		".anim-run{animation-duration:var(--anim-d,600ms);animation-delay:var(--anim-w,0ms);" +
@@ -180,3 +183,6 @@ export const runtimeScript = () =>
 /** The editor reads these too, so one list feeds both the controls and the page. */
 export const effectNames = () => Object.keys(EFFECTS);
 export const easingNames = () => Object.keys(EASINGS);
+
+/** The curve behind each easing name, for the panel's own preview. */
+export const EASING_VALUES = EASINGS;

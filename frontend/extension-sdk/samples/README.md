@@ -14,9 +14,13 @@ Three of them do a single job through a single surface:
 | `builder/brand-palette` | Toolbar button | `token.write` | Writes one brand color ramp as design tokens |
 
 `builder/animate` is a full one. It adds scroll, hover, click and load animations to any block
-through a property section, and it puts a client script on the page to run them. Read
+through a left panel, and it puts a client script on the page to run them. Read
 [its README](animate/README.md) for how the two halves fit together, and read it first if you need
-an example of `page.attachScript`.
+an example of a Vue frame or of `page.attachScript`.
+
+It is also the only one that needs a build, because its panel is a Vue frame. Run `yarn install &&
+yarn build` in `animate/` before you install. Until you do, the install script skips it and says so,
+and the other three still install.
 
 ## Install
 

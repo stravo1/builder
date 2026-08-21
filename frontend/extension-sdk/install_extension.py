@@ -70,11 +70,28 @@ class ExtensionPackage:
 	def record_name(self) -> str:
 		return self.manifest["name"].replace("/", "-")
 
+	@property
+	def needs_a_build(self) -> bool:
+		"""True when `src` holds a file no browser can import.
+
+		A source install copies `src` as it stands. An SFC is dropped on the way,
+		and the module that imported it then fails inside a sandboxed frame, with
+		nothing printed anywhere. Better to refuse and name the build.
+		"""
+		if (self.directory / "dist").is_dir():
+			return False
+		return any(path.suffix in NOT_SHIPPED_SUFFIXES for path in self.source_directory.rglob("*"))
+
 	def validate(self):
 		if not self.source_directory.is_dir():
 			raise SystemExit(f"no dist/ or src/ in {self.directory}")
 		if not self.files:
 			raise SystemExit(f"nothing to install in {self.source_directory}")
+		if self.needs_a_build:
+			raise SystemExit(
+				f"{self.directory} holds components that need compiling. "
+				f"Run the build in that directory first, then install dist/."
+			)
 		for field in ("name", "version"):
 			if not self.manifest.get(field):
 				raise SystemExit(f'manifest.json has no "{field}"')

@@ -35,7 +35,11 @@ def main():
 
 	for directory in sample_directories():
 		installer = ExtensionInstaller(arguments.site, ExtensionPackage(directory))
-		installer.uninstall() if arguments.uninstall else installer.install()
+		try:
+			installer.uninstall() if arguments.uninstall else installer.install()
+		except SystemExit as refusal:
+			# one sample that needs a build should not stop the three that do not
+			print(f"skipped {directory.name}: {refusal}")
 
 
 if __name__ == "__main__":
