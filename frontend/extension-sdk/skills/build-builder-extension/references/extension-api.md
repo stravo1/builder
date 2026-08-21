@@ -105,7 +105,8 @@ these rules:
 - Put the file beside the entry, in `src/`.
 - Draw it square. Builder draws it in a box of 16 by 16 pixels, and a wider file gets empty space
   above and below.
-- Give it `currentColor` for a shape that must follow the editor theme.
+- Give every shape its own color. Builder draws the file in an `<img>` element, so the file cannot
+  read the editor theme. Pick colors that stay readable on a light and a dark background.
 
 Builder draws its own plug glyph for an extension that ships no icon.
 

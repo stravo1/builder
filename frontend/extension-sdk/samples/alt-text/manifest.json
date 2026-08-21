@@ -1,0 +1,8 @@
+{
+	"v": 1,
+	"name": "builder/alt-text",
+	"label": "Alt Text Audit",
+	"version": "1.0.0",
+	"icon": "icon.svg",
+	"capabilities": ["page.read"]
+}

@@ -1,0 +1,8 @@
+{
+	"v": 1,
+	"name": "builder/lorem",
+	"label": "Lorem Ipsum",
+	"version": "1.0.0",
+	"icon": "icon.svg",
+	"capabilities": ["block.read", "block.update"]
+}
