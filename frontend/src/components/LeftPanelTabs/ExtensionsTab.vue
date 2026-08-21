@@ -16,21 +16,22 @@
 						aria-hidden="true" />
 					<span v-else class="lucide-plug size-3.5 text-ink-gray-6" aria-hidden="true" />
 				</template>
+				<!-- the badge sits on the second line, so a label keeps the width of the first -->
 				<div class="flex min-w-0 flex-col">
 					<span class="truncate">{{ extension.label }}</span>
-					<span v-if="extension.label !== extension.name" class="truncate text-xs text-ink-gray-5">
-						{{ extension.name }}
-					</span>
-				</div>
-				<template #suffix>
-					<template v-if="isDevExtension(extension)">
-						<Tooltip text="Served by a dev server. A reload drops it.">
+					<div class="flex min-w-0 items-center gap-1.5">
+						<span v-if="extension.label !== extension.name" class="truncate text-xs text-ink-gray-5">
+							{{ extension.name }}
+						</span>
+						<Tooltip v-if="isDevExtension(extension)" text="Served by a dev server. A reload drops it.">
 							<Badge size="sm" theme="orange" label="Dev" />
 						</Tooltip>
-						<Tooltip text="Stop this dev extension">
-							<Button variant="ghost" size="sm" icon="lucide-unplug" @click="stopDevExtension()" />
-						</Tooltip>
-					</template>
+					</div>
+				</div>
+				<template #suffix>
+					<Tooltip v-if="isDevExtension(extension)" text="Stop this dev extension">
+						<Button variant="ghost" size="sm" icon="lucide-unplug" @click="stopDevExtension()" />
+					</Tooltip>
 				</template>
 			</ItemListRow>
 		</div>
