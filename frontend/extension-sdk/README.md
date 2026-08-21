@@ -53,6 +53,17 @@ import { defineSlot, useBuilderContext } from "frappe-builder-extension-sdk/vue"
 
 `vue` is an optional peer dependency. Install it only if you write slots in Vue.
 
+## Agent skill
+
+The package ships a skill for Claude Code and other agents. It holds the workflow, and
+the whole API as a reference file.
+
+```sh
+cp -R node_modules/frappe-builder-extension-sdk/skills/build-builder-extension ~/.claude/skills/
+```
+
+Then ask the agent for a Builder extension.
+
 ## Versions
 
 The major version of this package is the protocol version it speaks. Version
@@ -61,4 +72,4 @@ protocol needs the matching major version.
 
 ## License
 
-AGPL-3.0-only
+MIT. Copyright (c) Frappe Technologies Pvt. Ltd. and contributors.
