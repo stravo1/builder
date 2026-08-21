@@ -17,7 +17,7 @@ class BuilderExtensionResource(Document):
 
 		extension: DF.Link
 		resource_name: DF.Data
-		resource_type: DF.Literal["DocType", "Web Form"]
+		resource_type: DF.Literal["DocType", "Web Form", "Client Script"]
 	# end: auto-generated types
 
 	def autoname(self):

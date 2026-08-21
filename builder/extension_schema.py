@@ -21,9 +21,16 @@ import frappe
 from frappe import _
 
 from builder.extension_data import GRANT_DOCTYPE, describe_grant, find_extension_grant
-from builder.extensions import find_extension, resolve_extension
+from builder.extensions import (
+	RESOURCE_DOCTYPE,
+	find_extension,
+	find_resource,
+	forget_resource,
+	list_resources,
+	record_resource,
+	resolve_extension,
+)
 
-RESOURCE_DOCTYPE = "Builder Extension Resource"
 MODULE = "Builder"
 
 # The roles a new doctype is usable by. Both are what this app already grants on
@@ -191,11 +198,7 @@ def list_doctypes(extension: str) -> list[dict]:
 	if not owner:
 		return []
 
-	names = frappe.get_all(
-		RESOURCE_DOCTYPE,
-		filters={"extension": owner, "resource_type": "DocType"},
-		pluck="resource_name",
-	)
+	names = list_resources(owner, "DocType")
 	return [{"doctype": name, "exists": bool(frappe.db.exists("DocType", name))} for name in names]
 
 
@@ -253,31 +256,10 @@ def describe_doctype(doctype: str) -> dict:
 	}
 
 
-def record_resource(extension: str, resource_type: str, resource_name: str) -> None:
-	if find_resource(extension, resource_type, resource_name):
-		return
-	frappe.get_doc(
-		{
-			"doctype": RESOURCE_DOCTYPE,
-			"extension": extension,
-			"resource_type": resource_type,
-			"resource_name": resource_name,
-		}
-	).insert()
 
 
-def forget_resource(extension: str, resource_type: str, resource_name: str) -> None:
-	name = find_resource(extension, resource_type, resource_name)
-	if name:
-		frappe.delete_doc(RESOURCE_DOCTYPE, name)
 
 
-def find_resource(extension: str, resource_type: str, resource_name: str) -> str | None:
-	return frappe.db.get_value(
-		RESOURCE_DOCTYPE,
-		{"extension": extension, "resource_type": resource_type, "resource_name": resource_name},
-		"name",
-	)
 
 
 def forget_grant(extension: str, doctype: str) -> None:

@@ -15,6 +15,7 @@ export const CAPABILITIES = [
 	"block.update",
 	"block.insert",
 	"page.read",
+	"page.write",
 	"token.write",
 	"ui.dialog",
 	"ui.popover",

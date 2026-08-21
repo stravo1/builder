@@ -31,6 +31,7 @@ CAPABILITIES = (
 	"block.update",
 	"block.insert",
 	"page.read",
+	"page.write",
 	"token.write",
 	"ui.dialog",
 	"ui.popover",
@@ -68,6 +69,7 @@ class BuilderExtension(Document):
 	def on_trash(self):
 		self.delete_extension_files()
 		self.delete_extension_grants()
+		self.delete_extension_scripts()
 		self.forget_extension_resources()
 
 	@property
@@ -135,6 +137,16 @@ class BuilderExtension(Document):
 	def delete_extension_files(self):
 		if os.path.exists(self.install_path):
 			shutil.rmtree(self.install_path)
+
+	def delete_extension_scripts(self):
+		"""Code this extension wrote goes with it, unlike the data it modeled.
+
+		It runs before `forget_extension_resources`, which is what says the
+		scripts are this extension's.
+		"""
+		from builder.extension_page import delete_extension_scripts
+
+		delete_extension_scripts(self.name)
 
 	def forget_extension_resources(self):
 		"""Drops the ownership rows, and nothing they name.

@@ -162,7 +162,7 @@ describe("the prompt", () => {
 		const pending = request({ doctype: "Contact", access: ["read"] });
 		await settled();
 
-		expect(pendingPrompt.value?.doctype).toBe("Contact");
+		expect(pendingPrompt.value?.subject).toBe("Contact");
 		expect(pendingPrompt.value?.extension.label).toBe("CRM");
 
 		answerPrompt(false);
@@ -257,13 +257,13 @@ describe("one dialog at a time", () => {
 		const second = request({ doctype: "Lead", access: ["read"] }, record("acme/leads"));
 		await settled();
 
-		expect(pendingPrompt.value?.doctype).toBe("Contact");
+		expect(pendingPrompt.value?.subject).toBe("Contact");
 
 		answerPrompt(true);
 		await first;
 		await settled();
 
-		expect(pendingPrompt.value?.doctype).toBe("Lead");
+		expect(pendingPrompt.value?.subject).toBe("Lead");
 
 		answerPrompt(true);
 		await second;
@@ -294,7 +294,7 @@ describe("teardown", () => {
 
 		teardowns.get("acme/gone")?.();
 
-		expect(pendingPrompt.value?.doctype).toBe("Contact");
+		expect(pendingPrompt.value?.subject).toBe("Contact");
 
 		answerPrompt(false);
 		await pending;

@@ -84,16 +84,18 @@ const invoke = (url: string, params: Record<string, unknown>) => createResource(
 /**
  * Which question the dialog asks.
  *
- * `access` is the doctype grant, and its answer becomes a record. `schema` asks
- * about one act — creating or dropping a doctype — and records nothing, because
- * there is no standing permission to remember: the next act asks again.
+ * `access` is the doctype grant, and its answer becomes a record. The other two
+ * ask about one act — creating or dropping a doctype, putting a script on a
+ * page — and record nothing, because there is no standing permission to
+ * remember: the next act asks again.
  */
-export type PromptKind = "access" | "schema";
+export type PromptKind = "access" | "schema" | "script";
 
 export type GrantPrompt = {
 	kind: PromptKind;
 	extension: InstalledExtension;
-	doctype: string;
+	/** The doctype an access or schema prompt names. The page route a script prompt names. */
+	subject: string;
 	/** What is still missing. An access the user already gave is not asked for again. */
 	access: Access[];
 	sensitive: boolean;
@@ -209,8 +211,27 @@ export const confirmSchema = (
 ) => {
 	hookTeardown(extension);
 	return enqueue(() =>
-		ask({ kind: "schema", extension, doctype, act, access: [], sensitive: act === "delete" }),
+		ask({ kind: "schema", extension, subject: doctype, act, access: [], sensitive: act === "delete" }),
 	);
+};
+
+/**
+ * Asks the user to let this extension put a script on one page, and remembers
+ * nothing.
+ *
+ * A client script is JavaScript on a public page at the site's own origin, and
+ * nothing bounds it once it lands. Frappe's own gate — write permission on
+ * `Builder Client Script` — says the user could add one by hand, not that they
+ * meant this extension to. So the page is named, once, each time a script is
+ * created. Rewriting a script the extension already owns asks again for
+ * nothing: the user allowed this extension to run code on this page, and it is
+ * the same code's next version.
+ *
+ * Exported for `pageMethods.ts`, which is the only caller.
+ */
+export const confirmPageScript = (extension: InstalledExtension, route: string) => {
+	hookTeardown(extension);
+	return enqueue(() => ask({ kind: "script", extension, subject: route, access: [], sensitive: true }));
 };
 
 const prompt = async (extension: InstalledExtension, doctype: string, access: Access[]) => {
@@ -218,7 +239,7 @@ const prompt = async (extension: InstalledExtension, doctype: string, access: Ac
 	const granted = await ask({
 		kind: "access",
 		extension,
-		doctype,
+		subject: doctype,
 		access,
 		sensitive: SENSITIVE_DOCTYPES.has(doctype),
 	});

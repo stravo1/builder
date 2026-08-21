@@ -30,8 +30,12 @@
 					<p v-if="prompt.kind === 'schema'" class="text-p-sm text-ink-red-6">
 						Dropping a doctype drops its table and every record in it. Nothing here can undo that.
 					</p>
+					<p v-else-if="prompt.kind === 'script'" class="text-p-sm text-ink-red-6">
+						The script runs on the published page, for every visitor, and it can do anything this site's own
+						pages can do. You can read it and remove it in the Code tab.
+					</p>
 					<p v-else class="text-p-sm text-ink-red-6">
-						{{ prompt.doctype }} controls how this site works. Access to it can change what other extensions
+						{{ prompt.subject }} controls how this site works. Access to it can change what other extensions
 						and other people are allowed to do.
 					</p>
 					<label class="flex cursor-pointer items-start gap-2 pt-3 text-p-sm text-ink-red-6">
@@ -64,29 +68,35 @@ watch(prompt, () => (understood.value = false));
 
 const canAllow = computed(() => !prompt.value?.sensitive || understood.value);
 
-/** The doctype and the full stop, so no reflow can put whitespace between them. */
-const subject = computed(() => `${prompt.value?.doctype}.`);
+/** The subject and the full stop, so no reflow can put whitespace between them. */
+const subject = computed(() => `${prompt.value?.subject}.`);
 
 /**
  * "read", "read and write", "read, write and delete" — or the one verb a schema
- * prompt names.
+ * or script prompt names.
  */
 const verbs = computed(() => {
 	if (prompt.value?.kind === "schema") return prompt.value.act ?? "";
+	if (prompt.value?.kind === "script") return "run a script";
 	const asked = prompt.value?.access ?? [];
 	if (asked.length < 2) return asked.join("");
 	return `${asked.slice(0, -1).join(", ")} and ${asked[asked.length - 1]}`;
 });
 
 /** The one sentence that is true of every prompt: the user is still the ceiling. */
-const floor = computed(() =>
-	prompt.value?.kind === "schema"
-		? "It can only do what you can do. Changing a doctype needs your own System Manager role."
-		: "It can only do what you can do. Your own permissions still apply to every record.",
+const floor = computed(
+	() =>
+		({
+			schema: "It can only do what you can do. Changing a doctype needs your own System Manager role.",
+			script: "It can only do what you can do. You can already add a script to this page by hand.",
+			access: "It can only do what you can do. Your own permissions still apply to every record.",
+		})[prompt.value?.kind ?? "access"],
 );
 
-/** What the verbs act on: records of a doctype, or the doctype itself. */
-const object = computed(() => (prompt.value?.kind === "schema" ? "the doctype" : "records of"));
+/** What the verbs act on: records of a doctype, the doctype itself, or a page. */
+const object = computed(
+	() => ({ schema: "the doctype", script: "on the page", access: "records of" })[prompt.value?.kind ?? "access"],
+);
 
 const allow = () => answerPrompt(true);
 

@@ -34,6 +34,8 @@ TOKEN_TYPES = {"Color", "Dimension", "Font"}
 TOKEN_FIELDS = ("token_name", "type", "value", "dark_value", "group")
 DEV_EXTENSION_VERSION = "0.0.0-dev"
 
+RESOURCE_DOCTYPE = "Builder Extension Resource"
+
 
 def find_extension(extension: str) -> str | None:
 	"""The record name behind an extension_name, or None when nothing is installed."""
@@ -142,3 +144,43 @@ def remove_dev_extension(extension: str) -> None:
 
 def find_extension_token(extension: str, key: str) -> str | None:
 	return frappe.db.get_value("Builder Token", {"extension": extension, "key": key}, "name")
+
+
+# What an extension made, so uninstall knows what it owns and no caller has to
+# guess from a name. Every resource kind shares these three, which is why they
+# live here rather than beside the first kind that needed them.
+
+
+def record_resource(extension: str, resource_type: str, resource_name: str) -> None:
+	if find_resource(extension, resource_type, resource_name):
+		return
+	frappe.get_doc(
+		{
+			"doctype": RESOURCE_DOCTYPE,
+			"extension": extension,
+			"resource_type": resource_type,
+			"resource_name": resource_name,
+		}
+	).insert()
+
+
+def forget_resource(extension: str, resource_type: str, resource_name: str) -> None:
+	name = find_resource(extension, resource_type, resource_name)
+	if name:
+		frappe.delete_doc(RESOURCE_DOCTYPE, name)
+
+
+def find_resource(extension: str, resource_type: str, resource_name: str) -> str | None:
+	return frappe.db.get_value(
+		RESOURCE_DOCTYPE,
+		{"extension": extension, "resource_type": resource_type, "resource_name": resource_name},
+		"name",
+	)
+
+
+def list_resources(extension: str, resource_type: str) -> list[str]:
+	return frappe.get_all(
+		RESOURCE_DOCTYPE,
+		filters={"extension": extension, "resource_type": resource_type},
+		pluck="resource_name",
+	)

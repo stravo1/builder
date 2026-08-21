@@ -284,6 +284,39 @@ export const page = {
 	 * `context.editingMode` to tell the two apart.
 	 */
 	getBlocks: () => call("page.getBlocks") as Promise<Array<Record<string, unknown>>>,
+
+	/**
+	 * Puts one script on the open page, and rewrites it on a later call.
+	 *
+	 * The script runs on the published page, never in the editor canvas, so the
+	 * editor shows what a block is set to and the page shows what it does.
+	 *
+	 * One JavaScript and one CSS script per extension per page. Creating the
+	 * first of a type asks the user and names the page. Rewriting it does not.
+	 *
+	 * Needs `page.write`, and is refused again while the page is read-only.
+	 */
+	attachScript: (script: PageScript) => call("page.attachScript", script) as Promise<AttachedScript>,
+
+	/** Unlinks and deletes this extension's script of that type. Quiet when it has none. */
+	detachScript: (type: ScriptType) => call("page.detachScript", { type }),
+
+	/** This extension's own scripts on the open page, and nobody else's. */
+	listScripts: () => call("page.listScripts") as Promise<AttachedScript[]>,
+};
+
+export type ScriptType = "JavaScript" | "CSS";
+
+export type PageScript = {
+	type: ScriptType;
+	/** The whole file. A later call replaces it, so send what the page should run. */
+	script: string;
+};
+
+export type AttachedScript = {
+	name: string;
+	type: ScriptType;
+	script: string;
 };
 
 export const state = {
