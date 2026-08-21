@@ -2,6 +2,7 @@ import LayersIcon from "@/components/Icons/Layers.vue";
 import AssetsTab from "@/components/LeftPanelTabs/AssetsTab.vue";
 import BlocksTab from "@/components/LeftPanelTabs/BlocksTab.vue";
 import CodeTab from "@/components/LeftPanelTabs/CodeTab.vue";
+import ExtensionsTab from "@/components/LeftPanelTabs/ExtensionsTab.vue";
 import LayersTab from "@/components/LeftPanelTabs/LayersTab.vue";
 import useBuilderStore from "@/stores/builderStore";
 import { createRegistry, type RegistryItem } from "@/utils/createRegistry";
@@ -58,6 +59,13 @@ leftPanelTabs.registerBuiltIn({
 	lazy: true,
 	// a data script dialog needs PageScript mounted even if the tab never opens
 	preload: () => builderStore.showDataScriptDialog !== null,
+});
+
+leftPanelTabs.registerBuiltIn({
+	name: "Extensions",
+	label: "Extensions",
+	icon: "lucide-plug",
+	component: ExtensionsTab,
 });
 
 // not a tab. It toggles a modal, so it declares an action and its own active state

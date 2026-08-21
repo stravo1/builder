@@ -15,7 +15,6 @@
 </template>
 <script setup lang="ts">
 import { useDashboardState } from "@/composables/useDashboardState";
-import { devExtension, showDevExtensionDialog, stopDevExtension } from "@/extensions/devExtension";
 import useBuilderStore from "@/stores/builderStore";
 import useCanvasStore from "@/stores/canvasStore";
 import usePageStore from "@/stores/pageStore";
@@ -41,28 +40,6 @@ const handleCopyPage = () => {
 	canvasStore.copyEntirePage = true;
 	canvasStore.requiresConfirmationForCopyingEntirePage = false;
 	triggerCopyEvent();
-};
-
-/**
- * Developer mode only. Loading one runs code the editor never installed, and its
- * dev server is on this machine (1.14).
- */
-const extensionsGroup = {
-	group: "Extensions",
-	hideLabel: true,
-	items: [
-		{
-			label: "Load Dev extension",
-			onClick: () => (showDevExtensionDialog.value = true),
-			icon: "lucide-plug",
-		},
-		{
-			label: "Stop Dev extension",
-			onClick: () => stopDevExtension(),
-			icon: "lucide-unplug",
-			condition: () => Boolean(devExtension.value),
-		},
-	],
 };
 
 const mainMenuOptions = [
@@ -106,7 +83,6 @@ const mainMenuOptions = [
 			},
 		],
 	},
-	...(window.is_developer_mode ? [extensionsGroup] : []),
 	{
 		group: "Preferences",
 		hideLabel: true,

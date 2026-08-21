@@ -27,6 +27,9 @@ export const showDevExtensionDialog = ref(false);
 
 export const lastDevUrl = () => localStorage.getItem(LAST_URL_KEY) ?? "";
 
+/** The installed list carries the dev entry under its own name, so the name is the test. */
+export const isDevExtension = (extension: InstalledExtension) => devExtension.value?.name === extension.name;
+
 /**
  * A capability this Builder does not know is a version gap, not a fault, so the
  * extension loses that one grant and keeps the rest. Using it is refused by the

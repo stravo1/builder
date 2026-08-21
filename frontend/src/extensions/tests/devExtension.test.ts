@@ -130,3 +130,31 @@ describe("loadDevExtension", () => {
 		);
 	});
 });
+
+/** The panel marks one row, and reads the list, never the object it was built from. */
+describe("isDevExtension", () => {
+	const listed = (name: string) => ({ name, label: name, entry: `/${name}.js`, capabilities: [] });
+
+	beforeEach(async () => {
+		localStorage.clear();
+		vi.restoreAllMocks();
+		vi.stubGlobal("fetch", answer(DESCRIPTOR));
+		dev = await loadModule();
+	});
+
+	it("marks nothing while no dev extension is loaded", () => {
+		expect(dev.isDevExtension(listed("acme/icons"))).toBe(false);
+	});
+
+	it("marks the entry the dev server serves, whoever built it", async () => {
+		await dev.loadDevExtension("http://localhost:5173");
+
+		expect(dev.isDevExtension(listed("acme/icons"))).toBe(true);
+	});
+
+	it("leaves the other installed extensions unmarked", async () => {
+		await dev.loadDevExtension("http://localhost:5173");
+
+		expect(dev.isDevExtension(listed("acme/other"))).toBe(false);
+	});
+});
