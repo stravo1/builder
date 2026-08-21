@@ -80,6 +80,7 @@ declare module 'vue' {
     ExtensionGrantDialog: typeof import('./src/components/ExtensionGrantDialog.vue')['default']
     ExtensionHost: typeof import('./src/components/ExtensionHost.vue')['default']
     ExtensionPopover: typeof import('./src/components/ExtensionPopover.vue')['default']
+    ExtensionsTab: typeof import('./src/components/LeftPanelTabs/ExtensionsTab.vue')['default']
     ExtensionToolbarButton: typeof import('./src/components/ToolbarItems/ExtensionToolbarButton.vue')['default']
     EyeDropper: typeof import('./src/components/Icons/EyeDropper.vue')['default']
     Files: typeof import('./src/components/Icons/Files.vue')['default']
