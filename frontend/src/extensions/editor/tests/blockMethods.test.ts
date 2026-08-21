@@ -1,3 +1,4 @@
+import { nextTick } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -6,8 +7,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * `setStyle` choosing a breakpoint's style map.
  */
 const tree = new Map<string, unknown>();
+let made = 0;
 const canvas = {
-	activeCanvas: { findBlock: (id: string) => tree.get(id) ?? null, activeBreakpoint: "desktop" },
+	editableBlock: null as unknown,
+	activeCanvas: {
+		findBlock: (id: string) => tree.get(id) ?? null,
+		activeBreakpoint: "desktop",
+		selectedBlockIds: new Set<string>(),
+		clearSelection: () => canvas.activeCanvas.selectedBlockIds.clear(),
+		toggleBlockSelection: (block: { blockId: string }) =>
+			canvas.activeCanvas.selectedBlockIds.add(block.blockId),
+	},
 };
 
 vi.mock("@/stores/canvasStore", () => ({ default: () => canvas }));
@@ -43,9 +53,14 @@ const block = (blockId: string) => {
 		},
 		children: [] as Array<Record<string, unknown>>,
 		addChild(options: Record<string, unknown>, index: number | undefined, select: boolean) {
-			const child = block(`block-child-${node.children.length}`);
+			const child = block(`block-child-${made++}`);
 			Object.assign(child, options, { selected: select });
 			node.children.splice(index ?? node.children.length, 0, child);
+			// what `Block.addChild` does at block.ts:595, whatever `select` says
+			if (options.element === "label") {
+				canvas.activeCanvas.selectedBlockIds = new Set([child.blockId]);
+				canvas.editableBlock = child;
+			}
 			return child;
 		},
 		setStyle(style: string, value: unknown, breakpoint?: string) {
@@ -64,7 +79,8 @@ const block = (blockId: string) => {
 };
 
 const update = (params: unknown) => blockMethods["block.update"].run(params, record());
-const insert = (params: unknown) => blockMethods["block.insert"].run(params, record()) as { blockId: string };
+const insert = (params: unknown) =>
+	blockMethods["block.insert"].run(params, record()) as { blockId: string; keys: Record<string, string> };
 const get = (params: unknown) => blockMethods["block.get"].run(params, record());
 
 const codeOf = (call: () => unknown) => {
@@ -76,7 +92,12 @@ const codeOf = (call: () => unknown) => {
 	return undefined;
 };
 
-beforeEach(() => tree.clear());
+beforeEach(() => {
+	tree.clear();
+	made = 0;
+	canvas.editableBlock = null;
+	canvas.activeCanvas.selectedBlockIds = new Set();
+});
 
 describe("the capabilities", () => {
 	it("gates the read and the write separately", () => {
@@ -306,5 +327,145 @@ describe("inserting a block", () => {
 		expect(codeOf(() => insert({ parentId: "block-1", block: { element: "div" }, index: -1 }))).toBe(
 			"invalid_params",
 		);
+	});
+});
+
+describe("inserting a tree", () => {
+	const parent = () => tree.get("block-1") as Record<string, any>;
+	const nest = (depth: number): Record<string, unknown> =>
+		depth === 1 ? { element: "div" } : { element: "div", children: [nest(depth - 1)] };
+
+	it("builds every node of one call, in the order it was sent", () => {
+		block("block-1");
+		const { blockId } = insert({
+			parentId: "block-1",
+			block: {
+				element: "form",
+				children: [{ element: "label" }, { element: "input", children: [{ element: "span" }] }],
+			},
+		});
+
+		const form = parent().children[0];
+		expect(form.blockId).toBe(blockId);
+		expect(form.children.map((child: Record<string, unknown>) => child.element)).toEqual([
+			"label",
+			"input",
+		]);
+		expect(form.children[1].children[0].element).toBe("span");
+	});
+
+	// a form builder has to find its own submit button again
+	it("answers with every key, mapped to the block it made", () => {
+		block("block-1");
+		const { keys } = insert({
+			parentId: "block-1",
+			block: {
+				element: "form",
+				key: "form",
+				children: [{ element: "button", key: "submit" }],
+			},
+		});
+
+		const form = parent().children[0];
+		expect(keys.form).toBe(form.blockId);
+		expect(keys.submit).toBe(form.children[0].blockId);
+	});
+
+	it("answers with an empty map when the tree named no key", () => {
+		block("block-1");
+		expect(insert({ parentId: "block-1", block: { element: "div" } }).keys).toEqual({});
+	});
+
+	it("writes a child's attributes and styles, at the breakpoint the call names", () => {
+		block("block-1");
+		insert({
+			parentId: "block-1",
+			block: {
+				element: "form",
+				children: [{ element: "input", attributes: { name: "email" }, styles: { color: "red" } }],
+			},
+			breakpoint: "mobile",
+		});
+
+		const input = parent().children[0].children[0];
+		expect(input.attributes.name).toBe("email");
+		expect(input.mobileStyles.color).toBe("red");
+	});
+
+	it("refuses two blocks that share a key", () => {
+		block("block-1");
+		expect(
+			codeOf(() =>
+				insert({
+					parentId: "block-1",
+					block: { element: "div", key: "same", children: [{ element: "div", key: "same" }] },
+				}),
+			),
+		).toBe("invalid_params");
+	});
+
+	it("refuses children that are not a list", () => {
+		block("block-1");
+		expect(
+			codeOf(() => insert({ parentId: "block-1", block: { element: "div", children: {} } })),
+		).toBe("invalid_params");
+	});
+
+	it("refuses a tree deeper than the cap", () => {
+		block("block-1");
+		expect(codeOf(() => insert({ parentId: "block-1", block: nest(21) }))).toBe("invalid_params");
+	});
+
+	it("takes a tree at the cap", () => {
+		block("block-1");
+		expect(codeOf(() => insert({ parentId: "block-1", block: nest(20) }))).toBeUndefined();
+	});
+
+	it("refuses a tree holding more blocks than the cap", () => {
+		block("block-1");
+		const children = Array.from({ length: 200 }, () => ({ element: "div" }));
+		expect(codeOf(() => insert({ parentId: "block-1", block: { element: "div", children } }))).toBe(
+			"invalid_params",
+		);
+	});
+
+	// the whole tree is read before the first addChild, so a bad node deep in it
+	// cannot leave half a form in the page
+	it("adds nothing when a node anywhere in the tree is refused", () => {
+		block("block-1");
+		codeOf(() =>
+			insert({
+				parentId: "block-1",
+				block: {
+					element: "form",
+					children: [{ element: "label" }, { element: "<script>" }],
+				},
+			}),
+		);
+
+		expect(parent().children).toHaveLength(0);
+	});
+});
+
+// `makeBlockEditable` selects a text block whatever `addChild` was told, so the
+// method has to put the user's selection back
+describe("what an insert leaves selected", () => {
+	it("puts the selection back after a text block took it", async () => {
+		block("block-1");
+		canvas.activeCanvas.selectedBlockIds = new Set(["block-1"]);
+
+		insert({ parentId: "block-1", block: { element: "form", children: [{ element: "label" }] } });
+		await nextTick();
+
+		expect([...canvas.activeCanvas.selectedBlockIds]).toEqual(["block-1"]);
+		expect(canvas.editableBlock).toBeNull();
+	});
+
+	it("leaves an empty selection empty", async () => {
+		block("block-1");
+		insert({ parentId: "block-1", block: { element: "label" } });
+		await nextTick();
+
+		expect([...canvas.activeCanvas.selectedBlockIds]).toEqual([]);
 	});
 });

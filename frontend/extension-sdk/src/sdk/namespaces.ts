@@ -243,11 +243,16 @@ export const block = {
 	/**
 	 * A new block inside `parentId`, appended unless `index` names a place.
 	 *
-	 * Answers with the new `blockId`, so a tree is built by inserting into what
-	 * came back. The new block is not selected: the selection stays the user's.
+	 * A block carries its own `children`, so a whole form or card is one call and
+	 * one undo step. Nothing is added until the whole tree reads clean, so a
+	 * refusal leaves the page untouched.
+	 *
+	 * Answers with the root's `blockId`, and with `keys`: every `key` named in
+	 * the tree, mapped to the block it became. The new blocks are not selected:
+	 * the selection stays the user's.
 	 */
 	insert: (parentId: string, block: NewBlock, index?: number) =>
-		call("block.insert", { parentId, block, index }) as Promise<{ blockId: string }>,
+		call("block.insert", { parentId, block, index }) as Promise<InsertedBlock>,
 };
 
 /** What `block.insert` draws. `element` is required, and everything else is optional. */
@@ -257,6 +262,16 @@ export type NewBlock = {
 	styles?: Record<string, string | number | null>;
 	classes?: string[];
 	innerHTML?: string;
+	/** The caller's own name for this node, answered back as a `blockId`. Unique in one call. */
+	key?: string;
+	children?: NewBlock[];
+};
+
+export type InsertedBlock = {
+	/** The root of what this call made. */
+	blockId: string;
+	/** Every `key` in the tree, and the block it became. Empty when the tree named none. */
+	keys: Record<string, string>;
 };
 
 export const page = {

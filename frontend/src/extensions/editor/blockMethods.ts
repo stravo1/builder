@@ -17,6 +17,7 @@
 import type Block from "@/block";
 import useCanvasStore from "@/stores/canvasStore";
 import { getBlockObject } from "@/utils/helpers";
+import { nextTick } from "vue";
 import type { MethodTable } from "../host/capabilities";
 import { fields, oneOf, optionalText, refuse, text, wholeNumber } from "../params";
 import type { Breakpoint } from "frappe-builder-extension-sdk/types";
@@ -105,11 +106,143 @@ const update = (params: unknown) => {
 };
 
 /**
- * A new block, as a child of one the page already holds.
+ * A tree is bounded, because the frame is the untrusted side. A message with no
+ * ceiling on it is a message that costs the editor an unbounded amount of work.
+ */
+const MAX_NODES = 200;
+const MAX_DEPTH = 20;
+
+/**
+ * One node, read and checked, with nothing added to the page yet.
  *
- * One block per call, and no `children`. The new id comes back, so an extension
- * that wants a tree inserts into what it just made. That keeps the validation
- * flat, and each call is its own undo step.
+ * The whole tree becomes this before the first `addChild` runs. That is what
+ * makes a refusal leave the page exactly as it was: a bad node at depth four
+ * cannot half-build the three above it.
+ */
+type PlannedBlock = {
+	element: string;
+	key?: string;
+	classes?: string[];
+	innerHTML?: string;
+	attributes?: Record<string, unknown>;
+	styles?: Record<string, unknown>;
+	children: PlannedBlock[];
+};
+
+const readChildren = (value: unknown) => {
+	if (value === undefined) return [];
+	if (!Array.isArray(value)) throw refuse(`"block.children" must be a list.`, "invalid_params");
+	return value;
+};
+
+/**
+ * The tree an extension sent, as something safe to build.
+ *
+ * A `key` is how the caller finds one node again — the submit button of a form
+ * it just drew. It is the caller's own name for the node, so two nodes cannot
+ * share one, and the host never reads it as anything but a label.
+ */
+const planTree = (value: unknown): PlannedBlock => {
+	const keys = new Set<string>();
+	let count = 0;
+
+	const plan = (sent: unknown, depth: number): PlannedBlock => {
+		if (depth > MAX_DEPTH) throw refuse(`A tree can be ${MAX_DEPTH} blocks deep.`, "invalid_params");
+		if (++count > MAX_NODES) throw refuse(`A tree can hold ${MAX_NODES} blocks.`, "invalid_params");
+
+		const wanted = fields(sent);
+		const element = text(wanted.element, "block.element");
+		if (!ELEMENT_NAME.test(element)) {
+			throw refuse(`"${element}" is not an element name.`, "invalid_params");
+		}
+
+		const key = optionalText(wanted.key, "block.key");
+		if (key && keys.has(key)) throw refuse(`Two blocks share the key "${key}".`, "invalid_params");
+		if (key) keys.add(key);
+
+		return {
+			element,
+			key,
+			classes: readClasses(wanted.classes),
+			innerHTML: optionalText(wanted.innerHTML, "block.innerHTML"),
+			attributes: readMap(wanted.attributes, "block.attributes"),
+			styles: readMap(wanted.styles, "block.styles"),
+			children: readChildren(wanted.children).map((child) => plan(child, depth + 1)),
+		};
+	};
+
+	return plan(value, 1);
+};
+
+/** Builds one planned node and everything under it, in the order it was sent. */
+const mount = (
+	parent: Block,
+	planned: PlannedBlock,
+	keys: Record<string, string>,
+	breakpoint?: Breakpoint,
+	index?: number,
+): Block => {
+	const block = parent.addChild(
+		{ element: planned.element, classes: planned.classes, innerHTML: planned.innerHTML },
+		index,
+		false,
+	);
+
+	if (planned.attributes) writeAttributes(block, planned.attributes);
+	if (planned.styles) writeStyles(block, planned.styles, breakpoint);
+	if (planned.key) keys[planned.key] = block.blockId;
+
+	planned.children.forEach((child) => mount(block, child, keys, breakpoint));
+	return block;
+};
+
+/**
+ * Builds the tree, and leaves the selection where it was.
+ *
+ * `addChild` calls `makeBlockEditable` for a text block whatever its `select`
+ * argument says (`block.ts:595`), and that both selects the block and opens the
+ * text editor on it. A form is mostly labels, so a tree of them ends with the
+ * last label selected and in edit mode.
+ *
+ * The restore waits a tick because the selection does. `Block.selectBlock`
+ * queues its work in `nextTick` (`block.ts:654`), so a synchronous restore runs
+ * first and the label takes the selection back. Ours is queued after every one
+ * the build queued, so it settles last.
+ */
+const keepingSelection = <T>(build: () => T): T => {
+	const store = useCanvasStore();
+	const canvas = store.activeCanvas;
+	const selected = [...(canvas?.selectedBlockIds ?? [])];
+	const editable = store.editableBlock;
+
+	const made = build();
+
+	nextTick(() => {
+		store.editableBlock = editable;
+		canvas?.clearSelection();
+		selected.forEach((blockId) => {
+			const block = canvas?.findBlock(blockId);
+			if (block) canvas?.toggleBlockSelection(block);
+		});
+	});
+	return made;
+};
+
+/**
+ * A new block, or a whole tree of them, as a child of one the page already holds.
+ *
+ * A node carries its own `children`, so an extension that generates markup — a
+ * form, a card, a table — draws it in one call. The answer holds the root's
+ * `blockId`, and `keys` maps every `key` the caller named to the block it made.
+ *
+ * **One call is one act.** History records through a trailing 100 ms debounce
+ * (`useCanvasHistory.ts:13`), so a tree built here is one undo step. Twenty
+ * separate calls usually are too, but their boundary is the clock rather than
+ * the call: an extension that awaits anything slow inside a loop splits its own
+ * form across two steps. This does not.
+ *
+ * **Nothing is built while the tree is read.** A refused node leaves the page
+ * untouched, rather than half a form nobody asked for.
  *
  * **The new block is not selected.** The selection is the user's, and an
  * extension writing to the page has no business taking it.
@@ -117,29 +250,15 @@ const update = (params: unknown) => {
 const insert = (params: unknown) => {
 	const sent = fields(params);
 	const parent = findBlock(text(sent.parentId, "parentId"));
-	const wanted = fields(sent.block);
-
-	const element = text(wanted.element, "block.element");
-	if (!ELEMENT_NAME.test(element)) throw refuse(`"${element}" is not an element name.`, "invalid_params");
-
-	const inserted = parent.addChild(
-		{
-			element,
-			classes: readClasses(wanted.classes),
-			innerHTML: optionalText(wanted.innerHTML, "block.innerHTML"),
-		},
-		sent.index === undefined ? undefined : wholeNumber(sent.index, "index"),
-		false,
-	);
-
-	const attributes = readMap(wanted.attributes, "block.attributes");
-	const styles = readMap(wanted.styles, "block.styles");
+	const index = sent.index === undefined ? undefined : wholeNumber(sent.index, "index");
 	const breakpoint =
 		sent.breakpoint === undefined ? undefined : oneOf(sent.breakpoint, BREAKPOINTS, "breakpoint");
-	if (attributes) writeAttributes(inserted, attributes);
-	if (styles) writeStyles(inserted, styles, breakpoint);
 
-	return { blockId: inserted.blockId };
+	const planned = planTree(sent.block);
+
+	const keys: Record<string, string> = {};
+	const inserted = keepingSelection(() => mount(parent, planned, keys, breakpoint, index));
+	return { blockId: inserted.blockId, keys };
 };
 
 export const blockMethods: MethodTable = {
