@@ -55,6 +55,7 @@ my-extension/
 ├── vite.config.js
 └── src/
     ├── main.ts
+    ├── icon.svg
     ├── panel/
     │   ├── Panel.vue
     │   └── index.ts
@@ -88,6 +89,7 @@ Put `manifest.json` beside `vite.config.js`.
   "name": "acme/image-tools",
   "label": "Image Tools",
   "version": "1.0.0",
+  "icon": "icon.svg",
   "capabilities": ["context.read", "block.read", "block.update"]
 }
 ```
@@ -95,6 +97,17 @@ Put `manifest.json` beside `vite.config.js`.
 Use `publisher/name` for `name`. Use lowercase letters, digits, and hyphens in each part.
 
 The `version` value can contain letters, digits, dots, plus signs, and hyphens.
+
+The `icon` value is optional. Builder shows it beside the extension in the Extensions panel. Follow
+these rules:
+
+- Name one SVG file, with no folder in front of it.
+- Put the file beside the entry, in `src/`.
+- Draw it square. Builder draws it in a box of 16 by 16 pixels, and a wider file gets empty space
+  above and below.
+- Give it `currentColor` for a shape that must follow the editor theme.
+
+Builder draws its own plug glyph for an extension that ships no icon.
 
 Request only the capabilities that the extension uses. Builder rejects a protected method without its capability.
 
@@ -146,7 +159,8 @@ Set `builderUrl` to the Builder editor origin. A different origin creates a seco
 
 The plugin finds `src/main.ts` or `src/main.js`. It writes the production entry as `dist/main.js`.
 
-The plugin copies `manifest.json` into `dist`. It also puts generated CSS into the entry module.
+The plugin copies `manifest.json` into `dist`, and the icon the manifest names with it. It also puts
+generated CSS into the entry module.
 
 Dynamic imports stay as relative chunks. Do not change the relative Vite base.
 

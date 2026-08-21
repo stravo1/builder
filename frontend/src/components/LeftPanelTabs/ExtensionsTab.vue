@@ -7,7 +7,14 @@
 		<div v-else class="flex flex-col">
 			<ItemListRow v-for="extension in installedExtensions" :key="extension.name" size="md">
 				<template #prefix>
-					<span class="lucide-plug size-3.5 text-ink-gray-6" aria-hidden="true" />
+					<!-- one box whatever the file measures, so a stray icon cannot set the row height -->
+					<img
+						v-if="extension.icon"
+						:src="extension.icon"
+						class="size-4 shrink-0 object-contain"
+						alt=""
+						aria-hidden="true" />
+					<span v-else class="lucide-plug size-3.5 text-ink-gray-6" aria-hidden="true" />
 				</template>
 				<div class="flex min-w-0 flex-col">
 					<span class="truncate">{{ extension.label }}</span>

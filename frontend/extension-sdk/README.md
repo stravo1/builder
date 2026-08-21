@@ -37,6 +37,9 @@ export default defineConfig({
 The plugin needs a `manifest.json` beside the config, and an entry at
 `src/main.js` or `src/main.ts`.
 
+A manifest can name an icon, such as `"icon": "icon.svg"`. Put a square SVG of that name beside the
+entry. Builder draws it beside the extension in the Extensions panel.
+
 ## Write against the editor
 
 ```js

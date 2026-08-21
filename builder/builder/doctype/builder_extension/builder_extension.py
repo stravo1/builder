@@ -19,6 +19,11 @@ ASSET_ROUTE = "/builder_extension_asset"
 EXTENSION_NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*$")
 VERSION_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.+-]*$")
 
+# One SVG in the install root. No separator, so an icon can never name a file
+# outside the install folder, and no other format, so the editor can draw it in
+# an <img> at any size without a second rule per type.
+ICON_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.svg$")
+
 # every capability the bridge gates a method by
 CAPABILITIES = (
 	"context.read",
@@ -47,6 +52,7 @@ class BuilderExtension(Document):
 		checksum: DF.Data | None
 		enabled: DF.Check
 		extension_name: DF.Data
+		icon: DF.Data | None
 		label: DF.Data | None
 		version: DF.Data
 	# end: auto-generated types
@@ -56,6 +62,7 @@ class BuilderExtension(Document):
 
 	def validate(self):
 		self.validate_identity()
+		self.validate_icon()
 		self.validate_capabilities()
 
 	def on_trash(self):
@@ -90,6 +97,13 @@ class BuilderExtension(Document):
 		return f"{ASSET_ROUTE}/{self.install_folder}/{ENTRY_FILE}"
 
 	@property
+	def icon_url(self) -> str | None:
+		"""None when the package ships no icon, and the editor then draws its own glyph."""
+		if not self.icon:
+			return None
+		return f"{ASSET_ROUTE}/{self.install_folder}/{self.icon}"
+
+	@property
 	def granted_capabilities(self) -> list[str]:
 		return frappe.parse_json(self.capabilities or "[]")
 
@@ -98,6 +112,10 @@ class BuilderExtension(Document):
 			frappe.throw(_("Extension Name must read as publisher/name, in lowercase."))
 		if not VERSION_PATTERN.match(self.version or ""):
 			frappe.throw(_("Version must hold only letters, digits, dots, plus signs and hyphens."))
+
+	def validate_icon(self):
+		if self.icon and not ICON_PATTERN.match(self.icon):
+			frappe.throw(_("Icon must name one SVG file in the install root, such as icon.svg."))
 
 	def validate_capabilities(self):
 		# parse_json raises on text that is not JSON at all, which would reach the

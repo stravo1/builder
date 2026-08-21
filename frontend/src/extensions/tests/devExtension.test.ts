@@ -99,6 +99,18 @@ describe("loadDevExtension", () => {
 		await expect(dev.loadDevExtension("http://localhost:5173")).rejects.toThrow(/not a Builder extension/);
 	});
 
+	it("puts the icon on the dev server too, because that is what serves it", async () => {
+		vi.stubGlobal("fetch", answer({ ...DESCRIPTOR, icon: "/src/icon.svg" }));
+
+		const extension = await dev.loadDevExtension("http://localhost:5173");
+
+		expect(extension.icon).toBe("http://localhost:5173/src/icon.svg");
+	});
+
+	it("leaves the icon unset for an extension that ships none", async () => {
+		expect((await dev.loadDevExtension("http://localhost:5173")).icon).toBeUndefined();
+	});
+
 	it("remembers the origin, so nobody retypes it", async () => {
 		await dev.loadDevExtension("http://localhost:5173/src/main.js");
 

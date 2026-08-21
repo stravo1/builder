@@ -76,6 +76,7 @@ export const loadDevExtension = async (url: string): Promise<InstalledExtension>
 		label: descriptor.label || descriptor.name,
 		// the dev server serves the source entry, so the path comes from it
 		entry: `${origin}${descriptor.entry}`,
+		icon: descriptor.icon ? `${origin}${descriptor.icon}` : undefined,
 		capabilities: grantedFrom(descriptor.capabilities),
 	};
 	return devExtension.value;

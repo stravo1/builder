@@ -30,6 +30,8 @@ export type InstalledExtension = {
 	label: string;
 	entry: string; // script_url, the file the SDK imports
 	capabilities: Capability[];
+	/** The URL of the SVG the package ships. Unset when it ships none. */
+	icon?: string;
 };
 
 export type Breakpoint = "desktop" | "tablet" | "mobile";

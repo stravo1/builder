@@ -59,6 +59,31 @@ class TestGetEnabledExtensions(FrappeTestCase):
 
 		self.assertIsNotNone(self.listed("acme/quiet"))
 
+	def test_icon_is_the_records_own_url(self):
+		extension = make_extension(extension_name="acme/drawn", icon="icon.svg")
+
+		self.assertEqual(self.listed("acme/drawn")["icon"], extension.icon_url)
+
+	def test_icon_is_none_when_the_package_ships_none(self):
+		make_extension(extension_name="acme/plainer")
+
+		self.assertIsNone(self.listed("acme/plainer")["icon"])
+
+
+class TestExtensionIcon(FrappeTestCase):
+	def test_url_names_the_file_inside_the_install_folder(self):
+		extension = make_extension(extension_name="acme/mark", version="2.0.0", icon="icon.svg")
+
+		self.assertEqual(extension.icon_url, "/builder_extension_asset/acme-mark@2.0.0/icon.svg")
+
+	def test_refuses_a_path_that_climbs_out_of_the_install_folder(self):
+		with self.assertRaises(frappe.ValidationError):
+			make_extension(extension_name="acme/climber", icon="../../secrets.svg")
+
+	def test_refuses_a_format_the_editor_cannot_draw_at_any_size(self):
+		with self.assertRaises(frappe.ValidationError):
+			make_extension(extension_name="acme/raster", icon="icon.png")
+
 
 class TestExtensionTokens(FrappeTestCase):
 	def setUp(self):

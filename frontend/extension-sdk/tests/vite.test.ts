@@ -99,6 +99,41 @@ describe("builderExtension", () => {
 		expect(() => plugin.generateBundle.handler.call({ emitFile: vi.fn() }, {}, {})).toThrow(/manifest.json/);
 	});
 
+	it("copies the icon to the install root, where the record's URL points", () => {
+		const root = project({
+			"src/main.js": "",
+			"src/icon.svg": "<svg />",
+			"manifest.json": '{"name":"acme/icons","icon":"icon.svg"}',
+		});
+		const plugin = configured(root, "build");
+		const emitFile = vi.fn();
+
+		plugin.generateBundle.handler.call({ emitFile }, {}, {});
+
+		expect(emitFile).toHaveBeenCalledWith({
+			type: "asset",
+			fileName: "icon.svg",
+			source: Buffer.from("<svg />"),
+		});
+	});
+
+	it("emits no icon for a manifest that names none", () => {
+		const root = project({ "src/main.js": "", "manifest.json": '{"name":"acme/icons"}' });
+		const plugin = configured(root, "build");
+		const emitFile = vi.fn();
+
+		plugin.generateBundle.handler.call({ emitFile }, {}, {});
+
+		expect(emitFile).toHaveBeenCalledTimes(1);
+	});
+
+	it("refuses a build whose manifest names an icon that is not there", () => {
+		const root = project({ "src/main.js": "", "manifest.json": '{"name":"acme/icons","icon":"icon.svg"}' });
+		const plugin = configured(root, "build");
+
+		expect(() => plugin.generateBundle.handler.call({ emitFile: vi.fn() }, {}, {})).toThrow(/icon.svg/);
+	});
+
 	it("answers a null-origin frame, which Vite does not do on its own", () => {
 		const root = project({ "src/main.js": "" });
 
@@ -221,6 +256,16 @@ describe("the descriptor", () => {
 		const root = project({ "src/main.js": "", "manifest.json": JSON.stringify({ name: "acme/icons" }) });
 
 		expect(read(root).body.capabilities).toEqual([]);
+	});
+
+	it("names the icon where the dev server serves it, not where a build puts it", () => {
+		const root = project({
+			"src/main.js": "",
+			"src/icon.svg": "<svg />",
+			"manifest.json": JSON.stringify({ name: "acme/icons", icon: "icon.svg" }),
+		});
+
+		expect(read(root).body.icon).toBe("/src/icon.svg");
 	});
 
 	it("is readable from the editor, which is another origin", () => {

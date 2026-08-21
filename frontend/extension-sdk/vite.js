@@ -66,6 +66,22 @@ export default function builderExtension({ builderUrl } = {}) {
 	let entry = "";
 	let serving = false;
 
+	/** What the dev server answers for a file, as the editor loads both over HTTP. */
+	const servedPath = (file) => `/${path.relative(root, file)}`;
+
+	/**
+	 * The icon sits beside the entry, and the install flattens that directory, so
+	 * the one name in the manifest holds for the source tree and the install both.
+	 */
+	const findIcon = (manifest) => (manifest.icon ? path.join(path.dirname(entry), manifest.icon) : "");
+
+	const readIcon = (file) => {
+		if (!fs.existsSync(file)) {
+			throw new Error(`[builder] ${MANIFEST} names ${path.relative(root, file)} as its icon, and it is missing`);
+		}
+		return fs.readFileSync(file);
+	};
+
 	return {
 		name: "builder-extension",
 		// before Vite's own resolver, or it resolves the SDK to a file on disk and
@@ -160,7 +176,8 @@ export default function builderExtension({ builderUrl } = {}) {
 						label: manifest.label,
 						version: manifest.version,
 						capabilities: manifest.capabilities ?? [],
-						entry: `/${path.relative(root, entry)}`,
+						entry: servedPath(entry),
+						icon: manifest.icon ? servedPath(findIcon(manifest)) : undefined,
 					}),
 				);
 			});
@@ -180,7 +197,15 @@ export default function builderExtension({ builderUrl } = {}) {
 		generateBundle: {
 			order: "post",
 			handler(_options, bundle) {
-				this.emitFile({ type: "asset", fileName: MANIFEST, source: readManifest(root) });
+				const source = readManifest(root);
+				this.emitFile({ type: "asset", fileName: MANIFEST, source });
+
+				// the record derives its icon URL from the install root, so the file
+				// lands there under the name the manifest gave it
+				const manifest = JSON.parse(source);
+				if (manifest.icon) {
+					this.emitFile({ type: "asset", fileName: manifest.icon, source: readIcon(findIcon(manifest)) });
+				}
 
 				const sheets = Object.values(bundle).filter(
 					(file) => file.type === "asset" && file.fileName.endsWith(".css"),

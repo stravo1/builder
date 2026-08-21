@@ -6,6 +6,7 @@
  "field_order": [
   "extension_name",
   "label",
+  "icon",
   "version",
   "enabled",
   "capabilities",
@@ -27,6 +28,12 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Label"
+  },
+  {
+   "description": "One SVG file in the install root, such as icon.svg. The editor draws it beside the extension.",
+   "fieldname": "icon",
+   "fieldtype": "Data",
+   "label": "Icon"
   },
   {
    "description": "Scopes the install directory, so two versions never share files.",
