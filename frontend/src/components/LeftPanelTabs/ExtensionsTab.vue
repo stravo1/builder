@@ -1,6 +1,6 @@
 <template>
 	<div class="flex min-h-full flex-col">
-		<div class="sticky top-0 z-[1] bg-surface-base px-3 py-3">
+		<div class="sticky top-0 bg-surface-base px-3 py-3">
 			<BuilderInput
 				type="text"
 				placeholder="Search extensions"
@@ -9,13 +9,21 @@
 		</div>
 
 		<div class="flex flex-col px-3 pb-3">
-			<CollapsibleSection :section-name="`Installed — ${installed.length}`">
+			<CollapsibleSection section-name="Installed">
 				<p v-if="!installed.length" class="text-p-sm italic text-ink-gray-5">
 					{{ filter ? "Nothing here matches that." : "No extensions installed." }}
 				</p>
 
 				<div v-else class="flex flex-col">
-					<ItemListRow v-for="extension in installed" :key="extension.name" size="md">
+					<ItemListRow
+						v-for="extension in installed"
+						:key="extension.name"
+						:class="hasPopover(extension) && 'cursor-pointer hover:bg-surface-gray-2'"
+						:role="hasPopover(extension) ? 'button' : undefined"
+						:tabindex="hasPopover(extension) ? 0 : undefined"
+						size="md"
+						@click="openRegisteredPopover(extension)"
+						@keydown.enter="openRegisteredPopover(extension)">
 						<template #prefix>
 							<!-- one box whatever the file measures, so a stray icon cannot set the row height -->
 							<img
@@ -24,10 +32,10 @@
 								class="size-4 shrink-0 object-contain"
 								alt=""
 								aria-hidden="true" />
-							<span v-else class="lucide-plug size-3.5 text-ink-gray-6" aria-hidden="true" />
+							<span v-else class="lucide-plug size-4 shrink-0 text-ink-gray-6" aria-hidden="true" />
 						</template>
 						<!-- The badge sits on the second line, so a label keeps the width of the first. -->
-						<div class="flex min-w-0 flex-col">
+						<div class="flex min-w-0 flex-col gap-1">
 							<span class="truncate">{{ extension.label }}</span>
 							<div class="flex min-w-0 items-center gap-1.5">
 								<span v-if="extension.description" class="truncate text-xs text-ink-gray-5">
@@ -40,8 +48,12 @@
 						</div>
 						<template #suffix>
 							<Tooltip v-if="isDevExtension(extension)" text="Stop this dev extension">
-								<Button variant="ghost" size="sm" icon="lucide-unplug" @click="stopDevExtension()" />
+								<Button variant="ghost" size="sm" icon="lucide-unplug" class="mr-2" @click.stop="stopDevExtension()" />
 							</Tooltip>
+							<span
+								v-if="hasPopover(extension)"
+								class="lucide-chevron-right size-4 text-ink-gray-5"
+								aria-hidden="true" />
 						</template>
 					</ItemListRow>
 				</div>
@@ -73,6 +85,8 @@
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
 import { installedExtensions } from "@/data/extensions";
 import { isDevExtension, showDevExtensionDialog, stopDevExtension } from "@/extensions/devExtension";
+import { openRegisteredPopover, registeredPopovers } from "@/extensions/editor/uiMethods";
+import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { Badge, Button, ItemListRow, Tooltip } from "frappe-ui";
 import { computed, ref } from "vue";
 
@@ -80,6 +94,8 @@ import { computed, ref } from "vue";
 const isDeveloperMode = Boolean(window.is_developer_mode);
 
 const filter = ref("");
+
+const hasPopover = (extension: InstalledExtension) => registeredPopovers.has(extension.name);
 
 /** Search visible details and the package name, which remains a useful lookup key. */
 const installed = computed(() => {

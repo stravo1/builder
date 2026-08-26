@@ -33,7 +33,7 @@ const call = (method: string, params?: unknown) => getChannel().call(method, par
  * the rest, and the warning says which Builder is behind rather than blaming
  * the extension.
  */
-const declare = (method: string, params?: unknown) => {
+export const declare = (method: string, params?: unknown) => {
 	if (getActiveSlot() !== "main") return Promise.resolve();
 
 	const sent = call(method, params);
