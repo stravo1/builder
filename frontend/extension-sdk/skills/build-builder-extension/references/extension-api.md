@@ -205,27 +205,25 @@ Put registrations at module scope. Every frame must read the same declarations.
 
 Put startup work inside `builder.main`. Only the hidden main frame runs that handler.
 
-Register actions before surfaces that name those actions.
+Give the `action` field a function. The SDK holds the function and sends only its name.
 
 ```ts
 import builder from "frappe-builder-extension-sdk";
-
-builder.actions.register("mark-selected", async () => {
-  const context = await builder.context.get();
-  const blockId = context.selection.blockId as string | undefined;
-  if (!blockId) return;
-
-  await builder.block.update(blockId, {
-    attributes: { "data-marked": "true" },
-  });
-});
 
 builder.toolbar.register({
   name: "mark-selected",
   region: "right",
   icon: "lucide-check",
   tooltip: "Mark selected block",
-  action: "mark-selected",
+  action: async () => {
+    const context = await builder.context.get();
+    const blockId = context.selection.blockId as string | undefined;
+    if (!blockId) return;
+
+    await builder.block.update(blockId, {
+      attributes: { "data-marked": "true" },
+    });
+  },
   showWhen: { count: 1 },
   enableWhen: { readOnly: false },
 });
@@ -242,13 +240,35 @@ The SDK sends declarations to Builder only from the main frame. Other frames kee
 
 ## Actions
 
-An action keeps its function inside the extension frame. Builder stores only the action name.
+An action keeps its function inside the extension frame. A function cannot cross the port, so Builder stores only a name.
+
+The `action` field of a toolbar item, a context menu row, and a property control takes a function. The SDK holds the function under the item's own name. A control is held under `<section>.<control>`.
+
+```ts
+builder.contextMenu.register({
+  name: "inspect-block",
+  label: "Inspect block",
+  action: async (actionContext) => {
+    const blockId = actionContext.blockId as string;
+    console.log(await builder.block.get(blockId));
+  },
+});
+```
+
+Keep the function in a separate file when it grows.
+
+```ts
+import { inspectBlock } from "./actions";
+
+builder.contextMenu.register({ name: "inspect-block", label: "Inspect block", action: inspectBlock });
+```
+
+The `action` field also takes a string. Use a string to name an action that `builder.actions.register` holds. A frame other than the main frame must use a string, because only the main frame holds handlers.
 
 ```ts
 builder.actions.register("inspect-block", async (actionContext) => {
   const blockId = actionContext.blockId as string;
-  const block = await builder.block.get(blockId);
-  console.log(block);
+  console.log(await builder.block.get(blockId));
 });
 ```
 
@@ -279,7 +299,7 @@ builder.toolbar.register({
 });
 ```
 
-The `region` value must be `left`, `center`, or `right`. The `action` field is optional.
+The `region` value must be `left`, `center`, or `right`. The `action` field is optional. It takes a function or an action name.
 
 Use `toolbar.update(name, patch)` for `visible`, `enabled`, `label`, `icon`, `tooltip`, or `badge`.
 
@@ -300,7 +320,7 @@ builder.contextMenu.register({
 });
 ```
 
-The `action` field is required here. A row without one does nothing.
+The `action` field is required here. It takes a function or an action name.
 
 The `menu` value can be `canvas`, `layers`, or `both`. Builder uses `both` when the field is absent.
 
@@ -342,9 +362,9 @@ Available controls are `text`, `number`, `select`, `toggle`, `color`, and `range
 
 A bound control writes an attribute or a style. Bound controls require the `block.update` capability.
 
-An unbound control must name an `action`. It sends its value to the action when the value changes. Builder rejects a control that has neither `bind` nor `action`.
+An unbound control needs an `action`. It sends its value to the action when the value changes. Builder rejects a control that has neither `bind` nor `action`.
 
-A bound control can also name an action. Builder writes the value, then calls the action.
+A bound control can also have an action. Builder writes the value, then calls the action.
 
 Use `value` for an unbound control that shows the extension's own value. Use `placeholder` for a hint inside the control.
 
@@ -749,7 +769,7 @@ When a user asks for a Builder component, first identify the user action and the
 2. Reuse its manifest, build setup, components, and naming patterns.
 3. Choose a host-rendered surface before you choose a frame.
 4. Map each protected SDK call to a manifest capability.
-5. Add action registrations before their surface declarations.
+5. Give a surface its action as a function. Use `builder.actions.register` only for an action another frame runs.
 6. Add `showWhen` and `enableWhen` rules for selection and read-only state.
 7. Use a context subscription only when a rule cannot express the condition.
 8. Ask for a doctype grant behind a user action, never at startup.

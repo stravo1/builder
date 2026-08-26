@@ -39,3 +39,91 @@ describe("actions", () => {
 		expect(() => actions.runAction({ action: "sample.run" })).toThrow(/registered no action/);
 	});
 });
+
+describe("a function action", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		call.mockResolvedValue(undefined);
+	});
+
+	it("registers itself under the item's own name and sends the name", async () => {
+		const { slots, namespaces, actions } = await loadNamespaces();
+		slots.setActiveSlot("main");
+
+		await namespaces.contextMenu.register({ name: "tidy", label: "Tidy", action: () => "done" });
+
+		expect(call).toHaveBeenCalledWith("actions.register", { name: "tidy" });
+		expect(call).toHaveBeenCalledWith("contextMenu.register", { name: "tidy", label: "Tidy", action: "tidy" });
+		expect(actions.runAction({ action: "tidy" })).toBe("done");
+	});
+
+	it("hands the handler the context the host sends", async () => {
+		const { slots, namespaces, actions } = await loadNamespaces();
+		const handler = vi.fn();
+		slots.setActiveSlot("main");
+
+		await namespaces.toolbar.register({ name: "tidy", region: "left", icon: "star", action: handler });
+		actions.runAction({ action: "tidy", context: { blockId: "abc" } });
+
+		expect(handler).toHaveBeenCalledWith({ blockId: "abc" });
+	});
+
+	it("leaves a string action alone", async () => {
+		const { slots, namespaces } = await loadNamespaces();
+		slots.setActiveSlot("main");
+
+		await namespaces.toolbar.register({ name: "tidy", region: "left", icon: "star", action: "other" });
+
+		expect(call).not.toHaveBeenCalledWith("actions.register", expect.anything());
+		expect(call).toHaveBeenCalledWith("toolbar.register", {
+			name: "tidy",
+			region: "left",
+			icon: "star",
+			action: "other",
+		});
+	});
+
+	it("holds a control's action under its section's name", async () => {
+		const { slots, namespaces, actions } = await loadNamespaces();
+		slots.setActiveSlot("main");
+
+		await namespaces.properties.registerSection({
+			name: "spacing",
+			controls: [{ name: "gap", control: "number", action: () => "done" }],
+		});
+
+		expect(call).toHaveBeenCalledWith("actions.register", { name: "spacing.gap" });
+		expect(actions.runAction({ action: "spacing.gap" })).toBe("done");
+	});
+
+	it("resolves the actions setControls replaces a section with", async () => {
+		const { slots, namespaces, actions } = await loadNamespaces();
+		slots.setActiveSlot("main");
+
+		await namespaces.properties.setControls("spacing", [
+			{ name: "gap", control: "number", action: () => "done" },
+		]);
+
+		expect(call).toHaveBeenCalledWith("properties.setControls", {
+			name: "spacing",
+			controls: [{ name: "gap", control: "number", action: "spacing.gap" }],
+		});
+		expect(actions.runAction({ action: "spacing.gap" })).toBe("done");
+	});
+
+	// the host calls the entry frame, so a handler held anywhere else is never reached
+	it("sends the name but holds nothing in a visual frame", async () => {
+		const { slots, namespaces, actions } = await loadNamespaces();
+		slots.setActiveSlot("panel");
+
+		await namespaces.properties.setControls("spacing", [
+			{ name: "gap", control: "number", action: () => "done" },
+		]);
+
+		expect(call).toHaveBeenCalledWith("properties.setControls", {
+			name: "spacing",
+			controls: [{ name: "gap", control: "number", action: "spacing.gap" }],
+		});
+		expect(() => actions.runAction({ action: "spacing.gap" })).toThrow(/registered no action/);
+	});
+});

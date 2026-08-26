@@ -47,6 +47,33 @@ export const declare = (method: string, params?: unknown) => {
 	return sent;
 };
 
+/**
+ * A function, or the name of an action registered elsewhere.
+ *
+ * A function cannot cross the port, so the SDK holds it in this frame and sends
+ * the item's own name. A string names an action another call registered, which
+ * is what a frame other than the entry one has to use.
+ */
+export type ActionRef = string | ActionHandler;
+
+/** Holds a handler in this frame and tells the host its name. The entry frame only. */
+const registerAction = (name: string, handler: ActionHandler) => {
+	if (getActiveSlot() === "main") holdAction(name, handler);
+	return declare("actions.register", { name });
+};
+
+/** Swaps a function action for the name it is held under, because a function cannot be cloned. */
+const resolveAction = <T extends { name: string; action?: ActionRef }>(item: T, prefix = ""): T => {
+	if (typeof item.action !== "function") return item;
+	const name = `${prefix}${item.name}`;
+	void registerAction(name, item.action);
+	return { ...item, action: name };
+};
+
+/** A control's action is held under the section's name too, so two sections may share a control name. */
+const resolveControls = (section: string, controls: Control[]) =>
+	controls.map((control) => resolveAction(control, `${section}.`));
+
 export type ShowWhen = Record<string, unknown>;
 
 /** Resolves to the module holding a slot's document. */
@@ -69,8 +96,8 @@ export type ToolbarRegistration = {
 	icon: string;
 	label?: string;
 	tooltip?: string;
-	/** The name of an action this extension registered. */
-	action?: string;
+	/** A function, or the name of an action this extension registered. */
+	action?: ActionRef;
 	badge?: string | number | null;
 	before?: string;
 	after?: string;
@@ -81,8 +108,8 @@ export type ToolbarRegistration = {
 export type ContextMenuRegistration = {
 	name: string;
 	label: string;
-	/** The name of an action this extension registered. A row with none does nothing. */
-	action: string;
+	/** A function, or the name of an action this extension registered. */
+	action: ActionRef;
 	/** Which menu the row belongs to. Fixed at registration. Defaults to "both". */
 	menu?: "canvas" | "layers" | "both";
 	before?: string;
@@ -116,7 +143,7 @@ export type Control = {
 	/** The extension's own value, when no block property holds it (B4). */
 	value?: unknown;
 	/** An action to invoke after a bound write, or on every change when unbound. */
-	action?: string;
+	action?: ActionRef;
 	/** For "select" and "toggle". A toggle option may carry an icon. */
 	options?: Array<{ label: string; value: string; icon?: string }>;
 	min?: number;
@@ -156,23 +183,28 @@ export const leftPanel = {
 };
 
 export const toolbar = {
-	register: (registration: ToolbarRegistration) => declare("toolbar.register", registration),
+	register: (registration: ToolbarRegistration) => declare("toolbar.register", resolveAction(registration)),
 	unregister: (name: string) => call("toolbar.unregister", { name }),
 	update: (name: string, patch: ItemPatch) => call("toolbar.update", { name, patch }),
 };
 
 export const contextMenu = {
-	register: (registration: ContextMenuRegistration) => declare("contextMenu.register", registration),
+	register: (registration: ContextMenuRegistration) =>
+		declare("contextMenu.register", resolveAction(registration)),
 	unregister: (name: string) => call("contextMenu.unregister", { name }),
 	update: (name: string, patch: ItemPatch) => call("contextMenu.update", { name, patch }),
 };
 
 export const properties = {
 	registerSection: (registration: PropertiesRegistration) =>
-		declare("properties.registerSection", registration),
+		declare("properties.registerSection", {
+			...registration,
+			controls: resolveControls(registration.name, registration.controls),
+		}),
 	unregisterSection: (name: string) => call("properties.unregisterSection", { name }),
 	/** Replaces the whole list, for a control list that depends on the extension's own state. */
-	setControls: (name: string, controls: Control[]) => call("properties.setControls", { name, controls }),
+	setControls: (name: string, controls: Control[]) =>
+		call("properties.setControls", { name, controls: resolveControls(name, controls) }),
 	update: (name: string, patch: ItemPatch) => call("properties.update", { name, patch }),
 };
 
@@ -500,11 +532,7 @@ export const actions = {
 	 * Only the entry frame holds and names it, so the host always calls the frame
 	 * that outlives the others.
 	 */
-	register: (name: string, handler: ActionHandler) => {
-		if (getActiveSlot() !== "main") return Promise.resolve();
-		holdAction(name, handler);
-		return declare("actions.register", { name });
-	},
+	register: (name: string, handler: ActionHandler) => registerAction(name, handler),
 	unregister: (name: string) => {
 		if (getActiveSlot() !== "main") return Promise.resolve();
 		releaseAction(name);
