@@ -166,13 +166,37 @@ describe("the popover", () => {
 	it("records one the host can render", () => {
 		void openPopover({ title: "Palette", props: { set: "lucide" } });
 
-		expect(openPopovers.get("acme/icons")).toEqual({ title: "Palette", props: { set: "lucide" } });
+		expect(openPopovers.get("acme/icons")).toMatchObject({ title: "Palette", props: { set: "lucide" } });
 	});
 
 	it("titles it with the extension's label when the call names none", () => {
 		void openPopover();
 
 		expect(openPopovers.get("acme/icons")?.title).toBe("Icon Library");
+	});
+
+	it("opens it at the size the call asked for", () => {
+		void openPopover({ width: 333, height: 591 });
+
+		expect(openPopovers.get("acme/icons")?.size).toEqual({ width: 333, height: 591 });
+	});
+
+	// the host component falls back to its own starting size, so an unset field stays unset
+	it("leaves the size unset when the call names none", () => {
+		void openPopover();
+
+		expect(openPopovers.get("acme/icons")?.size).toEqual({ width: undefined, height: undefined });
+	});
+
+	// the host owns a dialog's dimensions, so a size sent there is dropped like any unused field
+	it("keeps no size on a dialog", () => {
+		void open({ width: 520 });
+
+		expect(openDialogs.get("acme/icons")?.size).toBeUndefined();
+	});
+
+	it("refuses a size that is not a whole number", () => {
+		expect(codeOf(() => openPopover({ width: "333px" }))).toBe("invalid_params");
 	});
 
 	it("resolves the opener with the result the popover passed", async () => {

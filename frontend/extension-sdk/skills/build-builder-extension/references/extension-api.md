@@ -414,6 +414,15 @@ The slot reads its input with `builder.ui.props()`. It returns a result with `bu
 
 Use `openPopover`, `closePopover`, and the `ui.popover` capability for a popover.
 
+Give a popover a start size with `width` and `height`, in pixels. Builder uses its own
+size for a field you omit. The user can always drag the corner to resize it.
+
+```ts
+await builder.ui.openPopover({ title: "Palette", width: 333, height: 591 });
+```
+
+A dialog has no size. Builder draws it at one size for every extension.
+
 Builder permits one open dialog and one open popover per extension.
 
 ### Toast

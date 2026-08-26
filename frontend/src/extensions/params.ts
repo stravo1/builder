@@ -36,4 +36,7 @@ export const wholeNumber = (value: unknown, field: string) => {
 	return value as number;
 };
 
+export const optionalWholeNumber = (value: unknown, field: string) =>
+	value === undefined ? undefined : wholeNumber(value, field);
+
 export const fields = (params: unknown) => (params ?? {}) as Record<string, unknown>;

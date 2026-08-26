@@ -12,11 +12,35 @@
 
 import { markRaw, reactive } from "vue";
 import { bridge } from "../host/bridge";
-import { fields, optionalText, refuse } from "../params";
+import { fields, optionalText, optionalWholeNumber, refuse } from "../params";
 import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
+
+/**
+ * What the extension asks the host to draw around it. Both are optional, and an
+ * unset one leaves the host's own starting size (1.15). The user resizes from
+ * there either way, so this is a seed and not a lock.
+ */
+export type FrameSize = { width?: number; height?: number };
+
+/**
+ * Reads a size off whatever a frame sent, for an open call or a registration.
+ *
+ * Only a sized surface calls it. A dialog is drawn at the host's own size, so a
+ * `width` sent to `ui.openDialog` is dropped like any other field it has no use
+ * for, rather than kept where nothing would read it.
+ */
+export const frameSize = (params: unknown): FrameSize => {
+	const sent = fields(params);
+	return {
+		width: optionalWholeNumber(sent.width, "width"),
+		height: optionalWholeNumber(sent.height, "height"),
+	};
+};
 
 export type OpenFrame = {
 	title: string;
+	/** Set only by a sized surface. A dialog carries none, because none is read. */
+	size?: FrameSize;
 	/**
 	 * Travels to the frame at its connect handshake (B1).
 	 *
@@ -27,7 +51,8 @@ export type OpenFrame = {
 	props: Record<string, unknown>;
 };
 
-export const createFrameSurface = (kind: string) => {
+/** `sized` lets the extension seed the frame's dimensions. Only the popover does. */
+export const createFrameSurface = (kind: string, { sized = false } = {}) => {
 	/** Read by the host component. Reactive, because opening one has to paint. */
 	const open = reactive(new Map<string, OpenFrame>());
 
@@ -70,6 +95,7 @@ export const createFrameSurface = (kind: string) => {
 		const sent = fields(params);
 		const frame: OpenFrame = {
 			title: optionalText(sent.title, "title") ?? extension.label,
+			...(sized && { size: frameSize(sent) }),
 			props: markRaw(fields(sent.props)),
 		};
 

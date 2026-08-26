@@ -12,13 +12,20 @@
  *
  * A toast opens no frame and has no result: the host displays it in Builder.
  *
- * The host controls both sets of dimensions, so an extension only supplies a
- * title, content props, and an eventual result.
+ * The host draws the chrome, and a dialog keeps the host's own dimensions. A
+ * popover is a working panel the extension lives in, so it may ask for a size.
+ * The user still drags the corner, so the size only seeds the frame.
  */
 
 import { getChannel, getSlotProps } from "./connect";
 
-export type FrameOptions = {
+/** A starting size in pixels. An unset field keeps Builder's own default. */
+export type FrameSize = {
+	width?: number;
+	height?: number;
+};
+
+export type FrameOptions = FrameSize & {
 	title?: string;
 	/** Handed to the document the slot mounts, at its connect handshake. */
 	props?: Record<string, unknown>;

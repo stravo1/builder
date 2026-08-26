@@ -20,7 +20,7 @@ import { fields, oneOf, text } from "../params";
 import { createFrameSurface } from "./frameSurface";
 
 const dialog = createFrameSurface("dialog");
-const popover = createFrameSurface("popover");
+const popover = createFrameSurface("popover", { sized: true });
 const toastTypes = ["success", "error", "warning", "info"] as const;
 
 const showToast = (params: unknown) => {
