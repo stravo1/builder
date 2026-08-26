@@ -21,10 +21,10 @@ An extension can use these frames:
 | Slot | Purpose | How to declare it |
 |---|---|---|
 | `main` | Startup work and long-lived subscriptions | `builder.main(handler)` |
-| `panel` | Content for one left panel tab | `builder.leftPanel.register({ load })` |
-| `settings` | Content for one global settings page | `builder.settings.registerItem({ load })` |
-| `dialog` | Content for a modal dialog | `builder.dialog({ load })` |
-| `popover` | Content for a draggable popover | `builder.popover({ load, width, height })` |
+| `panel` | Content for one left panel tab | `builder.leftPanel.register({ component })` |
+| `settings` | Content for one global settings page | `builder.settings.registerItem({ component })` |
+| `dialog` | Content for a modal dialog | `builder.dialog.register({ component })` |
+| `popover` | Content for a draggable popover | `builder.popover.register({ component, width, height })` |
 
 Each frame imports the same extension entry. The SDK runs only the slot that Builder names during the handshake.
 
@@ -385,7 +385,7 @@ builder.leftPanel.register({
   name: "assets",
   label: "Assets",
   icon: "lucide-images",
-  load: () => import("./panel/index"),
+  component: () => import("./Panel.vue"),
   showWhen: { readOnly: false },
 });
 ```
@@ -404,7 +404,7 @@ builder.settings.registerItem({
   label: "Image tools",
   title: "Image tool preferences",
   icon: "lucide-settings",
-  load: () => import("./settings/index"),
+  component: () => import("./Settings.vue"),
 });
 ```
 
@@ -417,8 +417,8 @@ Use `settings.update` to change the label, title, icon, or visibility. Use `sett
 Declare each slot once at module scope.
 
 ```ts
-builder.dialog({ load: () => import("./dialog/index") });
-builder.popover({ load: () => import("./popover/index") });
+builder.dialog.register({ component: () => import("./Dialog.vue") });
+builder.popover.register({ component: () => import("./Popover.vue") });
 ```
 
 Open a slot from an action or another frame.
@@ -438,7 +438,7 @@ Give a popover a start size with `width` and `height`, in pixels. Builder uses i
 size for a field you omit. The user can always drag the corner to resize it.
 
 ```ts
-builder.popover({ load: () => import("./popover/index"), width: 333, height: 591 });
+builder.popover.register({ component: () => import("./Popover.vue"), width: 333, height: 591 });
 
 await builder.ui.openPopover({ title: "Palette", width: 333, height: 591 });
 ```
@@ -711,9 +711,29 @@ Token calls write server records. Await them before showing success.
 
 ## Vue slots
 
-Builder expects each visual slot module to export `mount(element, props)`. The SDK does not include a UI framework.
+The SDK does not include a UI framework. Register a mount adapter once, and every slot then takes a component.
 
-Use `defineSlot` for Vue.
+```ts
+import builder from "frappe-builder-extension-sdk";
+import { vueAdapter } from "frappe-builder-extension-sdk/vue";
+
+builder.use(vueAdapter);
+
+builder.leftPanel.register({
+  name: "assets",
+  label: "Assets",
+  icon: "lucide-images",
+  component: () => import("./Panel.vue"),
+});
+```
+
+A `component` function resolves to a module. The SDK mounts the module's default export with the adapter.
+
+The `props` object becomes the root component props. Dialog and popover calls provide these values.
+
+The adapter unmounts the Vue application when the frame closes.
+
+A module that exports `mount(element, props)` mounts itself. The SDK calls that instead of the adapter, so an extension can mount one slot its own way, or use no framework at all.
 
 ```ts
 import { defineSlot } from "frappe-builder-extension-sdk/vue";
@@ -721,10 +741,6 @@ import Panel from "./Panel.vue";
 
 export const { mount } = defineSlot(Panel);
 ```
-
-The `props` object becomes the root component props. Dialog and popover calls provide these values.
-
-The returned cleanup function runs when the frame closes. `defineSlot` unmounts the Vue application during cleanup.
 
 Build the document with Vue, `frappe-ui` components, and Tailwind. Builder uses the same stack, so the frame then matches the editor.
 

@@ -45,13 +45,21 @@ entry. Builder draws it beside the extension in the Extensions panel.
 ```js
 import builder from "frappe-builder-extension-sdk";
 
-builder.actions.register("say-hello", () => builder.ui.toast("hello"));
+builder.toolbar.register({
+	name: "say-hello",
+	region: "right",
+	icon: "lucide-hand",
+	action: () => builder.ui.toast("hello"),
+});
 ```
 
-A Vue slot uses the `/vue` entry.
+A Vue slot uses the `/vue` entry. Register the adapter once, and every slot then takes a component.
 
 ```js
-import { defineSlot, useBuilderContext } from "frappe-builder-extension-sdk/vue";
+import { vueAdapter, useBuilderContext } from "frappe-builder-extension-sdk/vue";
+
+builder.use(vueAdapter);
+builder.popover.register({ component: () => import("./Popover.vue") });
 ```
 
 `vue` is an optional peer dependency. Install it only if you write slots in Vue.

@@ -84,7 +84,7 @@ export type LeftPanelRegistration = {
 	label: string;
 	icon: string;
 	/** What the tab's frame paints. Declared here because the tab is what shows it. */
-	load?: SlotLoader;
+	component?: SlotLoader;
 	before?: string;
 	after?: string;
 	showWhen?: ShowWhen;
@@ -124,7 +124,7 @@ export type SettingsRegistration = {
 	title: string;
 	icon: string;
 	/** What the settings frame paints. Declared here, because this item shows it. */
-	load?: SlotLoader;
+	component?: SlotLoader;
 	before?: string;
 	after?: string;
 };
@@ -173,9 +173,9 @@ export type ItemPatch = {
 };
 
 export const leftPanel = {
-	register: ({ load, ...registration }: LeftPanelRegistration) => {
+	register: ({ component, ...registration }: LeftPanelRegistration) => {
 		// recorded in every frame, used in the panel frame, sent by neither
-		if (load) registerSlot("panel", { load });
+		if (component) registerSlot("panel", { component });
 		return declare("leftPanel.register", registration);
 	},
 	unregister: (name: string) => call("leftPanel.unregister", { name }),
@@ -209,8 +209,8 @@ export const properties = {
 };
 
 export const settings = {
-	registerItem: ({ load, ...registration }: SettingsRegistration) => {
-		if (load) registerSlot("settings", { load });
+	registerItem: ({ component, ...registration }: SettingsRegistration) => {
+		if (component) registerSlot("settings", { component });
 		return declare("settings.registerItem", registration);
 	},
 	unregisterItem: (name: string) => call("settings.unregisterItem", { name }),

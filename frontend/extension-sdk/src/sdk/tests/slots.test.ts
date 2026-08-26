@@ -32,7 +32,7 @@ describe("slots", () => {
 	it("does not run main in a panel frame", () => {
 		const main = vi.fn();
 		slots.registerMain(main);
-		slots.registerSlot("panel", { load: () => Promise.resolve({}) });
+		slots.registerSlot("panel", { component: () => Promise.resolve({}) });
 
 		slots.setActiveSlot("panel");
 		slots.runSlot();
@@ -62,10 +62,16 @@ describe("slots", () => {
 		expect(() => slots.registerMain(() => {})).toThrow(/already registered/);
 	});
 
-	it("refuses a second registration of one visual slot", () => {
-		slots.registerSlot("panel", { load: () => Promise.resolve({}) });
+	it("refuses a second mount adapter", () => {
+		slots.use(() => {});
 
-		expect(() => slots.registerSlot("panel", { load: () => Promise.resolve({}) })).toThrow(
+		expect(() => slots.use(() => {})).toThrow(/already registered/);
+	});
+
+	it("refuses a second registration of one visual slot", () => {
+		slots.registerSlot("panel", { component: () => Promise.resolve({}) });
+
+		expect(() => slots.registerSlot("panel", { component: () => Promise.resolve({}) })).toThrow(
 			/already registered/,
 		);
 	});
@@ -80,7 +86,7 @@ describe("slots", () => {
 
 		it("loads the module and mounts it into the shell's root", async () => {
 			const mount = vi.fn();
-			slots.registerSlot("panel", { load: () => Promise.resolve({ mount }) });
+			slots.registerSlot("panel", { component: () => Promise.resolve({ mount }) });
 
 			slots.setActiveSlot("panel");
 			await slots.runSlot({ query: "star" });
@@ -89,28 +95,66 @@ describe("slots", () => {
 		});
 
 		it("loads nothing for the slot this frame is not", async () => {
-			const load = vi.fn(() => Promise.resolve({ mount: () => {} }));
-			slots.registerSlot("panel", { load });
-			slots.registerSlot("dialog", { load: () => Promise.resolve({ mount: () => {} }) });
+			const component = vi.fn(() => Promise.resolve({ mount: () => {} }));
+			slots.registerSlot("panel", { component });
+			slots.registerSlot("dialog", { component: () => Promise.resolve({ mount: () => {} }) });
 
 			slots.setActiveSlot("dialog");
 			await slots.runSlot();
 
-			expect(load).not.toHaveBeenCalled();
+			expect(component).not.toHaveBeenCalled();
 		});
 
-		// the C2 shape, before the vue layer exists: a component object, not a mount
-		it("names the vue layer when the module exports no mount", async () => {
-			slots.registerSlot("panel", { load: () => Promise.resolve({ default: { render: () => {} } }) });
+		// a component object, and no adapter to turn it into DOM
+		it("names the vue layer when the module exports no mount and no adapter is registered", async () => {
+			slots.registerSlot("panel", { component: () => Promise.resolve({ default: { render: () => {} } }) });
 
 			slots.setActiveSlot("panel");
 
 			await expect(slots.runSlot()).rejects.toThrow(/extension-sdk\/vue/);
 		});
 
+		it("hands a default-exported component to the registered adapter", async () => {
+			const component = { render: () => {} };
+			const adapter = vi.fn();
+			slots.use(adapter);
+			slots.registerSlot("panel", { component: () => Promise.resolve({ default: component }) });
+
+			slots.setActiveSlot("panel");
+			await slots.runSlot({ query: "star" });
+
+			expect(adapter).toHaveBeenCalledWith(component, root, { query: "star" });
+		});
+
+		// a module that mounts itself needs no adapter, and must not be handed to one
+		it("prefers the module's own mount over the adapter", async () => {
+			const adapter = vi.fn();
+			const mount = vi.fn();
+			slots.use(adapter);
+			slots.registerSlot("panel", { component: () => Promise.resolve({ mount, default: {} }) });
+
+			slots.setActiveSlot("panel");
+			await slots.runSlot();
+
+			expect(mount).toHaveBeenCalledOnce();
+			expect(adapter).not.toHaveBeenCalled();
+		});
+
+		it("runs the cleanup the adapter returned when the frame goes away", async () => {
+			const cleanup = vi.fn();
+			slots.use(() => cleanup);
+			slots.registerSlot("panel", { component: () => Promise.resolve({ default: {} }) });
+
+			slots.setActiveSlot("panel");
+			await slots.runSlot();
+			window.dispatchEvent(new Event("pagehide"));
+
+			expect(cleanup).toHaveBeenCalled();
+		});
+
 		it("runs the cleanup the module returned when the frame goes away", async () => {
 			const cleanup = vi.fn();
-			slots.registerSlot("panel", { load: () => Promise.resolve({ mount: () => cleanup }) });
+			slots.registerSlot("panel", { component: () => Promise.resolve({ mount: () => cleanup }) });
 
 			slots.setActiveSlot("panel");
 			await slots.runSlot();

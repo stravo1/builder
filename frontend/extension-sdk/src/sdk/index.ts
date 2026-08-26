@@ -23,7 +23,7 @@ import {
 	declare,
 } from "./namespaces";
 import { resourceFetcher } from "./resourceFetcher";
-import { registerMain, registerSlot, type SlotEntry } from "./slots";
+import { registerMain, registerSlot, use, type Mounter, type SlotEntry } from "./slots";
 import { ui, type FrameSize } from "./ui";
 
 export type HostInfo = { version: string; protocol: number };
@@ -38,11 +38,20 @@ const builder = {
 	main: (handler: () => void) => registerMain(handler),
 
 	/**
-	 * A dialog has no registration to hang a loader on: it is opened by
-	 * `ui.openDialog`, never registered. The popover declares itself so Builder
-	 * chrome can offer it from the installed extension list.
+	 * Names the layer that mounts a component, once for this extension.
+	 *
+	 * `frappe-builder-extension-sdk/vue` exports `vueAdapter`. Without one, a
+	 * slot's module has to export `mount(element, props)` itself.
 	 */
-	dialog: (entry: SlotEntry) => registerSlot("dialog", entry),
+	use: (adapter: Mounter) => use(adapter),
+
+	/**
+	 * The document `ui.openDialog` opens. Builder tells nobody: a dialog is
+	 * opened by a call, so this registration stays in the frame that made it.
+	 */
+	dialog: {
+		register: (entry: SlotEntry) => registerSlot("dialog", entry),
+	},
 
 	/**
 	 * The same, for the floating panel `ui.openPopover` opens.
@@ -50,9 +59,11 @@ const builder = {
 	 * Builder chrome opens a declared popover itself, so the size travels with
 	 * the registration rather than with the open call. Omit it for the default.
 	 */
-	popover: ({ load, ...size }: SlotEntry & FrameSize) => {
-		registerSlot("popover", { load });
-		return declare("popover.register", size);
+	popover: {
+		register: ({ component, ...size }: SlotEntry & FrameSize) => {
+			registerSlot("popover", { component });
+			return declare("popover.register", size);
+		},
 	},
 
 	/** One tab, registered from the entry frame and drawn by the host (Tier C). */
