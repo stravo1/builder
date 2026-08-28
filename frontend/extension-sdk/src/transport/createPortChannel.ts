@@ -1,5 +1,5 @@
 /**
- * One `MessagePort` per extension frame, four verbs: `call`, `handle`, `listen`, `emit`.
+ * One `MessagePort` per extension frame, three verbs: `call`, `listen`, `emit`.
  * Builder groups the channels from an extension's frames by extension.
  *
  * The host and the SDK both use this. Neither side is a client, so nothing here
@@ -18,10 +18,9 @@ import {
 	unsupportedVersionError,
 } from "./messages";
 
-export type RequestHandler = (params: unknown) => unknown;
 export type EventHandler = (payload: unknown) => void;
 
-/** Answers any method with no `handle` registration. The host passes its method table. */
+/** Resolves every request this end of the channel accepts. */
 export type Dispatcher = (method: string, params: unknown) => unknown;
 
 /** A refusal from the far side, or from the transport itself. */
@@ -49,9 +48,8 @@ const toChannelError = (error: unknown): ChannelError => {
 	return { message: error instanceof Error ? error.message : String(error) };
 };
 
-export function createPortChannel(port: MessagePort, onRequest?: Dispatcher) {
+export function createPortChannel(port: MessagePort, dispatcher?: Dispatcher) {
 	const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
-	const handlers = new Map<string, RequestHandler>();
 	const listeners = new Map<string, Set<EventHandler>>();
 	let nextId = 1;
 	let closed = false;
@@ -60,12 +58,8 @@ export function createPortChannel(port: MessagePort, onRequest?: Dispatcher) {
 		if (!closed) port.postMessage(message);
 	};
 
-	// an explicit registration wins, the dispatcher answers the rest, and an
-	// unclaimed method refuses rather than resolving to undefined
 	const run = (method: string, params: unknown) => {
-		const handler = handlers.get(method);
-		if (handler) return handler(params);
-		if (onRequest) return onRequest(method, params);
+		if (dispatcher) return dispatcher(method, params);
 		throw unknownMethod(method);
 	};
 
@@ -113,15 +107,6 @@ export function createPortChannel(port: MessagePort, onRequest?: Dispatcher) {
 			post(request(id, method, params));
 		});
 
-	/** Returns its own unregister, so no caller tracks method names. */
-	const handle = (method: string, handler: RequestHandler) => {
-		if (handlers.has(method)) throw new Error(`"${method}" already has a handler on this channel`);
-		handlers.set(method, handler);
-		return () => {
-			if (handlers.get(method) === handler) handlers.delete(method);
-		};
-	};
-
 	const listen = (name: string, handler: EventHandler) => {
 		const forEvent = listeners.get(name) ?? new Set<EventHandler>();
 		listeners.set(name, forEvent);
@@ -137,7 +122,6 @@ export function createPortChannel(port: MessagePort, onRequest?: Dispatcher) {
 		closed = true;
 		pending.forEach((call) => call.reject(new ChannelCallError(CHANNEL_CLOSED)));
 		pending.clear();
-		handlers.clear();
 		listeners.clear();
 		port.close();
 	};
@@ -145,7 +129,7 @@ export function createPortChannel(port: MessagePort, onRequest?: Dispatcher) {
 	// assigning onmessage starts the port
 	port.onmessage = (message: MessageEvent) => receive(message.data);
 
-	return { call, handle, listen, emit, close };
+	return { call, listen, emit, close };
 }
 
 export type PortChannel = ReturnType<typeof createPortChannel>;

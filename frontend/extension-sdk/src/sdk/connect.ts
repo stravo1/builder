@@ -7,7 +7,7 @@
 
 import { createPortChannel, type PortChannel } from "../transport/createPortChannel";
 import { PROTOCOL_VERSION, type ConnectMessage } from "../types";
-import { runAction } from "./actions";
+import { dispatch } from "./actions";
 import { runSlot, setActiveSlot } from "./slots";
 
 /**
@@ -39,11 +39,8 @@ const isConnectMessage = (data: unknown): data is ConnectMessage =>
 const applyTheme = (theme: unknown) => document.documentElement.setAttribute("data-theme", String(theme));
 
 const start = async (message: ConnectMessage, port: MessagePort) => {
-	channel = createPortChannel(port);
+	channel = createPortChannel(port, dispatch);
 	channel.listen("theme", applyTheme);
-	// the one call the host makes into this frame (B2), registered before any
-	// extension code runs, so a click cannot arrive at nothing
-	channel.handle("action.invoke", runAction);
 	applyTheme(message.theme);
 	slotProps = message.props ?? {};
 	setActiveSlot(message.slot);

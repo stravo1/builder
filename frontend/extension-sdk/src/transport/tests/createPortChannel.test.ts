@@ -1,13 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
-import { ChannelCallError, createPortChannel, type Dispatcher } from "../createPortChannel";
+import { ChannelCallError, createPortChannel, type Dispatcher, unknownMethod } from "../createPortChannel";
 
-const connect = (onRequest?: { host?: Dispatcher; frame?: Dispatcher }) => {
+const connect = (dispatcher?: { host?: Dispatcher; frame?: Dispatcher }) => {
 	const channel = new MessageChannel();
 	return {
-		host: createPortChannel(channel.port1, onRequest?.host),
-		frame: createPortChannel(channel.port2, onRequest?.frame),
+		host: createPortChannel(channel.port1, dispatcher?.host),
+		frame: createPortChannel(channel.port2, dispatcher?.frame),
 	};
 };
+
+const dispatcherFor =
+	(methods: Record<string, (params: unknown) => unknown>): Dispatcher =>
+	(method, params) => {
+		const handler = methods[method];
+		if (!handler) throw unknownMethod(method);
+		return handler(params);
+	};
 
 /** A channel on one side only, so a test can post whatever it likes from the other. */
 const halfConnect = () => {
@@ -21,17 +29,19 @@ const settled = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("createPortChannel", () => {
 	it("resolves a call with the far side's result", async () => {
-		const { host, frame } = connect();
-		frame.handle("ping", () => "pong");
+		const { host } = connect({ frame: dispatcherFor({ ping: () => "pong" }) });
 
 		await expect(host.call("ping")).resolves.toBe("pong");
 		host.close();
 	});
 
 	it("matches each response to its own call", async () => {
-		const { host, frame } = connect();
-		frame.handle("slow", () => new Promise((resolve) => setTimeout(() => resolve("slow"), 10)));
-		frame.handle("fast", () => "fast");
+		const { host } = connect({
+			frame: dispatcherFor({
+				slow: () => new Promise((resolve) => setTimeout(() => resolve("slow"), 10)),
+				fast: () => "fast",
+			}),
+		});
 
 		const [slow, fast] = await Promise.all([host.call("slow"), host.call("fast")]);
 
@@ -40,17 +50,19 @@ describe("createPortChannel", () => {
 	});
 
 	it("passes params through", async () => {
-		const { host, frame } = connect();
-		frame.handle("echo", (params) => params);
+		const { host } = connect({ frame: dispatcherFor({ echo: (params) => params }) });
 
 		await expect(host.call("echo", { blockId: "abc" })).resolves.toEqual({ blockId: "abc" });
 		host.close();
 	});
 
 	it("rejects with the message a handler threw", async () => {
-		const { host, frame } = connect();
-		frame.handle("boom", () => {
-			throw new Error("no such block");
+		const { host } = connect({
+			frame: dispatcherFor({
+				boom: () => {
+					throw new Error("no such block");
+				},
+			}),
 		});
 
 		await expect(host.call("boom")).rejects.toThrow("no such block");
@@ -58,9 +70,12 @@ describe("createPortChannel", () => {
 	});
 
 	it("keeps the code when a handler throws a ChannelCallError", async () => {
-		const { host, frame } = connect();
-		frame.handle("denied", () => {
-			throw new ChannelCallError({ message: "not granted", code: "capability_denied" });
+		const { host } = connect({
+			frame: dispatcherFor({
+				denied: () => {
+					throw new ChannelCallError({ message: "not granted", code: "capability_denied" });
+				},
+			}),
 		});
 
 		await expect(host.call("denied")).rejects.toMatchObject({ code: "capability_denied" });
@@ -74,37 +89,10 @@ describe("createPortChannel", () => {
 		host.close();
 	});
 
-	it("answers an unclaimed method from the dispatcher", async () => {
+	it("answers a method from the dispatcher", async () => {
 		const { host } = connect({ frame: (method, params) => ({ method, params }) });
 
 		await expect(host.call("block.get", "abc")).resolves.toEqual({ method: "block.get", params: "abc" });
-		host.close();
-	});
-
-	it("prefers an explicit handler over the dispatcher", async () => {
-		const dispatcher = vi.fn(() => "table");
-		const { host, frame } = connect({ frame: dispatcher });
-		frame.handle("block.get", () => "handler");
-
-		await expect(host.call("block.get")).resolves.toBe("handler");
-		expect(dispatcher).not.toHaveBeenCalled();
-		host.close();
-	});
-
-	it("throws when one method is claimed twice", () => {
-		const { host } = connect();
-		host.handle("ping", () => "one");
-
-		expect(() => host.handle("ping", () => "two")).toThrow('"ping" already has a handler');
-		host.close();
-	});
-
-	it("falls back to the dispatcher after a handler unregisters", async () => {
-		const { host, frame } = connect({ frame: () => "table" });
-		const unregister = frame.handle("block.get", () => "handler");
-		unregister();
-
-		await expect(host.call("block.get")).resolves.toBe("table");
 		host.close();
 	});
 
@@ -125,8 +113,7 @@ describe("createPortChannel", () => {
 	});
 
 	it("rejects every pending call on close", async () => {
-		const { host, frame } = connect();
-		frame.handle("never", () => new Promise(() => {}));
+		const { host } = connect({ frame: dispatcherFor({ never: () => new Promise(() => {}) }) });
 		const pending = host.call("never");
 
 		host.close();

@@ -4,7 +4,12 @@ const toastError = vi.hoisted(() => vi.fn());
 vi.mock("frappe-ui", () => ({ toast: { error: toastError } }));
 
 import { bridge } from "../../host/bridge";
-import { createPortChannel, type PortChannel } from "frappe-builder-extension-sdk/transport";
+import {
+	createPortChannel,
+	type Dispatcher,
+	type PortChannel,
+	unknownMethod,
+} from "frappe-builder-extension-sdk/transport";
 import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { actionMethods, invokeAction } from "../actionMethods";
 
@@ -20,12 +25,19 @@ const icons: InstalledExtension = {
 };
 const charts: InstalledExtension = { ...icons, name: "other/charts" };
 
+const dispatcherFor =
+	(methods: Record<string, (params: unknown) => unknown>): Dispatcher =>
+	(method, params) => {
+		const handler = methods[method];
+		if (!handler) throw unknownMethod(method);
+		return handler(params);
+	};
+
 /** A channel whose far end answers, standing in for the extension's entry frame. */
 const entryFrame = (answer: (params: unknown) => unknown = () => "done") => {
 	const pair = new MessageChannel();
 	const host = createPortChannel(pair.port1);
-	const frame = createPortChannel(pair.port2);
-	frame.handle("action.invoke", answer);
+	const frame = createPortChannel(pair.port2, dispatcherFor({ "action.invoke": answer }));
 	return { host, frame };
 };
 
