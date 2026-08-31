@@ -83,7 +83,11 @@
 								@upload="(url: string) => pageStore.updateActivePage('favicon', url)"
 								@remove="() => pageStore.updateActivePage('favicon', '')" />
 							<span class="text-p-sm text-ink-gray-6">
-								{{ __("Appears next to the title in your browser tab. Recommended size is 32x32 px in PNG or ICO") }}
+								{{
+									__(
+										"Appears next to the title in your browser tab. Recommended size is 32x32 px in PNG or ICO",
+									)
+								}}
 							</span>
 						</div>
 					</div>

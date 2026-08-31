@@ -4,7 +4,12 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from builder.extensions import get_enabled_extensions, remove_dev_extension, set_extension_tokens, unset_extension_token
+from builder.extensions import (
+	get_enabled_extensions,
+	remove_dev_extension,
+	set_extension_tokens,
+	unset_extension_token,
+)
 
 
 def make_extension(**kwargs):
@@ -216,4 +221,6 @@ class TestExtensionTokens(FrappeTestCase):
 			frappe.conf.developer_mode = previous
 
 		self.assertFalse(frappe.db.exists("Builder Extension", "acme-temporary"))
-		self.assertFalse(frappe.db.exists("Builder Token", {"extension": "acme-temporary", "key": "accent-0"}))
+		self.assertFalse(
+			frappe.db.exists("Builder Token", {"extension": "acme-temporary", "key": "accent-0"})
+		)

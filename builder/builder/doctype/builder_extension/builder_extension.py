@@ -171,5 +171,7 @@ class BuilderExtension(Document):
 		here is what lets an extension be uninstalled at all. A grant means nothing
 		once the extension it names is gone.
 		"""
-		for grant in frappe.get_all("Builder Extension Grant", filters={"extension": self.name}, pluck="name"):
+		for grant in frappe.get_all(
+			"Builder Extension Grant", filters={"extension": self.name}, pluck="name"
+		):
 			frappe.delete_doc("Builder Extension Grant", grant, ignore_permissions=True)

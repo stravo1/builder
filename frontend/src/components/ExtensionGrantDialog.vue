@@ -95,7 +95,8 @@ const floor = computed(
 
 /** What the verbs act on: records of a doctype, the doctype itself, or a page. */
 const object = computed(
-	() => ({ schema: "the doctype", script: "on the page", access: "records of" })[prompt.value?.kind ?? "access"],
+	() =>
+		({ schema: "the doctype", script: "on the page", access: "records of" })[prompt.value?.kind ?? "access"],
 );
 
 const allow = () => answerPrompt(true);

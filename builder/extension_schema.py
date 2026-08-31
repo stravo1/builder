@@ -256,12 +256,6 @@ def describe_doctype(doctype: str) -> dict:
 	}
 
 
-
-
-
-
-
-
 def forget_grant(extension: str, doctype: str) -> None:
 	name = find_extension_grant(extension, doctype)
 	if name:

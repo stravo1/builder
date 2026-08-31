@@ -88,7 +88,9 @@
 					@click="onLoadMore(node.id, node.loadedCount)">
 					<span class="lucide-more-horizontal size-3" aria-hidden="true" />
 					{{ __("Load {0} more", [Math.min(PAGE_LIMIT_PER_NODE, node.totalCount - node.loadedCount)]) }}
-					<span class="ml-0.5 text-ink-gray-3">{{ __("({0} remaining)", [node.totalCount - node.loadedCount]) }}</span>
+					<span class="ml-0.5 text-ink-gray-3">
+						{{ __("({0} remaining)", [node.totalCount - node.loadedCount]) }}
+					</span>
 				</button>
 			</div>
 		</section>

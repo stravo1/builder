@@ -15,12 +15,12 @@
 
 <script setup lang="ts">
 import LoadingIcon from "@/components/Icons/Loading.vue";
+import { createPortChannel, type Dispatcher, type PortChannel } from "frappe-builder-extension-sdk/transport";
 import {
-	createPortChannel,
-	type Dispatcher,
-	type PortChannel,
-} from "frappe-builder-extension-sdk/transport";
-import { PROTOCOL_VERSION, type ConnectMessage, type ExtensionSlot } from "frappe-builder-extension-sdk/types";
+	PROTOCOL_VERSION,
+	type ConnectMessage,
+	type ExtensionSlot,
+} from "frappe-builder-extension-sdk/types";
 import useBuilderStore from "@/stores/builderStore";
 import { onBeforeUnmount, ref, watch } from "vue";
 

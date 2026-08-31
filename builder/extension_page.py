@@ -98,9 +98,7 @@ def list_scripts(extension: str, page: str) -> list[dict]:
 	owned = set(list_resources(owner, RESOURCE_TYPE))
 	document = frappe.get_cached_doc("Builder Page", page)
 	return [
-		describe_script(row.builder_script)
-		for row in document.client_scripts
-		if row.builder_script in owned
+		describe_script(row.builder_script) for row in document.client_scripts if row.builder_script in owned
 	]
 
 

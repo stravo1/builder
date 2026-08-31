@@ -136,14 +136,10 @@ class TestExtensionSchema(FrappeTestCase):
 		self.assertTrue(frappe.db.exists("DocType", NAME))
 
 	def test_a_name_with_a_path_separator_is_refused(self):
-		self.assertRaises(
-			frappe.ValidationError, create_doctype, "acme/schema", "Sample/Widget", [a_field()]
-		)
+		self.assertRaises(frappe.ValidationError, create_doctype, "acme/schema", "Sample/Widget", [a_field()])
 
 	def test_a_name_already_taken_is_refused(self):
-		self.assertRaises(
-			frappe.ValidationError, create_doctype, "acme/schema", "Contact", [a_field()]
-		)
+		self.assertRaises(frappe.ValidationError, create_doctype, "acme/schema", "Contact", [a_field()])
 
 	def test_reads_back_the_fields_it_made(self):
 		self.create()
@@ -200,9 +196,7 @@ class TestExtensionSchema(FrappeTestCase):
 		delete_doctype("acme/schema", NAME)
 
 		self.assertFalse(frappe.db.exists("DocType", NAME))
-		self.assertFalse(
-			frappe.db.exists("Builder Extension Resource", {"resource_name": NAME})
-		)
+		self.assertFalse(frappe.db.exists("Builder Extension Resource", {"resource_name": NAME}))
 
 	def test_delete_takes_the_grant_with_it(self):
 		"""Frappe lets a DocType be deleted while a Link names it.
@@ -214,9 +208,7 @@ class TestExtensionSchema(FrappeTestCase):
 
 		delete_doctype("acme/schema", NAME)
 
-		self.assertFalse(
-			frappe.db.exists("Builder Extension Grant", {"document_type": NAME})
-		)
+		self.assertFalse(frappe.db.exists("Builder Extension Grant", {"document_type": NAME}))
 
 	def test_lists_what_this_extension_made(self):
 		self.create()
@@ -234,7 +226,5 @@ class TestExtensionSchema(FrappeTestCase):
 
 		frappe.delete_doc("Builder Extension", self.extension.name)
 
-		self.assertFalse(
-			frappe.db.exists("Builder Extension Resource", {"resource_name": NAME})
-		)
+		self.assertFalse(frappe.db.exists("Builder Extension Resource", {"resource_name": NAME}))
 		self.assertTrue(frappe.db.exists("DocType", NAME))

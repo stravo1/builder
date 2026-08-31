@@ -48,7 +48,12 @@
 						</div>
 						<template #suffix>
 							<Tooltip v-if="isDevExtension(extension)" text="Stop this dev extension">
-								<Button variant="ghost" size="sm" icon="lucide-unplug" class="mr-2" @click.stop="stopDevExtension()" />
+								<Button
+									variant="ghost"
+									size="sm"
+									icon="lucide-unplug"
+									class="mr-2"
+									@click.stop="stopDevExtension()" />
 							</Tooltip>
 							<span
 								v-if="hasPopover(extension)"
@@ -65,9 +70,7 @@
 				reads as "none yet", where a missing list reads as "this cannot be done".
 			-->
 			<CollapsibleSection section-name="Marketplace" :section-collapsed="Boolean(filter)">
-				<p class="text-p-sm text-ink-gray-5">
-					Coming soon...
-				</p>
+				<p class="text-p-sm text-ink-gray-5">Coming soon...</p>
 			</CollapsibleSection>
 		</div>
 

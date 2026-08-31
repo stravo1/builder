@@ -77,7 +77,9 @@ export default function builderExtension({ builderUrl } = {}) {
 
 	const readIcon = (file) => {
 		if (!fs.existsSync(file)) {
-			throw new Error(`[builder] ${MANIFEST} names ${path.relative(root, file)} as its icon, and it is missing`);
+			throw new Error(
+				`[builder] ${MANIFEST} names ${path.relative(root, file)} as its icon, and it is missing`,
+			);
 		}
 		return fs.readFileSync(file);
 	};

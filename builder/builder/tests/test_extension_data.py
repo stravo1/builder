@@ -42,7 +42,9 @@ class TestExtensionGrants(FrappeTestCase):
 	def test_an_ungranted_doctype_allows_nothing(self):
 		grant = get_extension_grant("acme/data", "Contact")
 
-		self.assertEqual(grant, {"doctype": "Contact", "read": False, "write": False, "delete": False, "denied": False})
+		self.assertEqual(
+			grant, {"doctype": "Contact", "read": False, "write": False, "delete": False, "denied": False}
+		)
 
 	def test_an_unknown_extension_allows_nothing(self):
 		"""The same answer as an ungranted doctype: nothing is allowed yet."""
@@ -87,9 +89,7 @@ class TestExtensionGrants(FrappeTestCase):
 		self.assertTrue(grant["denied"])
 
 	def test_an_unknown_access_word_is_refused(self):
-		self.assertRaises(
-			frappe.ValidationError, record_extension_grant, "acme/data", "Contact", ["publish"]
-		)
+		self.assertRaises(frappe.ValidationError, record_extension_grant, "acme/data", "Contact", ["publish"])
 
 	def test_one_grant_per_extension_and_doctype(self):
 		record_extension_grant("acme/data", "Contact", ["read"])
@@ -135,7 +135,9 @@ class TestExtensionGrants(FrappeTestCase):
 
 		frappe.delete_doc("Builder Extension", self.extension.name)
 
-		self.assertFalse(frappe.get_all("Builder Extension Grant", filters={"extension": self.extension.name}))
+		self.assertFalse(
+			frappe.get_all("Builder Extension Grant", filters={"extension": self.extension.name})
+		)
 
 
 def make_contact(first_name="Ada"):
@@ -241,9 +243,7 @@ class TestExtensionDocuments(FrappeTestCase):
 
 	def test_refuses_a_page_of_every_row(self):
 		"""Frappe reads 0 as "no limit", which is the one answer no extension may ask for."""
-		self.assertRaises(
-			frappe.ValidationError, get_list, "acme/data", "Contact", limit_page_length=0
-		)
+		self.assertRaises(frappe.ValidationError, get_list, "acme/data", "Contact", limit_page_length=0)
 
 	def test_refuses_a_page_over_the_ceiling(self):
 		self.assertRaises(

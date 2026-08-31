@@ -96,7 +96,8 @@ const handleSave = async () => {
 		emit("update:modelValue", false);
 	} catch (error) {
 		console.error("Failed to save variable:", error);
-		const fallbackMessage = dialogMode.value === "edit" ? __("Failed to update token") : __("Failed to create token");
+		const fallbackMessage =
+			dialogMode.value === "edit" ? __("Failed to update token") : __("Failed to create token");
 		toast.error((error as Error).message || fallbackMessage);
 	}
 };

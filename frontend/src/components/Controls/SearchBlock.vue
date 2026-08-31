@@ -392,7 +392,11 @@ const replaceAll = () => {
 	});
 
 	if (totalReplacements > 0) {
-		toast.success(totalReplacements === 1 ? __("Replaced in {0} block", [totalReplacements]) : __("Replaced in {0} blocks", [totalReplacements]));
+		toast.success(
+			totalReplacements === 1
+				? __("Replaced in {0} block", [totalReplacements])
+				: __("Replaced in {0} blocks", [totalReplacements]),
+		);
 		performSearch();
 	} else {
 		toast.error(__("No replacements made"));

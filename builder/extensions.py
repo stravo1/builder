@@ -107,9 +107,7 @@ def upsert_extension_token(extension: str, token: dict) -> None:
 		frappe.get_doc("Builder Token", name).update(values).save()
 		return
 
-	frappe.get_doc(
-		{"doctype": "Builder Token", "extension": extension, "key": key, **values}
-	).insert()
+	frappe.get_doc({"doctype": "Builder Token", "extension": extension, "key": key, **values}).insert()
 
 
 @frappe.whitelist()

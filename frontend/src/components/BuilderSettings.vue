@@ -32,10 +32,7 @@
 				@click="$emit('close')"
 				class="absolute right-5 top-5"></Button>
 			<KeepAlive v-if="settingsLoaded">
-				<component
-					:is="selectedItemDoc?.component"
-					v-bind="selectedItemDoc?.props?.()"
-					class="pb-16" />
+				<component :is="selectedItemDoc?.component" v-bind="selectedItemDoc?.props?.()" class="pb-16" />
 			</KeepAlive>
 			<div v-else class="flex items-center justify-center">
 				<span class="text-ink-gray-5">{{ __("Loading...") }}</span>
