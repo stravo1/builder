@@ -19,7 +19,7 @@ import { surfaceMethods } from "./surfaces";
 
 // the store resolves on each call, never at import, so nothing here depends on
 // the order the editor loads in
-bridge.define(
+bridge.setMethodTable(
 	{ ...hostMethods, ...surfaceMethods, ...editorMethods, ...dataMethods },
 	{ isReadOnly: () => useBuilderStore().readOnlyMode },
 );
@@ -29,6 +29,6 @@ export const {
 	disconnect: disconnectExtension,
 	getEntryChannel,
 	dispatcherFor,
-	onTeardown,
+	registerTeardown,
 	teardown: teardownExtension,
 } = bridge;

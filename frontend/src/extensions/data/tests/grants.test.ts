@@ -25,7 +25,7 @@ const teardowns = new Map<string, () => void>();
 
 vi.mock("../../host/bridge", () => ({
 	bridge: {
-		onTeardown: (extension: string, run: () => void) => teardowns.set(extension, run),
+		registerTeardown: (extensionName: string, cleanup: () => void) => teardowns.set(extensionName, cleanup),
 	},
 }));
 

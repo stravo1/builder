@@ -1,6 +1,6 @@
 /**
  * The one owner of an extension's live state: its frames, its message budget,
- * and the unregister list teardown walks.
+ * and the cleanup list teardown walks.
  *
  * A factory rather than a module: `index.ts` holds the one instance the editor
  * runs on, and a test builds its own with its own method table.
@@ -25,7 +25,7 @@ export const createExtensionBridge = (methods: MethodTable = {}, options: Bridge
 	let { isReadOnly } = options;
 	// Look up only registered methods. Object properties such as "constructor"
 	// are inherited from the prototype and are not valid HostMethods.
-	const table = new Map(Object.entries(methods));
+	const methodTable = new Map(Object.entries(methods));
 	// Extension keys throughout this bridge are InstalledExtension.name values.
 	const entryChannels = new Map<string, PortChannel>();
 	// every live frame of an extension, because a context push has more than one
@@ -33,7 +33,7 @@ export const createExtensionBridge = (methods: MethodTable = {}, options: Bridge
 	// action must reach, and it is chosen by arrival order rather than by liveness (B2)
 	const channels = new Map<string, Set<PortChannel>>();
 	const budgets = new Map<string, Budget>();
-	const unregisters = new Map<string, Array<() => void>>();
+	const cleanups = new Map<string, Array<() => void>>();
 
 	// keyed by extension, not by frame: every frame of one extension shares one budget
 	const budgetFor = (extension: string) => {
@@ -81,7 +81,7 @@ export const createExtensionBridge = (methods: MethodTable = {}, options: Bridge
 			// cheapest check first, and a flood of unknown methods is still a flood
 			if (!budgetFor(extension.name).take()) throw overBudget(extension.name);
 
-			const entry = table.get(method);
+			const entry = methodTable.get(method);
 			if (!entry) throw unknownMethod(method);
 
 			assertGranted(extension, method, entry.needs);
@@ -90,37 +90,37 @@ export const createExtensionBridge = (methods: MethodTable = {}, options: Bridge
 		};
 
 	/**
-	 * Fills the table after construction, so a surface can import the bridge for
+	 * Fills the method table after construction, so a surface can import the bridge for
 	 * `dispatcherFor` without the bridge importing the surface back. Once only:
 	 * a second call would give the method list two owners.
 	 */
-	const define = (added: MethodTable, settings: BridgeOptions = {}) => {
-		if (table.size) throw new Error("The extension method table is already defined");
-		Object.entries(added).forEach(([method, entry]) => table.set(method, entry));
+	const setMethodTable = (added: MethodTable, settings: BridgeOptions = {}) => {
+		if (methodTable.size) throw new Error("The extension method table is already defined");
+		Object.entries(added).forEach(([method, entry]) => methodTable.set(method, entry));
 		isReadOnly = settings.isReadOnly ?? isReadOnly;
 	};
 
-	/** Milestone 4 appends every `register` the bridge makes on an extension's behalf (B2). */
-	const onTeardown = (extension: string, unregister: () => void) => {
-		const list = unregisters.get(extension) ?? [];
-		unregisters.set(extension, list);
-		list.push(unregister);
+	/** Milestone 4 records every cleanup the bridge needs when an extension leaves (B2). */
+	const registerTeardown = (extensionName: string, cleanup: () => void) => {
+		const forExtension = cleanups.get(extensionName) ?? [];
+		cleanups.set(extensionName, forExtension);
+		forExtension.push(cleanup);
 	};
 
 	/**
 	 * The bridge does not wait for a disabled or uninstalled extension to clean up
 	 * after itself, because its frames may never run again (B2).
 	 */
-	const teardown = (extension: string) => {
-		unregisters.get(extension)?.forEach((unregister) => unregister());
-		unregisters.delete(extension);
-		entryChannels.get(extension)?.close();
-		entryChannels.delete(extension);
-		channels.delete(extension);
-		budgets.delete(extension);
+	const teardown = (extensionName: string) => {
+		cleanups.get(extensionName)?.forEach((cleanup) => cleanup());
+		cleanups.delete(extensionName);
+		entryChannels.get(extensionName)?.close();
+		entryChannels.delete(extensionName);
+		channels.delete(extensionName);
+		budgets.delete(extensionName);
 	};
 
-	return { connect, disconnect, getEntryChannel, getChannels, define, dispatcherFor, onTeardown, teardown };
+	return { connect, disconnect, getEntryChannel, getChannels, setMethodTable, dispatcherFor, registerTeardown, teardown };
 };
 
 export type ExtensionBridge = ReturnType<typeof createExtensionBridge>;

@@ -34,7 +34,7 @@ const channelsOf = (extension: string) =>
 vi.mock("../../host/bridge", () => ({
 	bridge: {
 		getChannels: (extension: string) => channelsOf(extension),
-		onTeardown: (_extension: string, unregister: () => void) => teardowns.push(unregister),
+		registerTeardown: (_extensionName: string, cleanup: () => void) => teardowns.push(cleanup),
 	},
 }));
 

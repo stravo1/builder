@@ -126,7 +126,7 @@ const hooked = new Set<string>();
 const hookTeardown = (extension: InstalledExtension) => {
 	if (hooked.has(extension.name)) return;
 	hooked.add(extension.name);
-	bridge.onTeardown(extension.name, () => {
+	bridge.registerTeardown(extension.name, () => {
 		hooked.delete(extension.name);
 		// a prompt outliving the extension that asked would ask on behalf of nobody
 		if (pendingPrompt.value?.extension.name === extension.name) answerPrompt(false);

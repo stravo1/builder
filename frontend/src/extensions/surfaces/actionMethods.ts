@@ -27,7 +27,7 @@ const keyOf = (extension: InstalledExtension, action: string) => `${extension.na
 
 const register = (params: unknown, extension: InstalledExtension) => {
 	const key = keyOf(extension, text(fields(params).name, "name"));
-	if (!actions.has(key)) bridge.onTeardown(extension.name, () => actions.delete(key));
+	if (!actions.has(key)) bridge.registerTeardown(extension.name, () => actions.delete(key));
 	actions.add(key);
 };
 

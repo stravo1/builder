@@ -47,7 +47,7 @@ export const dismissPopover = popover.dismiss;
 const registerPopover = (params: unknown, extension: InstalledExtension) => {
 	if (registeredPopovers.has(extension.name)) return;
 	registeredPopovers.set(extension.name, frameSize(params));
-	bridge.onTeardown(extension.name, () => registeredPopovers.delete(extension.name));
+	bridge.registerTeardown(extension.name, () => registeredPopovers.delete(extension.name));
 };
 
 /** Opens the extension's declared popover from Builder chrome, if it has one. */

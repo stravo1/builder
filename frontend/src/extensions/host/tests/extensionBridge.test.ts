@@ -277,23 +277,23 @@ describe("the message budget", () => {
 });
 
 describe("teardown", () => {
-	it("runs every unregister an extension registered", () => {
+	it("runs every registered cleanup", () => {
 		const host = bridge();
-		const unregistered: string[] = [];
-		host.onTeardown("acme/icons", () => unregistered.push("tab"));
-		host.onTeardown("acme/icons", () => unregistered.push("menu"));
+		const cleaned: string[] = [];
+		host.registerTeardown("acme/icons", () => cleaned.push("tab"));
+		host.registerTeardown("acme/icons", () => cleaned.push("menu"));
 		host.teardown("acme/icons");
 
-		expect(unregistered).toEqual(["tab", "menu"]);
+		expect(cleaned).toEqual(["tab", "menu"]);
 	});
 
-	it("leaves another extension's unregisters alone", () => {
+	it("leaves another extension's cleanups alone", () => {
 		const host = bridge();
-		const unregistered: string[] = [];
-		host.onTeardown("acme/other", () => unregistered.push("other"));
+		const cleaned: string[] = [];
+		host.registerTeardown("acme/other", () => cleaned.push("other"));
 		host.teardown("acme/icons");
 
-		expect(unregistered).toEqual([]);
+		expect(cleaned).toEqual([]);
 	});
 
 	it("closes and drops the entry channel", () => {
@@ -306,14 +306,14 @@ describe("teardown", () => {
 		return expect(entry.call("host.info")).rejects.toThrow(/closed/);
 	});
 
-	it("runs an unregister once, however often it is torn down", () => {
+	it("runs a cleanup once, however often it is torn down", () => {
 		const host = bridge();
-		const unregistered: string[] = [];
-		host.onTeardown("acme/icons", () => unregistered.push("tab"));
+		const cleaned: string[] = [];
+		host.registerTeardown("acme/icons", () => cleaned.push("tab"));
 		host.teardown("acme/icons");
 		host.teardown("acme/icons");
 
-		expect(unregistered).toEqual(["tab"]);
+		expect(cleaned).toEqual(["tab"]);
 	});
 
 	it("tears down an extension it never saw", () => {

@@ -81,7 +81,7 @@ export const createFrameSurface = (kind: string, { sized = false } = {}) => {
 	const hookTeardown = (extension: string) => {
 		if (hooked.has(extension)) return;
 		hooked.add(extension);
-		bridge.onTeardown(extension, () => {
+		bridge.registerTeardown(extension, () => {
 			settle(extension, undefined);
 			hooked.delete(extension);
 		});

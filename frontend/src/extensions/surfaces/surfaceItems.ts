@@ -76,7 +76,7 @@ export const createSurfaceItems = <TRegistration extends Named, TItem extends Re
 		}
 
 		// a re-registration replaces the item, so its teardown must not be added twice
-		if (!items.has(key)) bridge.onTeardown(extension.name, () => unregisterItem(key));
+		if (!items.has(key)) bridge.registerTeardown(extension.name, () => unregisterItem(key));
 		upsertRegistryItem(key, { extension, registration });
 	};
 

@@ -17,7 +17,7 @@ vi.mock("frappe-ui", () => ({
 }));
 
 vi.mock("../../host/bridge", () => ({
-	bridge: { onTeardown: (_extension: string, unregister: () => void) => teardowns.push(unregister) },
+	bridge: { registerTeardown: (_extensionName: string, cleanup: () => void) => teardowns.push(cleanup) },
 }));
 
 import {

@@ -139,7 +139,7 @@ const subscribe = (params: unknown, extension: InstalledExtension) => {
 	};
 	remember(subscription);
 	subscriptions.set(extension.name, subscription);
-	bridge.onTeardown(extension.name, () => forget(extension.name));
+	bridge.registerTeardown(extension.name, () => forget(extension.name));
 
 	// no first push: `context.get` is the startup path, so the watcher stays lazy
 	stopWatching ??= watch(editorContext, () => subscriptions.forEach((entry) => entry.push()));
