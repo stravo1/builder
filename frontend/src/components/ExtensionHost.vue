@@ -13,7 +13,7 @@
 				:entry="extension.entry"
 				slot="main"
 				:dispatch="dispatcherFor(extension)"
-				@connect="(channel) => connectExtension(extension.name, channel)"
+				@connect="(channel) => connectEntryFrame(extension, channel)"
 				@disconnect="(channel) => disconnectExtension(extension.name, channel)" />
 		</div>
 
@@ -45,10 +45,16 @@ import ExtensionGrantDialog from "@/components/ExtensionGrantDialog.vue";
 import ExtensionPopover from "@/components/ExtensionPopover.vue";
 import { installedExtensions, loadExtensions } from "@/data/extensions";
 import { connectExtension, disconnectExtension, dispatcherFor, teardownExtension } from "@/extensions";
+import type { PortChannel } from "frappe-builder-extension-sdk/transport";
 import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { onMounted, watch } from "vue";
 
 onMounted(loadExtensions);
+
+const connectEntryFrame = (extension: InstalledExtension, channel: PortChannel) => {
+	teardownExtension(extension.name);
+	connectExtension(extension.name, channel);
+};
 
 /**
  * The entry joins the key, so loading a dev version of an installed extension
