@@ -73,13 +73,6 @@ leftPanelTabs.registerBuiltIn({
 		builderStore.showDataScriptDialog !== null || builderStore.openClientScript !== null,
 });
 
-leftPanelTabs.registerBuiltIn({
-	name: "Extensions",
-	label: "Extensions",
-	icon: "lucide-plug",
-	component: ExtensionsTab,
-});
-
 // not a tab. It toggles a modal, so it declares an action and its own active state
 leftPanelTabs.registerBuiltIn({
 	name: "tokens",
@@ -96,4 +89,11 @@ leftPanelTabs.register({
 	icon: "lucide-sparkle",
 	component: BuilderAIChatPanel,
 	shortcut: { key: "o", ctrl: true, shift: true },
+});
+
+leftPanelTabs.registerBuiltIn({
+	name: "Extensions",
+	label: "Extensions",
+	icon: "lucide-plug",
+	component: ExtensionsTab,
 });
