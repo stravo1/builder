@@ -106,25 +106,6 @@ def has_page_read(message: str | None = None):
 	return has_page_permission(ptype="read", message=message)
 
 
-def has_admin(message: str | None = None):
-	"""Decorator for site-level actions, such as installing and removing extensions.
-
-	Page permissions do not cover these. Installing an extension adds code that
-	every editor session then runs, so it asks for System Manager.
-	"""
-
-	def decorator(fn):
-		@wraps(fn)
-		def wrapper(*args, **kwargs):
-			if "System Manager" not in frappe.get_roles():
-				frappe.throw(message or frappe._("You do not have permission to do this"))
-			return fn(*args, **kwargs)
-
-		return wrapper
-
-	return decorator
-
-
 @dataclass
 class BlockDataKey:
 	key: str

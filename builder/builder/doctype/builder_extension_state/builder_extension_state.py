@@ -6,7 +6,7 @@ import uuid
 from frappe.model.document import Document
 
 
-class BuilderExtensionGrant(Document):
+class BuilderExtensionState(Document):
 	# begin: auto-generated types
 	# This code is auto-generated. Do not modify anything in this block.
 
@@ -15,18 +15,13 @@ class BuilderExtensionGrant(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
-		can_delete: DF.Check
-		can_read: DF.Check
-		can_write: DF.Check
-		denied: DF.Check
-		document_type: DF.Link
-		extension: DF.Data
-		user: DF.Link
+		installation: DF.Link
+		key: DF.Data
+		value: DF.JSON | None
 	# end: auto-generated types
 
 	def autoname(self):
-		# a uuid, and (user, extension, document_type) is looked up by field, the
-		# way Builder Token looks up (extension, key). A composite name would go
-		# stale the first time a doctype is renamed
+		# a uuid, and (installation, key) is looked up by field. A composite name
+		# would hold a key the extension chose, in a document name
 		if not self.name:
 			self.name = str(uuid.uuid4())

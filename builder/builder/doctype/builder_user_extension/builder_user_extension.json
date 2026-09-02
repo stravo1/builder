@@ -1,0 +1,131 @@
+{
+ "actions": [],
+ "creation": "2026-09-02 12:00:00.000000",
+ "description": "One user's installation of one extension. It holds their own copy of the built entry, the version they run, and what they allowed the extension to do. Another user's installation of the same extension is a separate record with separate files. Deleting this removes that user's copy, their grants, and their extension state, and leaves every doctype, token and client script the extension made.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "user",
+  "extension",
+  "enabled",
+  "label",
+  "description",
+  "icon",
+  "version",
+  "checksum",
+  "granted_capabilities",
+  "installed_on"
+ ],
+ "fields": [
+  {
+   "description": "Set from the session. The server never reads this from a caller.",
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "User",
+   "options": "User",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "description": "The namespaced identity a frame carries over the bridge, as \"publisher/name\".",
+   "fieldname": "extension",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Extension",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "description": "Off stops this user's frames. It stops nobody else's.",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Label"
+  },
+  {
+   "description": "A brief summary shown below the label in the Extensions panel.",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "description": "One SVG file in the install root, such as icon.svg. The editor draws it beside the extension.",
+   "fieldname": "icon",
+   "fieldtype": "Data",
+   "label": "Icon"
+  },
+  {
+   "description": "The release this user runs. Another user can run another one.",
+   "fieldname": "version",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Version",
+   "reqd": 1
+  },
+  {
+   "description": "Of the installed files. It also keys the editor frame, so a rebuild remounts it.",
+   "fieldname": "checksum",
+   "fieldtype": "Data",
+   "label": "Checksum",
+   "read_only": 1
+  },
+  {
+   "description": "JSON list of capability keys this user granted. A key absent here is not granted.",
+   "fieldname": "granted_capabilities",
+   "fieldtype": "Small Text",
+   "label": "Granted Capabilities"
+  },
+  {
+   "fieldname": "installed_on",
+   "fieldtype": "Datetime",
+   "label": "Installed On",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-02 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Builder",
+ "name": "Builder User Extension",
+ "naming_rule": "By script",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "Website Manager",
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "label"
+}

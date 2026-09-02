@@ -13,8 +13,13 @@ this API already makes, rather than a new one:
 2. A confirmation names the page at the moment a script is created, and
    remembers nothing.
 3. The extension owns what it made. `Builder Extension Resource` says which
-   script belongs to which extension, an extension can only rewrite or detach
-   its own, and uninstall deletes them.
+   script belongs to which extension, and an extension can only rewrite or
+   detach its own.
+
+A script outlives the user who installed the extension. It runs on a published
+page for every visitor, so it belongs to the site the way a doctype does, and one
+person uninstalling must not change what another person's pages serve. Detaching
+one is the extension's own call, or an administrator's.
 
 One script of each type per extension per page, so `attach_script` is an upsert
 and needs no name from the caller. `Builder Client Script.name` is generated
@@ -27,16 +32,10 @@ put the rules in the one it has.
 import frappe
 from frappe import _
 
-from builder.extensions import (
-	find_extension,
-	forget_resource,
-	list_resources,
-	record_resource,
-	resolve_extension,
-)
+from builder.extensions.access import assert_extension_access
+from builder.extensions.resources import forget_resource, list_resources, record_resource
 
 SCRIPT_DOCTYPE = "Builder Client Script"
-LINK_DOCTYPE = "Builder Page Client Script"
 RESOURCE_TYPE = "Client Script"
 SCRIPT_TYPES = ("JavaScript", "CSS")
 
@@ -48,11 +47,11 @@ def attach_script(extension: str, page: str, script_type: str, script: str) -> d
 	The page is saved only when a script is created, because the link row is what
 	changes. Rewriting touches the script document alone.
 	"""
-	owner = resolve_extension(extension, SCRIPT_DOCTYPE)
+	assert_extension_access(extension, "page.write", writes=SCRIPT_DOCTYPE)
 	read_script_type(script_type)
 	document = frappe.get_doc("Builder Page", page)
 
-	existing = find_owned_script(owner, document, script_type)
+	existing = find_owned_script(extension, document, script_type)
 	if existing:
 		frappe.get_doc(SCRIPT_DOCTYPE, existing).update({"script": script}).save()
 		return describe_script(existing)
@@ -63,7 +62,7 @@ def attach_script(extension: str, page: str, script_type: str, script: str) -> d
 	document.append("client_scripts", {"builder_script": created.name})
 	document.save()
 
-	record_resource(owner, RESOURCE_TYPE, created.name)
+	record_resource(extension, RESOURCE_TYPE, created.name)
 	return describe_script(created.name)
 
 
@@ -74,28 +73,26 @@ def detach_script(extension: str, page: str, script_type: str) -> None:
 	Quiet about a script that is not there. An extension clearing what it has
 	already cleared is not an error, and the end state is the one it asked for.
 	"""
-	owner = resolve_extension(extension, SCRIPT_DOCTYPE)
+	assert_extension_access(extension, "page.write", writes=SCRIPT_DOCTYPE)
 	read_script_type(script_type)
 	document = frappe.get_doc("Builder Page", page)
 
-	name = find_owned_script(owner, document, script_type)
+	name = find_owned_script(extension, document, script_type)
 	if not name:
 		return
 
 	document.client_scripts = [row for row in document.client_scripts if row.builder_script != name]
 	document.save()
 	frappe.delete_doc(SCRIPT_DOCTYPE, name)
-	forget_resource(owner, RESOURCE_TYPE, name)
+	forget_resource(extension, RESOURCE_TYPE, name)
 
 
 @frappe.whitelist()
 def list_scripts(extension: str, page: str) -> list[dict]:
 	"""This extension's own scripts on this page, and nobody else's."""
-	owner = find_extension(extension)
-	if not owner:
-		return []
+	assert_extension_access(extension, "page.write")
 
-	owned = set(list_resources(owner, RESOURCE_TYPE))
+	owned = set(list_resources(extension, RESOURCE_TYPE))
 	document = frappe.get_cached_doc("Builder Page", page)
 	return [
 		describe_script(row.builder_script) for row in document.client_scripts if row.builder_script in owned
@@ -127,20 +124,3 @@ def find_owned_script(extension: str, page, script_type: str) -> str | None:
 def describe_script(name: str) -> dict:
 	script = frappe.get_doc(SCRIPT_DOCTYPE, name)
 	return {"name": script.name, "type": script.script_type, "script": script.script}
-
-
-def delete_extension_scripts(extension: str) -> None:
-	"""Uninstall drops the code an extension wrote, unlike the data it modeled.
-
-	A doctype holds the user's records, so `forget_extension_resources` keeps it.
-	A client script holds the extension's own JavaScript, and leaving it behind
-	would keep running an uninstalled extension's code on a published page.
-
-	Every page loses the link first. Frappe refuses to delete a document a Link
-	still names, and a forced delete would leave a row pointing at nothing.
-	"""
-	for name in list_resources(extension, RESOURCE_TYPE):
-		if not frappe.db.exists(SCRIPT_DOCTYPE, name):
-			continue
-		frappe.db.delete(LINK_DOCTYPE, {"builder_script": name})
-		frappe.delete_doc(SCRIPT_DOCTYPE, name, ignore_permissions=True)

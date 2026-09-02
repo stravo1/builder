@@ -13,22 +13,25 @@ extension asking a page editor to model a table simply fails, and that is the
 right answer rather than a bug.
 
 Ownership is a record, not a naming convention. `Builder Extension Resource`
-says which extension made which doctype, so uninstall knows what it owns and a
-creating extension can be given a full grant with no second question.
+says which extension made which doctype, so a creating extension can be given a
+full grant with no second question.
+
+Ownership names the extension, not one user's installation of it. A doctype holds
+the site's data, so it outlives the person who installed the extension, and the
+next person to install it owns what the first one made.
 """
 
 import frappe
 from frappe import _
 
-from builder.extension_data import GRANT_DOCTYPE, describe_grant, find_extension_grant
-from builder.extensions import (
+from builder.extensions.access import assert_extension_access
+from builder.extensions.data import GRANT_DOCTYPE, assert_grant, describe_grant, find_extension_grant
+from builder.extensions.resources import (
 	RESOURCE_DOCTYPE,
-	find_extension,
 	find_resource,
 	forget_resource,
 	list_resources,
 	record_resource,
-	resolve_extension,
 )
 
 MODULE = "Builder"
@@ -118,7 +121,7 @@ def create_doctype(
 	table, so asking whether it may read the table would be a question with one
 	sensible answer.
 	"""
-	owner = resolve_extension(extension, RESOURCE_DOCTYPE)
+	assert_extension_access(extension, "schema.write", writes=RESOURCE_DOCTYPE)
 	rows = read_fields(fields)
 	if not rows:
 		frappe.throw(_("A doctype needs at least one field."))
@@ -136,16 +139,15 @@ def create_doctype(
 		}
 	).insert()
 
-	record_resource(owner, "DocType", document.name)
-	grant_everything(owner, document.name)
+	record_resource(extension, "DocType", document.name)
+	grant_everything(extension, document.name)
 	return describe_doctype(document.name)
 
 
 @frappe.whitelist()
 def get_doctype(extension: str, doctype: str) -> dict:
 	"""The field list of a doctype this extension may read."""
-	from builder.extension_data import assert_grant
-
+	assert_extension_access(extension, "schema.write")
 	assert_grant(extension, doctype, "read")
 	return describe_doctype(doctype)
 
@@ -158,6 +160,7 @@ def update_doctype(extension: str, doctype: str, fields: list[dict] | None = Non
 	`set_extension_tokens` and `record_extension_grant` follow, and it matters
 	more here: a removed field drops a column and the data in it.
 	"""
+	assert_extension_access(extension, "schema.write")
 	assert_owned(extension, doctype)
 
 	document = frappe.get_doc("DocType", doctype)
@@ -183,22 +186,20 @@ def delete_doctype(extension: str, doctype: str) -> None:
 	doctype created later under the same name would inherit that grant without
 	anyone being asked.
 	"""
+	assert_extension_access(extension, "schema.write")
 	assert_owned(extension, doctype)
-	owner = find_extension(extension)
 
 	frappe.delete_doc("DocType", doctype)
-	forget_resource(owner, "DocType", doctype)
-	forget_grant(owner, doctype)
+	forget_resource(extension, "DocType", doctype)
+	forget_grant(extension, doctype)
 
 
 @frappe.whitelist()
 def list_doctypes(extension: str) -> list[dict]:
 	"""Every doctype this extension made, whether or not it still exists."""
-	owner = find_extension(extension)
-	if not owner:
-		return []
+	assert_extension_access(extension, "schema.write")
 
-	names = list_resources(owner, "DocType")
+	names = list_resources(extension, "DocType")
 	return [{"doctype": name, "exists": bool(frappe.db.exists("DocType", name))} for name in names]
 
 
@@ -263,15 +264,25 @@ def forget_grant(extension: str, doctype: str) -> None:
 
 
 def grant_everything(extension: str, doctype: str) -> None:
-	"""A full grant on a doctype this extension just made, with no prompt."""
-	values = {"can_read": 1, "can_write": 1, "can_delete": 1, "denied": 0, "granted_by": frappe.session.user}
+	"""A full grant on a doctype this extension just made, with no prompt.
+
+	For this user alone. Another user installing the same extension is asked the
+	ordinary way, because they did not make this table.
+	"""
+	values = {"can_read": 1, "can_write": 1, "can_delete": 1, "denied": 0}
 	name = find_extension_grant(extension, doctype)
 	if name:
 		frappe.get_doc(GRANT_DOCTYPE, name).update(values).save()
 		return
 
 	frappe.get_doc(
-		{"doctype": GRANT_DOCTYPE, "extension": extension, "document_type": doctype, **values}
+		{
+			"doctype": GRANT_DOCTYPE,
+			"user": frappe.session.user,
+			"extension": extension,
+			"document_type": doctype,
+			**values,
+		}
 	).insert()
 
 
@@ -282,8 +293,7 @@ def assert_owned(extension: str, doctype: str) -> None:
 	write **documents**, which is not the same as letting it change the shape of
 	the table or drop it.
 	"""
-	owner = find_extension(extension)
-	if owner and find_resource(owner, "DocType", doctype):
+	if find_resource(extension, "DocType", doctype):
 		return
 
 	frappe.throw(

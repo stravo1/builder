@@ -1,26 +1,37 @@
 {
  "actions": [],
  "creation": "2026-08-20 10:00:00.000000",
- "description": "What one extension may do to one doctype. The user answers this in the Builder editor, never here. The grant applies to every user of the site, so the first editor to allow one answers for all of them — but each call still runs with its own user's permissions, so a grant widens what an extension may attempt, never what the site allows. An admin can narrow a grant here, or delete it to let the extension ask again.",
+ "description": "What one extension may do to one doctype, for one user. The user answers this in the Builder editor, never here. A grant belongs to the user who gave it and applies to nobody else. Each call still runs with that user's own permissions, so a grant widens what an extension may attempt, never what Frappe allows. An admin can narrow a grant here, or delete it to let the extension ask again.",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "user",
   "extension",
   "document_type",
   "can_read",
   "can_write",
   "can_delete",
-  "denied",
-  "granted_by"
+  "denied"
  ],
  "fields": [
   {
-   "fieldname": "extension",
+   "description": "Set from the session. The server never reads this from a caller.",
+   "fieldname": "user",
    "fieldtype": "Link",
    "in_list_view": 1,
    "in_standard_filter": 1,
+   "label": "User",
+   "options": "User",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "description": "The namespaced identity a frame carries over the bridge, as \"publisher/name\".",
+   "fieldname": "extension",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Extension",
-   "options": "Builder Extension",
    "read_only": 1,
    "reqd": 1
   },
@@ -61,14 +72,6 @@
    "fieldname": "denied",
    "fieldtype": "Check",
    "label": "Denied"
-  },
-  {
-   "description": "Who answered the dialog. It records the answer; it does not scope the grant to that user.",
-   "fieldname": "granted_by",
-   "fieldtype": "Link",
-   "label": "Granted By",
-   "options": "User",
-   "read_only": 1
   }
  ],
  "grid_page_length": 50,

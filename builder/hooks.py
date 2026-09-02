@@ -91,13 +91,20 @@ after_app_install = "builder.install.after_app_install"
 # -----------
 # Permissions evaluated in scripted ways
 
-# permission_query_conditions = {
-# "Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# "Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+# An extension belongs to the user who installed it. These make Desk agree with
+# what the whitelisted methods already enforce, so a list view, a report and a
+# get_all all answer with one user's rows. A System Manager sees them all.
+permission_query_conditions = {
+	"Builder User Extension": "builder.extensions.access.installation_conditions",
+	"Builder Extension Grant": "builder.extensions.access.grant_conditions",
+	"Builder Extension State": "builder.extensions.access.state_conditions",
+}
+
+has_permission = {
+	"Builder User Extension": "builder.extensions.access.owns_row",
+	"Builder Extension Grant": "builder.extensions.access.owns_row",
+	"Builder Extension State": "builder.extensions.access.owns_state",
+}
 
 user_invitation = {
 	"allowed_roles": {
@@ -211,7 +218,7 @@ website_route_rules = [
 website_path_resolver = "builder.builder.doctype.builder_page.builder_page.resolve_path"
 page_renderer = [
 	# extension assets first: it matches one fixed prefix and answers without touching a page
-	"builder.extension_assets.ExtensionAsset",
+	"builder.extensions.assets.ExtensionAsset",
 	"builder.builder.doctype.builder_page.builder_page.BuilderPageRenderer",
 ]
 
