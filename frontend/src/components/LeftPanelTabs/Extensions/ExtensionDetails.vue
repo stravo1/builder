@@ -1,92 +1,82 @@
 <template>
-	<div class="flex min-h-full flex-col">
-		<div class="sticky top-0 z-10 flex items-center gap-1 bg-surface-base px-2 py-3">
-			<Button variant="ghost" size="sm" icon="lucide-arrow-left" label="Back" @click="emit('back')" />
-			<span class="truncate text-base text-ink-gray-9">{{ details?.label ?? extension }}</span>
+	<div class="flex h-full min-h-0 flex-col">
+		<div class="flex shrink-0 items-center gap-1 bg-surface-base px-2 py-3">
+			<Button variant="ghost" size="sm" icon-left="lucide-arrow-left" label="Back" @click="emit('back')" />
 		</div>
 
-		<p v-if="error" class="px-3 pb-3 text-p-sm text-ink-red-6">{{ error }}</p>
-		<LoadingIndicator v-else-if="!details" class="mx-auto mt-6 size-4 text-ink-gray-5" />
+		<div class="no-scrollbar min-h-0 flex-1 overflow-y-auto">
+			<p v-if="error" class="px-3 pb-3 text-p-sm text-ink-red-6">{{ error }}</p>
+			<LoadingIndicator v-else-if="!details" class="mx-auto mt-6 size-4 text-ink-gray-5" />
 
-		<div v-else class="flex flex-col gap-5 px-3 pb-5">
-			<div class="flex items-start gap-3">
-				<img
-					v-if="details.icon"
-					:src="details.icon"
-					class="size-8 shrink-0 object-contain"
-					alt=""
-					aria-hidden="true" />
-				<span v-else class="lucide-plug size-8 shrink-0 text-ink-gray-6" aria-hidden="true" />
-				<div class="flex min-w-0 flex-col gap-0.5">
-					<span class="truncate text-base text-ink-gray-9">{{ details.label }}</span>
-					<span class="truncate text-xs text-ink-gray-5">{{ details.name }}</span>
-					<span class="text-xs text-ink-gray-5">Version {{ details.version }}</span>
-				</div>
-			</div>
-
-			<p v-if="details.description" class="text-p-sm text-ink-gray-7">{{ details.description }}</p>
-
-			<div class="flex flex-wrap gap-2">
-				<Button
-					v-if="mounted && hasPopover"
-					variant="solid"
-					size="sm"
-					icon-left="lucide-panel-right"
-					label="Open"
-					@click="openRegisteredPopover(mounted)" />
-				<Button
-					variant="subtle"
-					size="sm"
-					:icon-left="details.enabled ? 'lucide-power-off' : 'lucide-power'"
-					:label="details.enabled ? 'Disable' : 'Enable'"
-					:loading="working"
-					@click="setEnabled(!details.enabled)" />
-				<Button
-					variant="subtle"
-					theme="red"
-					size="sm"
-					icon-left="lucide-trash-2"
-					label="Uninstall"
-					:loading="working"
-					@click="uninstall()" />
-			</div>
-
-			<div class="flex flex-col gap-1 border-t border-outline-gray-1 pt-4 text-xs text-ink-gray-5">
-				<p>{{ details.source_url || "Installed from a directory" }}</p>
-				<p>Installed on {{ installedOn }}</p>
-			</div>
-
-			<div class="border-t border-outline-gray-1 pt-4">
-				<p class="pb-3 text-sm text-ink-gray-8">What it may do</p>
-				<ExtensionCapabilities
-					:extension="details.name"
-					:label="details.label ?? details.name"
-					:requested="details.requested_capabilities"
-					:granted="details.granted_capabilities"
-					@granted="(capabilities) => (details!.granted_capabilities = capabilities)" />
-			</div>
-
-			<div v-if="details.grants.length" class="border-t border-outline-gray-1 pt-4">
-				<p class="pb-1 text-sm text-ink-gray-8">Doctypes you answered for</p>
-				<p class="pb-3 text-xs text-ink-gray-5">Clear one and it asks you again.</p>
-				<div class="flex flex-col gap-1">
-					<div v-for="grant in details.grants" :key="grant.document_type" class="flex items-baseline gap-2">
-						<span class="truncate text-p-sm text-ink-gray-7">{{ grant.document_type }}</span>
-						<span class="text-xs text-ink-gray-5">{{ grantSummary(grant) }}</span>
+			<div v-else class="flex flex-col gap-5 px-3 pb-5">
+				<div class="flex items-start gap-3">
+					<img
+						v-if="details.icon"
+						:src="details.icon"
+						class="size-8 shrink-0 object-contain"
+						alt=""
+						aria-hidden="true" />
+					<span v-else class="lucide-plug size-8 shrink-0 text-ink-gray-6" aria-hidden="true" />
+					<div class="flex min-w-0 flex-col gap-0.5">
+						<span class="truncate text-base text-ink-gray-9">{{ details.label }}</span>
+						<span class="truncate text-xs text-ink-gray-5">{{ details.name }}</span>
+						<span class="text-xs text-ink-gray-5">Version {{ details.version }}</span>
 					</div>
 				</div>
-			</div>
 
-			<!-- eslint-disable-next-line vue/no-v-html -- renderMarkdown sanitizes through DOMPurify -->
-			<div
-				v-if="readme"
-				class="extension-readme markdown-body prose prose-sm max-w-none break-words border-t border-outline-gray-1 pt-4 text-p-sm text-ink-gray-7"
-				v-html="readme" />
+				<p v-if="details.description" class="text-p-sm text-ink-gray-7">{{ details.description }}</p>
+
+				<ExtensionActions
+					:can-open="Boolean(mounted && hasPopover)"
+					:enabled="details.enabled"
+					:working="working"
+					@open="openPopover"
+					@set-enabled="setEnabled"
+					@uninstall="uninstall" />
+
+				<!-- eslint-disable-next-line vue/no-v-html -- renderMarkdown sanitizes through DOMPurify -->
+				<div
+					v-if="readme"
+					class="extension-readme markdown-body prose prose-sm max-w-none break-words border-t border-outline-gray-1 pt-4 text-p-sm text-ink-gray-7"
+					v-html="readme" />
+
+				<section class="border-t border-outline-gray-1 py-4">
+					<div class="pb-3">
+						<h2 class="text-sm font-medium text-ink-gray-8">Capabilities</h2>
+						<p class="pt-0.5 text-xs text-ink-gray-5">
+							Control what {{ details.label }} may do in Builder and on this site.
+						</p>
+					</div>
+					<ExtensionCapabilities
+						:extension="details.name"
+						:label="details.label ?? details.name"
+						:requested="details.requested_capabilities"
+						:granted="details.granted_capabilities"
+						@granted="(capabilities) => (details!.granted_capabilities = capabilities)" />
+				</section>
+
+				<div v-if="details.grants.length" class="border-t border-outline-gray-1 pt-4">
+					<p class="pb-1 text-sm text-ink-gray-8">Doctypes you answered for</p>
+					<p class="pb-3 text-xs text-ink-gray-5">Clear one and it asks you again.</p>
+					<div class="flex flex-col gap-1">
+						<div v-for="grant in details.grants" :key="grant.document_type" class="flex items-baseline gap-2">
+							<span class="truncate text-p-sm text-ink-gray-7">{{ grant.document_type }}</span>
+							<span class="text-xs text-ink-gray-5">{{ grantSummary(grant) }}</span>
+						</div>
+					</div>
+				</div>
+
+				<div class="flex flex-col gap-1 border-t border-outline-gray-1 pt-4 text-xs text-ink-gray-5">
+					<p>{{ details.source_url || "Installed from a directory" }}</p>
+					<p>Installed on {{ installedOn }}</p>
+				</div>
+			</div>
 		</div>
 	</div>
 </template>
 
 <script setup lang="ts">
+import ExtensionActions from "@/components/LeftPanelTabs/Extensions/ExtensionActions.vue";
 import ExtensionCapabilities from "@/components/LeftPanelTabs/Extensions/ExtensionCapabilities.vue";
 import { renderMarkdown } from "@/components/ai/markdown";
 import {
@@ -114,6 +104,8 @@ const working = ref(false);
 const mounted = computed(() => installedExtensions.value.find((row) => row.name === props.extension));
 
 const hasPopover = computed(() => registeredPopovers.has(props.extension));
+
+const openPopover = () => mounted.value && openRegisteredPopover(mounted.value);
 
 const readme = computed(() => (details.value?.readme ? renderMarkdown(details.value.readme) : ""));
 

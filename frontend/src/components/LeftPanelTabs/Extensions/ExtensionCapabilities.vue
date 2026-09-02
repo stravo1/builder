@@ -1,22 +1,27 @@
 <template>
-	<div class="flex flex-col gap-4">
-		<div v-for="group in groups" :key="group.name" class="flex flex-col gap-3">
-			<div>
-				<p class="text-xs font-medium" :class="group.sensitive ? 'text-ink-red-6' : 'text-ink-gray-7'">
+	<div class="divide-y divide-outline-gray-1 overflow-hidden rounded-lg border border-outline-gray-1">
+		<section v-for="group in groups" :key="group.name" class="divide-y divide-outline-gray-1">
+			<header class="bg-surface-gray-1 px-3 py-2">
+				<p class="text-xs font-medium" :class="group.sensitive ? 'text-ink-red-6' : 'text-ink-gray-8'">
 					{{ group.name }}
 				</p>
-				<p class="text-xs text-ink-gray-5">{{ group.summary }}</p>
-			</div>
+				<p class="pt-0.5 text-xs text-ink-gray-5">{{ group.summary }}</p>
+			</header>
 
-			<Switch
-				v-for="capability in group.capabilities"
-				:key="capability"
-				size="sm"
-				:label="capabilityDetails[capability].label"
-				:description="capabilityDetails[capability].warning"
-				:model-value="granted.includes(capability)"
-				@update:model-value="(allow: boolean) => answer(capability, allow)" />
-		</div>
+			<div class="divide-y divide-outline-gray-1 px-3">
+				<div v-for="capability in group.capabilities" :key="capability" class="py-3">
+					<Switch
+						size="sm"
+						:description="capabilityDetails[capability].warning"
+						:model-value="granted.includes(capability)"
+						@update:model-value="(allow: boolean) => answer(capability, allow)">
+						<template #label>
+							<span class="text-xs">{{ capabilityDetails[capability].label }}</span>
+						</template>
+					</Switch>
+				</div>
+			</div>
+		</section>
 	</div>
 </template>
 
