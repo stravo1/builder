@@ -40,6 +40,13 @@ The plugin needs a `manifest.json` beside the config, and an entry at
 A manifest can name an icon, such as `"icon": "icon.svg"`. Put a square SVG of that name beside the
 entry. Builder draws it beside the extension in the Extensions panel.
 
+Put a `README.md` in the extension directory. The installer stores it on the installation, and the
+Extensions panel shows it. The package never carries it: a built extension is `main.js`,
+`manifest.json` and one icon.
+
+The panel also lists every capability the manifest asks for, and the user can turn one off. A
+capability the user turned off is refused the way one you never asked for is.
+
 ## Write against the editor
 
 ```js

@@ -29,8 +29,8 @@ export const showDevExtensionDialog = ref(false);
 
 export const lastDevUrl = () => localStorage.getItem(LAST_URL_KEY) ?? "";
 
-/** The installed list carries the dev entry under its own name, so the name is the test. */
-export const isDevExtension = (extension: InstalledExtension) => devExtension.value?.name === extension.name;
+/** Both lists carry the dev entry under its own name, so the name is the test. */
+export const isDevExtension = (extension: { name: string }) => devExtension.value?.name === extension.name;
 
 /**
  * A capability this Builder does not know is a version gap, not a fault, so the

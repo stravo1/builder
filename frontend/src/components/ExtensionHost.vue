@@ -62,9 +62,12 @@ const connectEntryFrame = (extension: InstalledExtension, channel: PortChannel) 
  * An installation is keyed by its checksum, so a rebuild starts a new frame. A
  * dev extension has no checksum and is keyed by the URL it is served from, so
  * loading a dev version of an installed extension remounts its frames.
+ *
+ * The grant joins the key too. `dispatcherFor` closes over the record, so a frame
+ * that keeps running after the user revokes a capability keeps the old answer.
  */
 const frameKey = (extension: InstalledExtension) =>
-	`${extension.name}@${extension.checksum ?? extension.entry}`;
+	`${extension.name}@${extension.checksum ?? extension.entry}@${extension.capabilities.join(",")}`;
 
 // unmounting a frame only closes its channel. What an extension registered
 // outlives it, so an extension that left the list, or that is now served from
