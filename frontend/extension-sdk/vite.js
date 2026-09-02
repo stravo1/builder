@@ -37,6 +37,9 @@ const STYLE_TAG = (css) =>
 /** One entry, so Rollup sees the whole graph and shared code lands in one chunk. */
 const ENTRY_CANDIDATES = ["src/main.ts", "src/main.js"];
 
+/** Room for an icon or a cursor, and not for a font. */
+const ASSET_INLINE_LIMIT = 64 * 1024;
+
 /**
  * Refuses a build that emitted more than the entry, the manifest and the icon.
  *
@@ -51,7 +54,8 @@ const assertOneFile = (bundle, manifest) => {
 
 	throw new Error(
 		`[builder] an extension has to build to one file, and this build also emitted ${extra.join(", ")}. ` +
-			"Import it statically instead of with import(), or inline the asset.",
+			`Import a module statically instead of with import(). Drop an asset over ${ASSET_INLINE_LIMIT / 1024} kB, ` +
+			"such as a font, and use the one Builder already loads.",
 	);
 };
 
@@ -144,9 +148,16 @@ export default function builderExtension({ builderUrl } = {}) {
 					// also puts a stylesheet in the preload list of every lazy chunk, and
 					// the frame then asks for a file this plugin folded into the entry
 					cssCodeSplit: false,
-					// every image and font inside the entry too, for the same reason the
-					// CSS goes there: the frame is handed code, and can fetch nothing
-					assetsInlineLimit: Number.POSITIVE_INFINITY,
+					// a small asset goes inside the entry too, for the same reason the CSS
+					// does: the frame is handed code and can fetch nothing.
+					//
+					// A big one is refused instead of inlined. Vite embeds an inlined
+					// asset once per reference, and a variable font named by six
+					// @font-face rules lands six times, as base64 that will not compress.
+					// Measured: it took one sample extension from 1.6 MB to 5.6 MB. An
+					// extension frame also runs inside Builder, which loads its own fonts
+					// already.
+					assetsInlineLimit: ASSET_INLINE_LIMIT,
 					rollupOptions: {
 						input: entry,
 						// never bundled: the frame shell's import map resolves it to the

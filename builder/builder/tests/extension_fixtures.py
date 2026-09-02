@@ -10,10 +10,12 @@ lives here rather than in each of the seven files that need it.
 
 import json
 import pathlib
+import shutil
 
 import frappe
+from frappe.utils import get_files_path
 
-from builder.extensions.constants import CAPABILITIES, ENTRY_FILE
+from builder.extensions.constants import CAPABILITIES, ENTRY_FILE, EXTENSIONS_FOLDER
 
 INSTALLATION_DOCTYPE = "Builder User Extension"
 
@@ -67,6 +69,24 @@ def drop_installations(extension: str):
 	"""Every user's installation of one extension, for a test that starts clean."""
 	for name in frappe.get_all(INSTALLATION_DOCTYPE, filters={"extension": extension}, pluck="name"):
 		frappe.delete_doc(INSTALLATION_DOCTYPE, name, force=True)
+	remove_orphan_installs()
+
+
+def remove_orphan_installs():
+	"""Install directories with no record left.
+
+	A test rolls the database back, so a record made by `make_installation` goes
+	without `on_trash` ever running, and its files would stay on the site. Removing
+	what no record names keeps a run from leaving anything behind.
+	"""
+	root = pathlib.Path(get_files_path(EXTENSIONS_FOLDER, is_private=True))
+	if not root.is_dir():
+		return
+
+	installed = set(frappe.get_all(INSTALLATION_DOCTYPE, pluck="name"))
+	for path in root.iterdir():
+		if path.is_dir() and path.name not in installed:
+			shutil.rmtree(path, ignore_errors=True)
 
 
 def make_user(email="extension-tester@example.com", roles=("Website Manager",)):

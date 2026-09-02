@@ -82,7 +82,8 @@ describe("builderExtension", () => {
 
 		const { build } = configure(root);
 		expect(build.rollupOptions.output.inlineDynamicImports).toBe(true);
-		expect(build.assetsInlineLimit).toBe(Number.POSITIVE_INFINITY);
+		// a font inlines once per @font-face rule that names it, as base64
+		expect(build.assetsInlineLimit).toBe(64 * 1024);
 		expect(build.cssCodeSplit).toBe(false);
 	});
 
