@@ -102,11 +102,12 @@ describe("register", () => {
 
 		// the registry deep-reactifies what it stores, so this is a proxy of the component
 		expect(item.component).toStrictEqual(ExtensionFrame);
+		// the frame reads the code itself, so it takes the name and no entry
 		expect(item.props!()).toMatchObject({
 			extension: "acme/icons",
 			slot: "panel",
-			entry: icons.entry,
 		});
+		expect(item.props!()).not.toHaveProperty("entry");
 	});
 
 	it("refuses a registration with no label", () => {

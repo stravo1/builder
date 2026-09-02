@@ -140,7 +140,7 @@ describe("the confirmation", () => {
 		await run("schema.updateDoctype", { doctype: "Widget", fields: FIELDS });
 
 		expect(asked).toHaveLength(0);
-		expect(last().url).toBe("builder.extension_schema.update_doctype");
+		expect(last().url).toBe("builder.extensions.schema.update_doctype");
 	});
 
 	it("does not ask to read one", async () => {
@@ -180,10 +180,10 @@ describe("what travels to the server", () => {
 
 	it("reaches the right method per verb", async () => {
 		await run("schema.getDoctype", { doctype: "Widget" });
-		expect(last().url).toBe("builder.extension_schema.get_doctype");
+		expect(last().url).toBe("builder.extensions.schema.get_doctype");
 
 		await run("schema.listDoctypes", {});
-		expect(last().url).toBe("builder.extension_schema.list_doctypes");
+		expect(last().url).toBe("builder.extensions.schema.list_doctypes");
 	});
 });
 

@@ -15,11 +15,13 @@
 
 <script setup lang="ts">
 import LoadingIcon from "@/components/Icons/Loading.vue";
+import { extensionSource, installedExtensions } from "@/data/extensions";
 import { createPortChannel, type Dispatcher, type PortChannel } from "frappe-builder-extension-sdk/transport";
 import {
 	PROTOCOL_VERSION,
 	type ConnectMessage,
 	type ExtensionSlot,
+	type InstalledExtension,
 } from "frappe-builder-extension-sdk/types";
 import useBuilderStore from "@/stores/builderStore";
 import { onBeforeUnmount, ref, watch } from "vue";
@@ -30,7 +32,6 @@ const SHELL_URL = "/builder_extension";
 const props = defineProps<{
 	extension: string;
 	slot: ExtensionSlot;
-	entry: string;
 	initialProps?: Record<string, unknown>;
 	/** Answers what the frame calls. Named as B2 names it, and not `onRequest`,
 	 * which Vue would read as a listener for a `request` event. */
@@ -54,11 +55,35 @@ let channel: PortChannel | null = null;
 
 const theme = () => (store.isDark ? "dark" : "light");
 
-const handshake = (): ConnectMessage => ({
+const installed = (): InstalledExtension => {
+	const found = installedExtensions.value.find((row) => row.name === props.extension);
+	if (!found) throw new Error(`"${props.extension}" is not installed`);
+	return found;
+};
+
+/**
+ * Where this frame gets the extension's code.
+ *
+ * A development extension names a URL its dev server serves, and the frame
+ * imports that: a dev server ships unbundled modules that import each other by
+ * relative path, and only a real URL resolves those.
+ *
+ * An installation has no URL. Every user has their own copy, and a frame runs at
+ * an opaque origin and sends no session, so no route can tell whose request it is
+ * answering. The editor reads the file under its own session instead, and the
+ * frame runs the string from a Blob.
+ */
+const code = async (): Promise<{ entry: string } | { source: string }> => {
+	const extension = installed();
+	if (extension.entry) return { entry: extension.entry };
+	return { source: await extensionSource(extension) };
+};
+
+const handshake = async (): Promise<ConnectMessage> => ({
 	v: PROTOCOL_VERSION,
 	type: "connect",
 	slot: props.slot,
-	entry: props.entry,
+	...(await code()),
 	theme: theme(),
 	props: props.initialProps,
 });
@@ -75,16 +100,27 @@ const disconnect = () => {
  * Runs on every `load`, so a reloaded frame reconnects. The old channel closes
  * first, which rejects any call left pending against a document that is gone.
  */
-const connect = () => {
+const connect = async () => {
 	disconnect();
 	loading.value = true;
 	const pair = new MessageChannel();
-	channel = createPortChannel(pair.port1, props.dispatch);
-	channel.listen("slot.ready", () => (loading.value = false));
+	const opening = createPortChannel(pair.port1, props.dispatch);
+	channel = opening;
+	opening.listen("slot.ready", () => (loading.value = false));
+
+	const message = await handshake().catch((error: Error) => {
+		console.error(`[builder] could not load "${props.extension}"`, error);
+		loading.value = false;
+		return null;
+	});
+	// reading the source is a round trip, and the frame may have reloaded while it
+	// ran. `connect` would then have replaced this channel with a newer one
+	if (!message || channel !== opening) return;
+
 	// "*" is the only target that reaches an opaque origin. The port makes the
 	// broadcast safe: it is transferred once, and this is the last window message
-	frame.value?.contentWindow?.postMessage(handshake(), "*", [pair.port2]);
-	emit("connect", channel);
+	frame.value?.contentWindow?.postMessage(message, "*", [pair.port2]);
+	emit("connect", opening);
 };
 
 // the handshake carries the theme once, so a later flip needs its own message

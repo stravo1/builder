@@ -96,7 +96,7 @@ const optionalCount = (value: unknown, field: string) =>
 
 const getList = (params: unknown, extension: InstalledExtension) => {
 	const sent = fields(params);
-	return invoke("builder.extension_data.get_list", {
+	return invoke("builder.extensions.data.get_list", {
 		extension: extension.name,
 		doctype: readDoctype(sent),
 		fields: readFields(sent.fields),
@@ -112,7 +112,7 @@ const getList = (params: unknown, extension: InstalledExtension) => {
 
 const getCount = (params: unknown, extension: InstalledExtension) => {
 	const sent = fields(params);
-	return invoke("builder.extension_data.get_count", {
+	return invoke("builder.extensions.data.get_count", {
 		extension: extension.name,
 		doctype: readDoctype(sent),
 		filters: readFilters(sent.filters),
@@ -121,7 +121,7 @@ const getCount = (params: unknown, extension: InstalledExtension) => {
 
 const getDoc = (params: unknown, extension: InstalledExtension) => {
 	const sent = fields(params);
-	return invoke("builder.extension_data.get_doc", {
+	return invoke("builder.extensions.data.get_doc", {
 		extension: extension.name,
 		doctype: readDoctype(sent),
 		name: readName(sent),
@@ -130,7 +130,7 @@ const getDoc = (params: unknown, extension: InstalledExtension) => {
 
 const insert = (params: unknown, extension: InstalledExtension) => {
 	const sent = fields(params);
-	return invoke("builder.extension_data.insert_doc", {
+	return invoke("builder.extensions.data.insert_doc", {
 		extension: extension.name,
 		doctype: readDoctype(sent),
 		doc: readDoc(sent.doc),
@@ -139,7 +139,7 @@ const insert = (params: unknown, extension: InstalledExtension) => {
 
 const update = (params: unknown, extension: InstalledExtension) => {
 	const sent = fields(params);
-	return invoke("builder.extension_data.update_doc", {
+	return invoke("builder.extensions.data.update_doc", {
 		extension: extension.name,
 		doctype: readDoctype(sent),
 		name: readName(sent),
@@ -149,7 +149,7 @@ const update = (params: unknown, extension: InstalledExtension) => {
 
 const remove = (params: unknown, extension: InstalledExtension) => {
 	const sent = fields(params);
-	return invoke("builder.extension_data.delete_doc", {
+	return invoke("builder.extensions.data.delete_doc", {
 		extension: extension.name,
 		doctype: readDoctype(sent),
 		name: readName(sent),

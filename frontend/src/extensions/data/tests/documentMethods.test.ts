@@ -155,23 +155,23 @@ describe("what travels to the server", () => {
 		await run("data.update", { doctype: "Contact", name: "CT-1", doc: { first_name: "Ada" } });
 
 		expect(last()).toMatchObject({
-			url: "builder.extension_data.update_doc",
+			url: "builder.extensions.data.update_doc",
 			params: { doctype: "Contact", name: "CT-1", doc: { first_name: "Ada" } },
 		});
 	});
 
 	it("reaches the right method per verb", async () => {
 		await run("data.getCount", { doctype: "Contact" });
-		expect(last().url).toBe("builder.extension_data.get_count");
+		expect(last().url).toBe("builder.extensions.data.get_count");
 
 		await run("data.getDoc", { doctype: "Contact", name: "CT-1" });
-		expect(last().url).toBe("builder.extension_data.get_doc");
+		expect(last().url).toBe("builder.extensions.data.get_doc");
 
 		await run("data.insert", { doctype: "Contact", doc: {} });
-		expect(last().url).toBe("builder.extension_data.insert_doc");
+		expect(last().url).toBe("builder.extensions.data.insert_doc");
 
 		await run("data.delete", { doctype: "Contact", name: "CT-1" });
-		expect(last().url).toBe("builder.extension_data.delete_doc");
+		expect(last().url).toBe("builder.extensions.data.delete_doc");
 	});
 });
 

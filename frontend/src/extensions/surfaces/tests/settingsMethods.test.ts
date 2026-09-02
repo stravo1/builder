@@ -95,11 +95,12 @@ describe("the frame the pane mounts", () => {
 		const item = registered("builder/sample:sample") as { component: unknown; props: () => object };
 
 		expect(toRaw(item.component)).toBe(ExtensionFrame);
+		// the frame reads the code itself, so it takes the name and no entry
 		expect(item.props()).toMatchObject({
 			extension: "builder/sample",
 			slot: "settings",
-			entry: sample.entry,
 		});
+		expect(item.props()).not.toHaveProperty("entry");
 	});
 
 	it("keeps one component identity, so KeepAlive holds the frame across updates", () => {

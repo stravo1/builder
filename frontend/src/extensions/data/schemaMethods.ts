@@ -69,7 +69,7 @@ const createDoctype = async (params: unknown, extension: InstalledExtension) => 
 		throw refuse(`The user did not allow "${extension.name}" to create ${doctype}.`, "refused");
 	}
 
-	return invoke("builder.extension_schema.create_doctype", {
+	return invoke("builder.extensions.schema.create_doctype", {
 		extension: extension.name,
 		doctype,
 		fields: rows,
@@ -79,7 +79,7 @@ const createDoctype = async (params: unknown, extension: InstalledExtension) => 
 };
 
 const getDoctype = (params: unknown, extension: InstalledExtension) =>
-	invoke("builder.extension_schema.get_doctype", {
+	invoke("builder.extensions.schema.get_doctype", {
 		extension: extension.name,
 		doctype: text(fields(params).doctype, "doctype"),
 	});
@@ -87,7 +87,7 @@ const getDoctype = (params: unknown, extension: InstalledExtension) =>
 /** Adds fields and updates them by fieldname. Never removes one, so no column is dropped. */
 const updateDoctype = (params: unknown, extension: InstalledExtension) => {
 	const sent = fields(params);
-	return invoke("builder.extension_schema.update_doctype", {
+	return invoke("builder.extensions.schema.update_doctype", {
 		extension: extension.name,
 		doctype: text(sent.doctype, "doctype"),
 		fields: readFields(sent.fields),
@@ -101,14 +101,14 @@ const deleteDoctype = async (params: unknown, extension: InstalledExtension) => 
 		throw refuse(`The user did not allow "${extension.name}" to delete ${doctype}.`, "refused");
 	}
 
-	return invoke("builder.extension_schema.delete_doctype", {
+	return invoke("builder.extensions.schema.delete_doctype", {
 		extension: extension.name,
 		doctype,
 	});
 };
 
 const listDoctypes = (_params: unknown, extension: InstalledExtension) =>
-	invoke("builder.extension_schema.list_doctypes", { extension: extension.name });
+	invoke("builder.extensions.schema.list_doctypes", { extension: extension.name });
 
 export const schemaMethods: MethodTable = {
 	"schema.createDoctype": { needs: "schema.write", run: createDoctype },

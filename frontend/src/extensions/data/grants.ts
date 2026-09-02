@@ -45,12 +45,14 @@ export type Grant = {
  * "allow Acme to write Contact" and "allow Acme to write User" should not read
  * the same way.
  *
- * `Builder Extension` is the sharpest case: write access to it lets an extension
- * rewrite its own capability list, so the install-time gate becomes advisory.
+ * `Builder User Extension` is the sharpest case: write access to it lets an
+ * extension rewrite its own capability list, so the install-time gate becomes
+ * advisory.
  */
 export const SENSITIVE_DOCTYPES = new Set([
-	"Builder Extension",
+	"Builder User Extension",
 	"Builder Extension Grant",
+	"Builder Extension State",
 	"Builder Token",
 	"User",
 	"Role",
@@ -183,7 +185,7 @@ const toGrant = (value: unknown, doctype: string): Grant => {
 };
 
 const readGrant = (extension: InstalledExtension, doctype: string) =>
-	invoke("builder.extension_data.get_extension_grant", {
+	invoke("builder.extensions.data.get_extension_grant", {
 		extension: extension.name,
 		doctype,
 	}).then((sent: unknown) => toGrant(sent, doctype));
@@ -244,7 +246,7 @@ const prompt = async (extension: InstalledExtension, doctype: string, access: Ac
 		sensitive: SENSITIVE_DOCTYPES.has(doctype),
 	});
 
-	return invoke("builder.extension_data.record_extension_grant", {
+	return invoke("builder.extensions.data.record_extension_grant", {
 		extension: extension.name,
 		doctype,
 		access: granted ? access : [],

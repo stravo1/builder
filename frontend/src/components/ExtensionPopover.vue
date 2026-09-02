@@ -28,7 +28,6 @@
 			<div class="h-full" :class="pointerBusy && 'pointer-events-none'">
 				<ExtensionFrame
 					:extension="extension.name"
-					:entry="extension.entry"
 					v-bind="{ slot: 'popover' }"
 					:initialProps="popover.props"
 					:dispatch="dispatch"

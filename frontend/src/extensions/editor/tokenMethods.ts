@@ -58,7 +58,7 @@ const set = (params: unknown, extension: InstalledExtension) => {
 		throw refuse("\"tokens\" must be a non-empty list.", "invalid_params");
 	}
 
-	return invoke("builder.extensions.set_extension_tokens", {
+	return invoke("builder.extensions.tokens.set_extension_tokens", {
 		extension: extension.name,
 		tokens: sent.map(readToken),
 	}).then(async (result) => {
@@ -68,7 +68,7 @@ const set = (params: unknown, extension: InstalledExtension) => {
 };
 
 const unset = (params: unknown, extension: InstalledExtension) => {
-	return invoke("builder.extensions.unset_extension_token", {
+	return invoke("builder.extensions.tokens.unset_extension_token", {
 		extension: extension.name,
 		key: text(fields(params).key, "key"),
 	}).then(async (result) => {

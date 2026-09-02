@@ -96,7 +96,7 @@ describe("page.attachScript", () => {
 		await run("page.attachScript", { type: "JavaScript", script: "console.log(1)" });
 
 		expect(submitted.at(-1)).toEqual({
-			url: "builder.extension_page.attach_script",
+			url: "builder.extensions.page.attach_script",
 			params: {
 				extension: "acme/a11y",
 				page: "page-1",
@@ -119,7 +119,7 @@ describe("page.attachScript", () => {
 		await expect(run("page.attachScript", { type: "CSS", script: "a{}" })).rejects.toMatchObject({
 			code: "refused",
 		});
-		expect(submitted.map((call) => call.url)).toEqual(["builder.extension_page.list_scripts"]);
+		expect(submitted.map((call) => call.url)).toEqual(["builder.extensions.page.list_scripts"]);
 	});
 
 	// the answer would not go stale when the extension ships the same script again
@@ -159,7 +159,7 @@ describe("page.detachScript", () => {
 		await run("page.detachScript", { type: "CSS" });
 
 		expect(submitted.at(-1)).toEqual({
-			url: "builder.extension_page.detach_script",
+			url: "builder.extensions.page.detach_script",
 			params: { extension: "acme/a11y", page: "page-1", script_type: "CSS" },
 		});
 	});
@@ -176,7 +176,7 @@ describe("page.listScripts", () => {
 		await run("page.listScripts");
 
 		expect(submitted.at(-1)).toEqual({
-			url: "builder.extension_page.list_scripts",
+			url: "builder.extensions.page.list_scripts",
 			params: { extension: "acme/a11y", page: "page-1" },
 		});
 	});

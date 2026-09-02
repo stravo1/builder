@@ -65,7 +65,7 @@ describe("tokens.set", () => {
 		void set([token(), token({ key: "accent-1", token_name: "Accent 1" })]);
 
 		expect(submitted).toHaveLength(1);
-		expect(submitted[0].url).toBe("builder.extensions.set_extension_tokens");
+		expect(submitted[0].url).toBe("builder.extensions.tokens.set_extension_tokens");
 		const params = submitted[0].params as { extension: string; tokens: unknown[] };
 		expect(params.extension).toBe("acme/material");
 		expect(params.tokens).toHaveLength(2);
@@ -132,7 +132,7 @@ describe("tokens.unset", () => {
 	it("sends the extension and the key", () => {
 		void unset("accent-9");
 
-		expect(submitted[0].url).toBe("builder.extensions.unset_extension_token");
+		expect(submitted[0].url).toBe("builder.extensions.tokens.unset_extension_token");
 		expect(submitted[0].params).toEqual({ extension: "acme/material", key: "accent-9" });
 	});
 

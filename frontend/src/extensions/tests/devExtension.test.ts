@@ -5,6 +5,17 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+/** Registering the dev installation is a Frappe call. Under test is what it sends. */
+const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
+let registers = true;
+
+vi.mock("frappe-ui", () => ({
+	call: (method: string, params: Record<string, unknown>) => {
+		calls.push({ method, params });
+		return registers ? Promise.resolve(null) : Promise.reject(new Error("refused"));
+	},
+}));
+
 const DESCRIPTOR = {
 	v: 1,
 	name: "acme/icons",
@@ -29,7 +40,10 @@ describe("loadDevExtension", () => {
 	beforeEach(async () => {
 		localStorage.clear();
 		vi.restoreAllMocks();
+		calls.length = 0;
+		registers = true;
 		vi.stubGlobal("fetch", answer(DESCRIPTOR));
+		window.csrf_token = "token123";
 		dev = await loadModule();
 	});
 
@@ -57,6 +71,30 @@ describe("loadDevExtension", () => {
 		vi.stubGlobal("fetch", answer({ ...DESCRIPTOR, label: undefined }));
 
 		expect((await dev.loadDevExtension("http://localhost:5173")).label).toBe("acme/icons");
+	});
+
+	// without an installation the server refuses everything it calls
+	it("registers an installation, so the server gate lets it through", async () => {
+		await dev.loadDevExtension("http://localhost:5173");
+
+		expect(calls).toContainEqual({
+			method: "builder.extensions.registry.install_dev_extension",
+			params: { extension: "acme/icons" },
+		});
+	});
+
+	it("names what to check when the site will not register it", async () => {
+		registers = false;
+
+		await expect(dev.loadDevExtension("http://localhost:5173")).rejects.toThrow(/developer mode/);
+	});
+
+	it("loads nothing when registering fails", async () => {
+		registers = false;
+
+		await dev.loadDevExtension("http://localhost:5173").catch(() => {});
+
+		expect(dev.devExtension.value).toBe(null);
 	});
 
 	it("keeps the capabilities this Builder knows", async () => {
@@ -137,8 +175,13 @@ describe("loadDevExtension", () => {
 
 		expect(dev.devExtension.value).toBe(null);
 		expect(fetch).toHaveBeenLastCalledWith(
-			"/api/method/builder.extensions.remove_dev_extension",
-			expect.objectContaining({ method: "POST", keepalive: true }),
+			"/api/method/builder.extensions.registry.remove_dev_extension",
+			// Frappe refuses a form POST without the token, and fetch adds none
+			expect.objectContaining({
+				method: "POST",
+				keepalive: true,
+				headers: { "X-Frappe-CSRF-Token": "token123" },
+			}),
 		);
 	});
 });
@@ -147,10 +190,14 @@ describe("loadDevExtension", () => {
 describe("isDevExtension", () => {
 	const listed = (name: string) => ({ name, label: name, entry: `/${name}.js`, capabilities: [] });
 
+
 	beforeEach(async () => {
 		localStorage.clear();
 		vi.restoreAllMocks();
+		calls.length = 0;
+		registers = true;
 		vi.stubGlobal("fetch", answer(DESCRIPTOR));
+		window.csrf_token = "token123";
 		dev = await loadModule();
 	});
 

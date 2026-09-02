@@ -126,7 +126,7 @@ describe("getAccess", () => {
 		await getAccess({ doctype: "Contact" });
 
 		expect(pendingPrompt.value).toBeNull();
-		expect(urls()).toEqual(["builder.extension_data.get_extension_grant"]);
+		expect(urls()).toEqual(["builder.extensions.data.get_extension_grant"]);
 	});
 
 	it("names the calling extension, never one the frame sent", async () => {
@@ -144,7 +144,7 @@ describe("when no dialog opens", () => {
 
 		expect(pendingPrompt.value).toBeNull();
 		expect(grant.read).toBe(true);
-		expect(urls()).toEqual(["builder.extension_data.get_extension_grant"]);
+		expect(urls()).toEqual(["builder.extensions.data.get_extension_grant"]);
 	});
 
 	it("returns the grant when the user said no last time", async () => {
@@ -153,7 +153,7 @@ describe("when no dialog opens", () => {
 		await request({ doctype: "Contact", access: ["read"] });
 
 		expect(pendingPrompt.value).toBeNull();
-		expect(urls()).toEqual(["builder.extension_data.get_extension_grant"]);
+		expect(urls()).toEqual(["builder.extensions.data.get_extension_grant"]);
 	});
 });
 
@@ -182,7 +182,7 @@ describe("the prompt", () => {
 	});
 
 	it("marks a sensitive doctype", async () => {
-		const pending = request({ doctype: "Builder Extension", access: ["write"] });
+		const pending = request({ doctype: "Builder User Extension", access: ["write"] });
 		await settled();
 
 		expect(pendingPrompt.value?.sensitive).toBe(true);
@@ -201,8 +201,13 @@ describe("the prompt", () => {
 		await pending;
 	});
 
-	it("holds Builder Extension in the sensitive list, because write to it rewrites capabilities", () => {
-		expect(SENSITIVE_DOCTYPES.has("Builder Extension")).toBe(true);
+	it("holds the installation record sensitive, because write to it rewrites capabilities", () => {
+		expect(SENSITIVE_DOCTYPES.has("Builder User Extension")).toBe(true);
+	});
+
+	/** One user's drawer. Write access to it lets one extension read another's. */
+	it("holds extension state sensitive", () => {
+		expect(SENSITIVE_DOCTYPES.has("Builder Extension State")).toBe(true);
 	});
 
 	/** Frappe puts no gate on Web Form.client_script, so writing one is JS on a public page. */

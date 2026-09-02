@@ -12,13 +12,15 @@
  */
 
 import { CAPABILITIES, type Capability, type InstalledExtension } from "frappe-builder-extension-sdk/types";
+import { call } from "frappe-ui";
 import { ref } from "vue";
 
 /** Served by the build plugin, and by nothing else. */
 const DESCRIPTOR_PATH = "/__builder-extension";
 
 const LAST_URL_KEY = "builder-extension:dev-url";
-const REMOVE_METHOD = "/api/method/builder.extensions.remove_dev_extension";
+const INSTALL_METHOD = "builder.extensions.registry.install_dev_extension";
+const REMOVE_METHOD = "/api/method/builder.extensions.registry.remove_dev_extension";
 
 /** One at a time: a second load replaces the first, as one dialog replaces another. */
 export const devExtension = ref<InstalledExtension | null>(null);
@@ -57,9 +59,28 @@ const read = async (origin: string) => {
 	return descriptor;
 };
 
+/**
+ * Gives the dev extension an installation of its own, so it passes the same
+ * server gate an installed extension does. Without one, every call it makes to
+ * Builder is refused.
+ *
+ * An extension the user already has installed keeps that installation. The
+ * server answers with it rather than making a second one.
+ */
+const install = (extension: string) =>
+	call(INSTALL_METHOD, { extension }).catch(() => {
+		throw new Error(`Builder could not register "${extension}". Is the site in developer mode?`);
+	});
+
+/**
+ * Raw `fetch` rather than `call`, because `keepalive` is what lets a request
+ * started on `pagehide` outlive the document. Frappe refuses a form POST without
+ * the CSRF header, and the browser adds none of its own.
+ */
 const remove = (extension: InstalledExtension) =>
 	fetch(REMOVE_METHOD, {
 		method: "POST",
+		headers: { "X-Frappe-CSRF-Token": window.csrf_token },
 		body: new URLSearchParams({ extension: extension.name }),
 		keepalive: true,
 	}).catch((error) => console.error(`Could not remove development extension "${extension.name}"`, error));
@@ -69,6 +90,7 @@ export const loadDevExtension = async (url: string): Promise<InstalledExtension>
 	const origin = new URL(url.trim()).origin;
 	const descriptor = await read(origin);
 	if (devExtension.value) await remove(devExtension.value);
+	await install(descriptor.name);
 
 	localStorage.setItem(LAST_URL_KEY, origin);
 	devExtension.value = {

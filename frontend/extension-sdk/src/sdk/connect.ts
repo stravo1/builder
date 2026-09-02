@@ -38,6 +38,38 @@ const isConnectMessage = (data: unknown): data is ConnectMessage =>
 
 const applyTheme = (theme: unknown) => document.documentElement.setAttribute("data-theme", String(theme));
 
+/**
+ * Runs the extension, from wherever the host said its code is.
+ *
+ * An installed extension arrives as source. No route can serve one user's copy:
+ * this frame runs at an opaque origin and sends no cookie, so the host reads the
+ * file under its own session and posts the code. A Blob URL is how a string
+ * becomes a module.
+ *
+ * A bare specifier still resolves. An import map belongs to the document, not to
+ * the URL a module came from, so `frappe-builder-extension-sdk` inside a Blob
+ * still reaches the one SDK instance this module is part of.
+ *
+ * A development extension keeps its URL. A dev server serves unbundled modules
+ * that import each other by relative path, and a Blob has no path for those to
+ * resolve against.
+ */
+const runEntry = async (message: ConnectMessage) => {
+	if (message.source === undefined) {
+		if (!message.entry) throw new Error("The connect message carried no extension code");
+		await import(/* @vite-ignore */ message.entry);
+		return;
+	}
+
+	const url = URL.createObjectURL(new Blob([message.source], { type: "text/javascript" }));
+	try {
+		await import(/* @vite-ignore */ url);
+	} finally {
+		// the module has loaded, and a build that ships one file imports nothing later
+		URL.revokeObjectURL(url);
+	}
+};
+
 const start = async (message: ConnectMessage, port: MessagePort) => {
 	channel = createPortChannel(port, dispatch);
 	channel.listen("theme", applyTheme);
@@ -45,8 +77,8 @@ const start = async (message: ConnectMessage, port: MessagePort) => {
 	slotProps = message.props ?? {};
 	setActiveSlot(message.slot);
 
-	// the shell names no extension, so the entry to import arrives here (D5)
-	await import(/* @vite-ignore */ message.entry);
+	// the shell names no extension, so what to run arrives here (D5)
+	await runEntry(message);
 	// the props travel to the document the slot mounts, so a dialog can be opened
 	// with call-time arguments (1.15)
 	await runSlot(slotProps);

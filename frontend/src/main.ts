@@ -20,7 +20,7 @@ app.use(pinia);
 
 ensureTranslations().then(() => {
 	app.use(router);
-	app.use(FrappeUI);
+	app.use(FrappeUI, {"socketio":{"port": 9006}});
 	app.use(telemetryPlugin, { app_name: "builder" });
 	app.use(translationPlugin);
 

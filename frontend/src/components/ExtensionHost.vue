@@ -10,7 +10,6 @@
 				v-for="extension in installedExtensions"
 				:key="frameKey(extension)"
 				:extension="extension.name"
-				:entry="extension.entry"
 				slot="main"
 				:dispatch="dispatcherFor(extension)"
 				@connect="(channel) => connectEntryFrame(extension, channel)"
@@ -57,11 +56,15 @@ const connectEntryFrame = (extension: InstalledExtension, channel: PortChannel) 
 };
 
 /**
- * The entry joins the key, so loading a dev version of an installed extension
- * remounts its frames. The name alone would keep the frame, which read its entry
- * once at the handshake and would go on running the installed code.
+ * What the frame runs joins the key, so a frame remounts when the code changes.
+ * The name alone would keep it, and a frame reads its code once at the handshake.
+ *
+ * An installation is keyed by its checksum, so a rebuild starts a new frame. A
+ * dev extension has no checksum and is keyed by the URL it is served from, so
+ * loading a dev version of an installed extension remounts its frames.
  */
-const frameKey = (extension: InstalledExtension) => `${extension.name}@${extension.entry}`;
+const frameKey = (extension: InstalledExtension) =>
+	`${extension.name}@${extension.checksum ?? extension.entry}`;
 
 // unmounting a frame only closes its channel. What an extension registered
 // outlives it, so an extension that left the list, or that is now served from

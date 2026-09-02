@@ -50,7 +50,7 @@ const SCRIPT_TYPES = ["JavaScript", "CSS"] as const;
 const plain = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null));
 
 const invoke = (method: string, params: Record<string, unknown>) =>
-	createResource({ url: `builder.extension_page.${method}` })
+	createResource({ url: `builder.extensions.page.${method}` })
 		.submit(params)
 		.then(plain)
 		.catch((thrown: unknown) => {

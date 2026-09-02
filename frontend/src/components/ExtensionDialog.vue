@@ -14,7 +14,6 @@
 				</div>
 				<ExtensionFrame
 					:extension="extension.name"
-					:entry="extension.entry"
 					slot="dialog"
 					:initialProps="dialog.props"
 					:dispatch="dispatch"

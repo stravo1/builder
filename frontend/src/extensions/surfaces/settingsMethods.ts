@@ -68,7 +68,6 @@ const toRegistryItem = (key: string, { extension, registration }: SurfaceItem<Re
 		props: () => ({
 			extension: extension.name,
 			slot: "settings",
-			entry: extension.entry,
 			dispatch,
 			onConnect: (channel: PortChannel) => bridge.connect(extension.name, channel),
 			onDisconnect: (channel: PortChannel) => bridge.disconnect(extension.name, channel),
