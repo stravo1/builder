@@ -7,6 +7,7 @@
  "field_order": [
   "user",
   "extension",
+  "source_url",
   "enabled",
   "label",
   "description",
@@ -37,6 +38,14 @@
    "label": "Extension",
    "read_only": 1,
    "reqd": 1
+  },
+  {
+   "description": "The Builder Hub this came from. Empty for an extension installed from a directory.",
+   "fieldname": "source_url",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Source URL",
+   "read_only": 1
   },
   {
    "default": "1",
@@ -96,7 +105,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-02 14:00:00.000000",
+ "modified": "2026-09-02 19:30:00.000000",
  "modified_by": "Administrator",
  "module": "Builder",
  "name": "Builder User Extension",

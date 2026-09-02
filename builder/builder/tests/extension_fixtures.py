@@ -37,7 +37,7 @@ def make_installation(extension="acme/listed", user=None, capabilities=None, sou
 		**values,
 	}
 
-	name = find_installation(extension, user)
+	name = find_installation(extension, user, fields.get("source_url", ""))
 	if name:
 		installation = frappe.get_doc(INSTALLATION_DOCTYPE, name).update(fields).save()
 	else:
@@ -50,9 +50,12 @@ def make_installation(extension="acme/listed", user=None, capabilities=None, sou
 	return installation
 
 
-def find_installation(extension, user=None):
+def find_installation(extension, user=None, source_url=""):
+	"""One user's installation of one extension from one source."""
 	return frappe.db.get_value(
-		INSTALLATION_DOCTYPE, {"user": user or frappe.session.user, "extension": extension}, "name"
+		INSTALLATION_DOCTYPE,
+		{"user": user or frappe.session.user, "extension": extension, "source_url": source_url},
+		"name",
 	)
 
 

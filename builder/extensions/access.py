@@ -26,12 +26,23 @@ STATE_DOCTYPE = "Builder Extension State"
 
 
 def find_installation(extension: str) -> str | None:
-	"""The current user's enabled installation of this extension, or None."""
-	return frappe.db.get_value(
+	"""The current user's enabled installation of this extension, or None.
+
+	A call carries `publisher/name` and no source, while the unique key allows one
+	name from two Builder Hubs. So two matches are refused rather than guessed at.
+	The bridge learns to name a source when Hub installs arrive.
+	"""
+	matches = frappe.get_all(
 		INSTALLATION_DOCTYPE,
-		{"user": frappe.session.user, "extension": extension, "enabled": 1},
-		"name",
+		filters={"user": frappe.session.user, "extension": extension, "enabled": 1},
+		pluck="name",
+		limit=2,
 	)
+	if len(matches) > 1:
+		frappe.throw(
+			_('"{0}" is installed from more than one source, and this call names none.').format(extension)
+		)
+	return matches[0] if matches else None
 
 
 def assert_extension_access(

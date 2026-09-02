@@ -40,7 +40,7 @@ class TestBuilderUserExtension(FrappeTestCase):
 		self.assertIn("/private/files/extensions/", installation.install_path)
 		self.assertTrue(installation.install_path.endswith(installation.name))
 
-	def test_one_installation_per_user_and_extension(self):
+	def test_one_installation_per_user_extension_and_source(self):
 		make_installation(EXTENSION)
 
 		second = frappe.get_doc(
@@ -52,6 +52,17 @@ class TestBuilderUserExtension(FrappeTestCase):
 			}
 		)
 		self.assertRaises(Exception, second.insert)
+
+	def test_an_empty_source_is_a_value_and_not_a_null(self):
+		"""A unique index counts two NULLs as different rows."""
+		self.assertEqual(make_installation(EXTENSION).source_url, "")
+
+	def test_one_name_from_two_sources_is_two_installations(self):
+		"""Milestone 7 scopes identity by the Hub as well as the name."""
+		first = make_installation(EXTENSION, source_url="https://hub.example")
+		second = make_installation(EXTENSION, source_url="https://other.example")
+
+		self.assertNotEqual(first.name, second.name)
 
 	def test_two_users_hold_the_same_extension_separately(self):
 		mine = make_installation(EXTENSION)

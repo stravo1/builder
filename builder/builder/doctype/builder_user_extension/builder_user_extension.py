@@ -42,6 +42,7 @@ class BuilderUserExtension(Document):
 		icon: DF.Data | None
 		installed_on: DF.Datetime | None
 		label: DF.Data | None
+		source_url: DF.Data | None
 		user: DF.Link
 		version: DF.Data
 	# end: auto-generated types
@@ -57,6 +58,9 @@ class BuilderUserExtension(Document):
 		self.installed_on = now()
 
 	def validate(self):
+		# a unique index counts two NULLs as different rows, so an empty source has
+		# to be a value. Without this the key stops constraining a local install
+		self.source_url = self.source_url or ""
 		self.validate_identity()
 		self.validate_icon()
 		self.validate_capabilities()
@@ -155,10 +159,21 @@ class BuilderUserExtension(Document):
 			frappe.delete_doc(GRANT_DOCTYPE, grant, ignore_permissions=True)
 
 
-def on_doctype_update():
-	"""One installation per user per extension.
+TABLE = "tabBuilder User Extension"
+UNIQUE_INDEX = "unique_user_source_extension"
+OLD_UNIQUE_INDEX = "unique_user_extension"
 
-	`find_installation` looks the pair up by field, so a second row would make it
-	answer with whichever came back first.
+
+def on_doctype_update():
+	"""One installation per user, source and extension.
+
+	`source_url` joins the key because two Builder Hubs can publish one name, and
+	milestone 7 scopes identity by both. The bridge carries no source yet, so
+	`find_installation` refuses when a user holds two of one name.
 	"""
-	frappe.db.add_unique("Builder User Extension", ["user", "extension"], constraint_name="unique_user_extension")
+	if frappe.db.has_index(TABLE, OLD_UNIQUE_INDEX):
+		frappe.db.sql_ddl(f"alter table `{TABLE}` drop index `{OLD_UNIQUE_INDEX}`")
+
+	frappe.db.add_unique(
+		"Builder User Extension", ["user", "source_url", "extension"], constraint_name=UNIQUE_INDEX
+	)
