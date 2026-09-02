@@ -1,4 +1,7 @@
-"""Install a Builder extension on a site.
+"""Install a Builder extension for one user of a site.
+
+An extension belongs to the person who installed it. They get their own copy of
+the files and their own capabilities, and nobody else on the site sees it.
 
 Builder has no install API yet, so an extension is installed by writing its files
 and inserting the record. This script does both, for any extension directory.
@@ -7,10 +10,11 @@ Run it from the bench's sites directory:
 
     cd sites
     ../env/bin/python /path/to/install_extension.py builder.localhost /path/to/my-extension
+    ../env/bin/python /path/to/install_extension.py builder.localhost /path/to/my-extension --user alice@example.com
     ../env/bin/python /path/to/install_extension.py builder.localhost /path/to/my-extension --uninstall
 
-Run it again after every build. The checksum is a hash of the files, so a new one
-busts the entry cache and a reload of the editor picks the change up.
+Run it again after every build. The checksum keys the editor's frame, so a new
+one remounts the extension and a reload picks the change up.
 """
 
 import argparse
@@ -23,6 +27,11 @@ import frappe
 # An SFC needs compiling, so a source install leaves one behind. A frame cannot
 # import one, and nothing else reads it.
 NOT_SHIPPED_SUFFIXES = {".vue"}
+
+INSTALLATION_DOCTYPE = "Builder User Extension"
+
+# What a single-file build leaves behind, beside the icon the manifest names.
+INSTALLABLE_FILES = {"main.js", "manifest.json"}
 
 
 class ExtensionPackage:
@@ -67,10 +76,6 @@ class ExtensionPackage:
 		return digest.hexdigest()[:12]
 
 	@property
-	def record_name(self) -> str:
-		return self.manifest["name"].replace("/", "-")
-
-	@property
 	def needs_a_build(self) -> bool:
 		"""True when `src` holds a file no browser can import.
 
@@ -95,45 +100,87 @@ class ExtensionPackage:
 		for field in ("name", "version"):
 			if not self.manifest.get(field):
 				raise SystemExit(f'manifest.json has no "{field}"')
+		self.validate_one_file()
+
+	def validate_one_file(self):
+		"""A built extension is main.js, its manifest, and an icon. Nothing else.
+
+		The editor reads main.js and posts the code into a frame, so a relative
+		import inside it resolves against nothing and an asset URL points nowhere.
+		The build plugin refuses such a build too. This catches a directory built
+		before that rule, or assembled by hand.
+		"""
+		allowed = set(INSTALLABLE_FILES)
+		if self.manifest.get("icon"):
+			allowed.add(self.manifest["icon"])
+
+		listed = {str(path.relative_to(self.source_directory)) for path in self.files}
+		extra = sorted(listed - allowed)
+		if extra:
+			raise SystemExit(
+				f"an extension has to install as one file, and {self.source_directory} also holds "
+				f"{', '.join(extra)}. Build it with the current extension SDK."
+			)
 
 
 class ExtensionInstaller:
-	def __init__(self, site: str, package: ExtensionPackage):
+	def __init__(self, site: str, package: ExtensionPackage, user: str):
 		self.site = site
 		self.package = package
+		self.user = user
 		frappe.init(site=site)
 		frappe.connect()
 
 	def install(self):
 		self.package.validate()
-		extension = self.upsert_record()
-		self.copy_files(extension.install_path)
+		self.assert_user()
+		installation = self.upsert_installation()
+		self.copy_files(installation.install_path)
 		frappe.db.commit()
-		self.report(extension)
+		self.report(installation)
 
-	def upsert_record(self):
+	def assert_user(self):
+		if not frappe.db.exists("User", self.user):
+			raise SystemExit(f"no user called {self.user} on {self.site}")
+
+	@property
+	def installation(self) -> str | None:
+		"""This user's installation of this extension. Another user's is another record."""
+		return frappe.db.get_value(
+			INSTALLATION_DOCTYPE,
+			{"user": self.user, "extension": self.package.manifest["name"]},
+			"name",
+		)
+
+	def upsert_installation(self):
 		manifest = self.package.manifest
 		values = {
-			"extension_name": manifest["name"],
 			"label": manifest.get("label"),
 			"description": manifest.get("description"),
 			"icon": manifest.get("icon"),
 			"version": manifest["version"],
-			"capabilities": frappe.as_json(manifest.get("capabilities") or []),
+			"granted_capabilities": frappe.as_json(manifest.get("capabilities") or []),
 			"checksum": self.package.checksum,
 			"enabled": 1,
 		}
-		if frappe.db.exists("Builder Extension", self.package.record_name):
-			extension = frappe.get_doc("Builder Extension", self.package.record_name)
-			extension.update(values)
-			return extension.save()
-		return frappe.get_doc({"doctype": "Builder Extension", **values}).insert()
+		existing = self.installation
+		if existing:
+			return frappe.get_doc(INSTALLATION_DOCTYPE, existing).update(values).save()
+
+		return frappe.get_doc(
+			{
+				"doctype": INSTALLATION_DOCTYPE,
+				"user": self.user,
+				"extension": manifest["name"],
+				**values,
+			}
+		).insert()
 
 	def copy_files(self, install_path: str):
-		"""The whole directory, because one install is immutable under one checksum.
+		"""The whole directory, into the copy this one user runs.
 
 		The source directory flattens onto the install root, so `main.js` sits where
-		the record's `script_url` points at it.
+		the editor reads it from.
 		"""
 		shutil.rmtree(install_path, ignore_errors=True)
 		for path in self.package.files:
@@ -142,37 +189,38 @@ class ExtensionInstaller:
 			shutil.copy2(path, target)
 
 	def uninstall(self):
-		"""Deleting the record deletes the files: `on_trash` owns the directory.
+		"""Removes one user's installation, and nothing the extension made.
 
-		The tokens go first. `Builder Token.extension` is a Link, so Frappe refuses to
-		delete an extension any token still names. A token an extension wrote is also
-		a token published pages already use, so this asks before it drops them.
+		`on_trash` takes that user's files, grants and stored state. A doctype holds
+		the site's data, a token styles every page, and a client script runs for
+		every visitor, so all three stay. An administrator removes those in Desk
+		after deciding nothing needs them.
 		"""
-		name = self.package.record_name
-		if not frappe.db.exists("Builder Extension", name):
-			print(f"{name} is not installed")
+		extension = self.package.manifest["name"]
+		existing = self.installation
+		if not existing:
+			print(f"{extension} is not installed for {self.user}")
 			return
 
-		tokens = frappe.get_all("Builder Token", filters={"extension": name}, pluck="name")
-		if tokens and not self.confirm_token_deletion(tokens):
-			return
-
-		for token in tokens:
-			frappe.delete_doc("Builder Token", token)
-		frappe.delete_doc("Builder Extension", name)
+		frappe.delete_doc(INSTALLATION_DOCTYPE, existing)
 		frappe.db.commit()
-		print(f"uninstalled {name}, and {len(tokens)} token(s) it wrote")
+		print(f"uninstalled {extension} for {self.user}")
+		self.report_what_stays(extension)
 
-	def confirm_token_deletion(self, tokens: list[str]) -> bool:
-		print(f"{len(tokens)} token(s) written by this extension are still in use:")
-		for token in tokens:
-			print(f"  {token}")
-		return input("delete them and uninstall? [y/N] ").strip().lower() == "y"
+	def report_what_stays(self, extension: str):
+		"""Names what the site keeps, so nobody hunts for it in the editor."""
+		tokens = frappe.db.count("Builder Token", {"extension": extension})
+		resources = frappe.db.count("Builder Extension Resource", {"extension": extension})
+		others = frappe.db.count(INSTALLATION_DOCTYPE, {"extension": extension})
 
-	def report(self, extension):
-		print(f"installed {extension.extension_name} at checksum {extension.checksum}")
-		print(f"  files  {extension.install_path}")
-		print(f"  entry  {extension.script_url}")
+		if tokens or resources:
+			print(f"  kept   {tokens} token(s) and {resources} resource(s) this extension made")
+		if others:
+			print(f"  note   {others} other user(s) still have it installed")
+
+	def report(self, installation):
+		print(f"installed {installation.extension} for {self.user} at checksum {installation.checksum}")
+		print(f"  files  {installation.install_path}")
 		print(f"  from   {self.package.source_directory.name}/")
 
 
@@ -180,10 +228,16 @@ def main():
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument("site", help="the site to install on, for example builder.localhost")
 	parser.add_argument("directory", help="the extension directory, which holds manifest.json")
+	parser.add_argument(
+		"--user",
+		default="Administrator",
+		help="who to install for, because an extension belongs to one user",
+	)
 	parser.add_argument("--uninstall", action="store_true", help="remove the extension instead")
 	arguments = parser.parse_args()
 
-	installer = ExtensionInstaller(arguments.site, ExtensionPackage(arguments.directory))
+	package = ExtensionPackage(arguments.directory)
+	installer = ExtensionInstaller(arguments.site, package, arguments.user)
 	installer.uninstall() if arguments.uninstall else installer.install()
 
 

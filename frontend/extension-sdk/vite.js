@@ -27,7 +27,7 @@ const DESCRIPTOR_PATH = "/__builder-extension";
 /** Vite's hot reload client. It resolves against the dev server, which serves the entry. */
 const HMR_CLIENT = "/@vite/client";
 
-/** The record derives one URL per install, and it ends in this name. */
+/** The one file an install holds, and the one the editor reads and posts. */
 const OUTPUT_ENTRY = "main.js";
 
 /** Runs in every frame, because every frame imports the entry. */
@@ -36,6 +36,44 @@ const STYLE_TAG = (css) =>
 
 /** One entry, so Rollup sees the whole graph and shared code lands in one chunk. */
 const ENTRY_CANDIDATES = ["src/main.ts", "src/main.js"];
+
+/**
+ * Refuses a build that emitted more than the entry, the manifest and the icon.
+ *
+ * A frame is handed the entry as code, not as a URL, so a relative import inside
+ * it resolves against nothing and an asset URL points nowhere. Failing here names
+ * the file. Failing in a frame prints nothing anywhere.
+ */
+const assertOneFile = (bundle, manifest) => {
+	const allowed = new Set([OUTPUT_ENTRY, MANIFEST, manifest.icon].filter(Boolean));
+	const extra = Object.keys(bundle).filter((name) => !allowed.has(name));
+	if (!extra.length) return;
+
+	throw new Error(
+		`[builder] an extension has to build to one file, and this build also emitted ${extra.join(", ")}. ` +
+			"Import it statically instead of with import(), or inline the asset.",
+	);
+};
+
+/**
+ * Moves the stylesheet into the entry.
+ *
+ * The frame shell is one static document that names no extension, so it can link
+ * no stylesheet of one. A built extension's CSS therefore has to carry itself, or
+ * every frame paints unstyled.
+ */
+const foldStylesheets = (bundle) => {
+	const sheets = Object.values(bundle).filter(
+		(file) => file.type === "asset" && file.fileName.endsWith(".css"),
+	);
+	if (!sheets.length) return;
+
+	const css = sheets.map((sheet) => sheet.source).join("\n");
+	sheets.forEach((sheet) => delete bundle[sheet.fileName]);
+
+	const entryChunk = Object.values(bundle).find((file) => file.type === "chunk" && file.isEntry);
+	entryChunk.code = `${STYLE_TAG(css)}\n${entryChunk.code}`;
+};
 
 const findEntry = (root) => {
 	const found = ENTRY_CANDIDATES.find((candidate) => fs.existsSync(path.join(root, candidate)));
@@ -95,9 +133,9 @@ export default function builderExtension({ builderUrl } = {}) {
 			entry = findEntry(root);
 			serving = env.command === "serve";
 			return {
-				// every asset is fetched relative to the module that names it, because
-				// an install lives under /builder_extension_asset/<name>@<version>/ and
-				// the default base would fetch a chunk's stylesheet from the site root
+				// nothing built should need this any more: every asset is inlined, and
+				// the bundle check below refuses one that escaped. It stays for the dev
+				// server, which serves modules by path rather than as one file
 				base: "./",
 				// the frame is a modern browser by definition: it runs module scripts
 				build: {
@@ -106,14 +144,20 @@ export default function builderExtension({ builderUrl } = {}) {
 					// also puts a stylesheet in the preload list of every lazy chunk, and
 					// the frame then asks for a file this plugin folded into the entry
 					cssCodeSplit: false,
+					// every image and font inside the entry too, for the same reason the
+					// CSS goes there: the frame is handed code, and can fetch nothing
+					assetsInlineLimit: Number.POSITIVE_INFINITY,
 					rollupOptions: {
 						input: entry,
 						// never bundled: the frame shell's import map resolves it to the
-						// one instance Builder serves, for the entry and every chunk
+						// one instance Builder serves. An import map belongs to the
+						// document, so it answers a Blob module as it answers any other
 						external: [SDK],
 						output: {
+							// one file. The editor reads the entry and posts the code to
+							// the frame, so a chunk has no URL left to be imported from
+							inlineDynamicImports: true,
 							entryFileNames: OUTPUT_ENTRY,
-							chunkFileNames: "[name]-[hash].js",
 							assetFileNames: "[name]-[hash][extname]",
 						},
 					},
@@ -187,12 +231,8 @@ export default function builderExtension({ builderUrl } = {}) {
 		},
 
 		/**
-		 * Emits the manifest, and moves the stylesheet into the entry.
-		 *
-		 * The frame shell is one static document that names no extension, so it can
-		 * link no stylesheet of one. A built extension's CSS therefore has to carry
-		 * itself, or every frame paints unstyled while the file sits in the install
-		 * directory unread.
+		 * Emits the manifest and the icon, folds the stylesheet into the entry, and
+		 * refuses a build that is more than one file.
 		 *
 		 * `order: "post"`, because Vite's own CSS plugin emits that file in this
 		 * same hook and this has to run after it.
@@ -203,23 +243,15 @@ export default function builderExtension({ builderUrl } = {}) {
 				const source = readManifest(root);
 				this.emitFile({ type: "asset", fileName: MANIFEST, source });
 
-				// the record derives its icon URL from the install root, so the file
+				// the installation reads its icon from the install root, so the file
 				// lands there under the name the manifest gave it
 				const manifest = JSON.parse(source);
 				if (manifest.icon) {
 					this.emitFile({ type: "asset", fileName: manifest.icon, source: readIcon(findIcon(manifest)) });
 				}
 
-				const sheets = Object.values(bundle).filter(
-					(file) => file.type === "asset" && file.fileName.endsWith(".css"),
-				);
-				if (!sheets.length) return;
-
-				const css = sheets.map((sheet) => sheet.source).join("\n");
-				sheets.forEach((sheet) => delete bundle[sheet.fileName]);
-
-				const entryChunk = Object.values(bundle).find((file) => file.type === "chunk" && file.isEntry);
-				entryChunk.code = `${STYLE_TAG(css)}\n${entryChunk.code}`;
+				foldStylesheets(bundle);
+				assertOneFile(bundle, manifest);
 			},
 		},
 	};

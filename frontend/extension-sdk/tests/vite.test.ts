@@ -69,14 +69,28 @@ describe("builderExtension", () => {
 		expect(configure(root).build.rollupOptions.external).toEqual(["frappe-builder-extension-sdk"]);
 	});
 
-	it("emits the entry under the one name the record's URL ends in", () => {
+	it("emits the entry under the one name an install holds", () => {
 		const root = project({ "src/main.js": "" });
 
-		const { output } = configure(root).build.rollupOptions;
-		expect(output.entryFileNames).toBe("main.js");
-		// a chunk is immutable under one install, so it carries a hash
-		expect(output.chunkFileNames).toBe("[name]-[hash].js");
+		expect(configure(root).build.rollupOptions.output.entryFileNames).toBe("main.js");
 	});
+
+	// the editor reads the entry and posts the code to a frame, so nothing built
+	// has a URL left to fetch a second file from
+	it("builds to one file", () => {
+		const root = project({ "src/main.js": "" });
+
+		const { build } = configure(root);
+		expect(build.rollupOptions.output.inlineDynamicImports).toBe(true);
+		expect(build.assetsInlineLimit).toBe(Number.POSITIVE_INFINITY);
+		expect(build.cssCodeSplit).toBe(false);
+	});
+
+	/** What Rollup puts in the bundle for one emitted script. */
+	const chunk = (isEntry = true) => ({ type: "chunk", isEntry, code: "export {};" });
+
+	/** And for one emitted file. Rollup always names an asset. */
+	const asset = (fileName: string, source = "") => ({ type: "asset", fileName, source });
 
 	it("copies the manifest into the build", () => {
 		const root = project({ "src/main.js": "", "manifest.json": '{"name":"acme/icons"}' });
@@ -132,6 +146,59 @@ describe("builderExtension", () => {
 		const plugin = configured(root, "build");
 
 		expect(() => plugin.generateBundle.handler.call({ emitFile: vi.fn() }, {}, {})).toThrow(/icon.svg/);
+	});
+
+	/**
+	 * A frame is handed the entry as code, not a URL, so a relative import inside
+	 * it resolves against nothing. The build has to say so, naming the file.
+	 */
+	it("refuses a build that emitted a second script", () => {
+		const root = project({ "src/main.js": "", "manifest.json": '{"name":"acme/icons"}' });
+		const plugin = configured(root, "build");
+		const bundle = { "main.js": chunk(), "lazy-a1b2.js": chunk(false) };
+
+		expect(() => plugin.generateBundle.handler.call({ emitFile: vi.fn() }, {}, bundle)).toThrow(
+			/lazy-a1b2\.js/,
+		);
+	});
+
+	it("refuses a build that emitted a separate asset", () => {
+		const root = project({ "src/main.js": "", "manifest.json": '{"name":"acme/icons"}' });
+		const plugin = configured(root, "build");
+		const bundle = { "main.js": chunk(), "logo-c3d4.png": asset("logo-c3d4.png") };
+
+		expect(() => plugin.generateBundle.handler.call({ emitFile: vi.fn() }, {}, bundle)).toThrow(
+			/logo-c3d4\.png/,
+		);
+	});
+
+	it("allows the entry, the manifest and the icon", () => {
+		const root = project({
+			"src/main.js": "",
+			"src/icon.svg": "<svg />",
+			"manifest.json": '{"name":"acme/icons","icon":"icon.svg"}',
+		});
+		const plugin = configured(root, "build");
+		const bundle = {
+			"main.js": chunk(),
+			"manifest.json": asset("manifest.json"),
+			"icon.svg": asset("icon.svg"),
+		};
+
+		expect(() => plugin.generateBundle.handler.call({ emitFile: vi.fn() }, {}, bundle)).not.toThrow();
+	});
+
+	// the stylesheet is folded in before the check, so CSS is never a second file
+	it("folds the stylesheet into the entry and allows the build", () => {
+		const root = project({ "src/main.js": "", "manifest.json": '{"name":"acme/icons"}' });
+		const plugin = configured(root, "build");
+		const entry = chunk();
+		const bundle = { "main.js": entry, "style-e5f6.css": asset("style-e5f6.css", "a{}") };
+
+		plugin.generateBundle.handler.call({ emitFile: vi.fn() }, {}, bundle);
+
+		expect(bundle["style-e5f6.css"]).toBeUndefined();
+		expect(entry.code).toContain("a{}");
 	});
 
 	it("answers a null-origin frame, which Vite does not do on its own", () => {
