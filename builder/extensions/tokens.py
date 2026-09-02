@@ -4,8 +4,7 @@
 """Design tokens an extension defines.
 
 A token styles every page the site publishes, so it belongs to the extension and
-to the site, not to the user who installed it. Two people running one extension
-share its tokens, and a user leaving takes none of them.
+the site. Two people running one extension share its tokens.
 """
 
 import frappe
@@ -69,7 +68,7 @@ def delete_extension_tokens(extension: str) -> None:
 	"""Every token this extension defined.
 
 	Only a development session calls this. A token an installed extension made
-	outlives the user who installed it, because it styles pages the site serves.
+	outlives its user, because it styles pages the site serves.
 	"""
 	for token in frappe.get_all(TOKEN_DOCTYPE, filters={"extension": extension}, pluck="name"):
 		frappe.delete_doc(TOKEN_DOCTYPE, token, ignore_permissions=True)

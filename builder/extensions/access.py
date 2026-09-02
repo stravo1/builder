@@ -3,20 +3,18 @@
 
 """The gate every protected extension method opens with.
 
-An extension acts as the user who installed it, and never as more than that.
-Four things have to hold before a call reaches site state, and this module holds
-all four in one place so no method can be written with one of them forgotten:
+An extension acts as the user who installed it, and never as more. Four checks
+run before a call reaches site data, and they live here together so no method can
+be written with one forgotten:
 
 1. Somebody is signed in.
 2. That person can use Builder.
-3. They have this extension installed and switched on.
+3. They installed this extension and left it on.
 4. Their installation grants the capability the method needs.
 
-Frappe's own permission is the fifth gate and the last one. Nothing here widens
-it, and no method in this package passes `ignore_permissions` to change site
-data.
-
-The user always comes from `frappe.session.user`. A caller cannot name one.
+Frappe's own permission runs last. Nothing here widens it, and no method in this
+package passes `ignore_permissions`. The user comes from `frappe.session.user`,
+and a caller cannot name one.
 """
 
 import frappe
@@ -39,12 +37,12 @@ def find_installation(extension: str) -> str | None:
 def assert_extension_access(
 	extension: str, capability: str | None = None, writes: str | None = None
 ) -> str:
-	"""Refuse unless this user may do this, and answer with their installation name.
+	"""Refuse unless this user may do this. Answers with their installation name.
 
-	`writes` names the doctype the caller is about to change, so the permission is
-	that doctype's own rule. For a token, that is the rule which already governs a
-	user retinting one by hand. The capability is a separate check, and neither
-	replaces the other.
+	`writes` names the doctype the caller is about to change, so Frappe applies
+	that doctype's own rule. For a token, that is the rule a user retinting one by
+	hand already meets. The capability is a separate check, and neither replaces
+	the other.
 	"""
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Sign in to use extensions."), frappe.PermissionError)
@@ -64,11 +62,11 @@ def assert_extension_access(
 
 
 def assert_capability(installation: str, extension: str, capability: str | None) -> None:
-	"""What the user allowed at install, checked on the side that does the writing.
+	"""What the user allowed at install, checked where the writing happens.
 
-	The browser bridge makes the same check before it sends the call. That one is
-	there to give an extension a clear error, not to protect anything: a frame
-	cannot reach these methods, but the editor page can.
+	The browser bridge checks this before it sends the call, to give an extension a
+	clear error. That check protects nothing: a frame cannot reach these methods,
+	but the editor page can.
 	"""
 	if not capability:
 		return
@@ -80,8 +78,8 @@ def assert_capability(installation: str, extension: str, capability: str | None)
 		)
 
 
-# Desk sees what the methods above already enforce. Registered in hooks.py, so a
-# report, a list view and a get_all all answer with one user's rows.
+# Desk sees what the methods above enforce. hooks.py registers these, so a list
+# view, a report and a get_all all answer with one user's rows.
 
 
 def is_system_manager(user: str) -> bool:

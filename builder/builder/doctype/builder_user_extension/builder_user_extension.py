@@ -47,9 +47,9 @@ class BuilderUserExtension(Document):
 	# end: auto-generated types
 
 	def autoname(self):
-		# a uuid, and (user, extension) is looked up by field, the way Builder
-		# Token looks up (extension, key). The name is also the install directory,
-		# so it must hold no separator a path could read
+		# a uuid, and (user, extension) is looked up by field, the way Builder Token
+		# looks up (extension, key). The name is also the install directory, so it
+		# must hold no separator
 		if not self.name:
 			self.name = str(uuid.uuid4())
 
@@ -77,11 +77,10 @@ class BuilderUserExtension(Document):
 
 	@property
 	def source(self) -> str:
-		"""The built entry, which the editor posts into a frame.
+		"""The built entry, which the editor reads and posts into a frame.
 
-		The frame runs at an opaque origin and sends no session, so no route can
-		check who is asking. The editor reads this instead, under its own session,
-		and hands the frame the code.
+		A frame sends no session, so no route can check who is asking. The editor
+		reads it under its own session instead.
 		"""
 		entry = Path(self.install_path) / ENTRY_FILE
 		if not entry.is_file():
@@ -98,10 +97,9 @@ class BuilderUserExtension(Document):
 
 	@property
 	def icon_data_uri(self) -> str | None:
-		"""None when the package ships no icon, and the editor then draws its own glyph.
+		"""None when the package ships no icon. The editor draws its own glyph then.
 
-		A data URI rather than a URL, because the editor reads it with the list and
-		no public route serves one user's files.
+		A data URI, not a URL, because no public route serves one user's files.
 		"""
 		if not self.icon:
 			return None
@@ -121,8 +119,8 @@ class BuilderUserExtension(Document):
 			frappe.throw(_("Icon must name one SVG file in the install root, such as icon.svg."))
 
 	def validate_capabilities(self):
-		# parse_json raises on text that is not JSON at all, which would reach the
-		# user as a traceback instead of the message below
+		# parse_json raises on text that is not JSON, which would reach the user as a
+		# traceback instead of the message below
 		try:
 			granted = self.capabilities
 		except ValueError:
@@ -140,16 +138,15 @@ class BuilderUserExtension(Document):
 		shutil.rmtree(self.install_path, ignore_errors=True)
 
 	def delete_extension_state(self):
-		"""A state row is a Link to this record, so Frappe refuses the delete while one stands."""
+		"""A state row Links to this record, so Frappe refuses the delete while one stands."""
 		for state in frappe.get_all(STATE_DOCTYPE, filters={"installation": self.name}, pluck="name"):
 			frappe.delete_doc(STATE_DOCTYPE, state, ignore_permissions=True)
 
 	def delete_extension_grants(self):
 		"""What this user allowed, and nobody else's answer.
 
-		Nothing the extension made goes with it. A doctype holds the site's data,
-		a token styles every page, and a client script runs for every visitor, so
-		all three outlive one user leaving.
+		Nothing the extension made goes with it. A doctype, a token and a client
+		script all serve the site, so all three outlive one user leaving.
 		"""
 		grants = frappe.get_all(
 			GRANT_DOCTYPE, filters={"user": self.user, "extension": self.extension}, pluck="name"
@@ -162,6 +159,6 @@ def on_doctype_update():
 	"""One installation per user per extension.
 
 	`find_installation` looks the pair up by field, so a second row would make it
-	answer with whichever the database returned first.
+	answer with whichever came back first.
 	"""
 	frappe.db.add_unique("Builder User Extension", ["user", "extension"], constraint_name="unique_user_extension")

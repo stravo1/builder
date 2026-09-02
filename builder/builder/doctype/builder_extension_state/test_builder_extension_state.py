@@ -19,8 +19,8 @@ EXTENSION = "acme/remembers"
 class TestExtensionState(FrappeTestCase):
 	"""One user's drawer for one extension.
 
-	It lived in `localStorage` under the extension's name, and `localStorage` is
-	per browser, so two people sharing a machine shared every extension's state.
+	It lived in `localStorage`, which is per browser, so two people sharing a
+	machine shared every extension's state.
 	"""
 
 	def setUp(self):

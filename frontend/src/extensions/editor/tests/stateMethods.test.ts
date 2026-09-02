@@ -1,10 +1,9 @@
 /**
  * @vitest-environment jsdom
  *
- * Two stores, one API. An installation keeps its state on the site, so what is
- * under test there is the call it makes. A development extension keeps its state
- * in the browser, so what is under test there is the merge rule, the key scoping
- * and every refusal.
+ * Two stores, one API. An installation keeps its state on the site, so the test
+ * is the call it makes. A development extension keeps its state in the browser,
+ * so the test is the merge rule, the key scoping and every refusal.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -110,8 +109,8 @@ describe("an installation", () => {
 describe("a development extension", () => {
 	const dev = () => record(DEV);
 
-	// its installation is deleted on every pagehide, so a row on the site would
-	// not survive the reload an author needs to test their own state
+	// its installation goes on every pagehide, so a row on the site would not
+	// survive the reload an author needs to test their own state
 	it("keeps its store in this browser", () => {
 		set({ query: "icon" }, dev());
 

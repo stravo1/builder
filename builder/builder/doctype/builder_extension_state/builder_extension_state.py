@@ -33,10 +33,10 @@ UNIQUE_INDEX = "unique_installation_key"
 
 
 def on_doctype_update():
-	"""One row per key. `set_state` upserts by the pair, so a second row would hide one.
+	"""One row per key. `set_state` upserts by the pair, so a second would hide one.
 
-	Written by hand rather than through `frappe.db.add_unique`, which does not
-	quote a field name. `key` is a reserved word in MariaDB.
+	Written by hand, because `frappe.db.add_unique` quotes no field name and `key`
+	is reserved in MariaDB.
 	"""
 	if frappe.db.has_index(TABLE, UNIQUE_INDEX):
 		return

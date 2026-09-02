@@ -43,9 +43,9 @@ const ASSET_INLINE_LIMIT = 64 * 1024;
 /**
  * Refuses a build that emitted more than the entry, the manifest and the icon.
  *
- * A frame is handed the entry as code, not as a URL, so a relative import inside
- * it resolves against nothing and an asset URL points nowhere. Failing here names
- * the file. Failing in a frame prints nothing anywhere.
+ * A frame gets the entry as code, not a URL, so a relative import resolves
+ * against nothing and an asset URL points nowhere. Failing here names the file.
+ * Failing in a frame prints nothing anywhere.
  */
 const assertOneFile = (bundle, manifest) => {
 	const allowed = new Set([OUTPUT_ENTRY, MANIFEST, manifest.icon].filter(Boolean));
@@ -137,9 +137,9 @@ export default function builderExtension({ builderUrl } = {}) {
 			entry = findEntry(root);
 			serving = env.command === "serve";
 			return {
-				// nothing built should need this any more: every asset is inlined, and
-				// the bundle check below refuses one that escaped. It stays for the dev
-				// server, which serves modules by path rather than as one file
+				// nothing built needs this now: a small asset is inlined, and the check
+				// below refuses a big one. It stays for the dev server, which serves
+				// modules by path rather than as one file
 				base: "./",
 				// the frame is a modern browser by definition: it runs module scripts
 				build: {
@@ -148,25 +148,23 @@ export default function builderExtension({ builderUrl } = {}) {
 					// also puts a stylesheet in the preload list of every lazy chunk, and
 					// the frame then asks for a file this plugin folded into the entry
 					cssCodeSplit: false,
-					// a small asset goes inside the entry too, for the same reason the CSS
-					// does: the frame is handed code and can fetch nothing.
+					// a small asset goes inside the entry too, for the reason the CSS does:
+					// the frame gets code and can fetch nothing.
 					//
-					// A big one is refused instead of inlined. Vite embeds an inlined
-					// asset once per reference, and a variable font named by six
-					// @font-face rules lands six times, as base64 that will not compress.
-					// Measured: it took one sample extension from 1.6 MB to 5.6 MB. An
-					// extension frame also runs inside Builder, which loads its own fonts
-					// already.
+					// A big one is refused instead. Vite embeds an inlined asset once per
+					// reference, so a font named by six @font-face rules lands six times,
+					// as base64 that will not compress. Measured: 1.6 MB to 5.6 MB on one
+					// sample. A frame also runs inside Builder, which loads its own fonts.
 					assetsInlineLimit: ASSET_INLINE_LIMIT,
 					rollupOptions: {
 						input: entry,
-						// never bundled: the frame shell's import map resolves it to the
-						// one instance Builder serves. An import map belongs to the
-						// document, so it answers a Blob module as it answers any other
+						// never bundled: the frame shell's import map resolves it to the one
+						// instance Builder serves. An import map belongs to the document, so
+						// it answers a Blob module the way it answers any other
 						external: [SDK],
 						output: {
 							// one file. The editor reads the entry and posts the code to
-							// the frame, so a chunk has no URL left to be imported from
+							// the frame, so a chunk has no URL left to import from
 							inlineDynamicImports: true,
 							entryFileNames: OUTPUT_ENTRY,
 							assetFileNames: "[name]-[hash][extname]",

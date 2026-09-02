@@ -3,17 +3,16 @@
 
 """Turn one site-wide extension record into one installation per user.
 
-The old record held the identity, the files, the on/off switch and the
-capabilities for everybody. This gives them to the user who installed the
-extension, and gives that user their own copy of the files.
+The old record held the identity, the files, the switch and the capabilities for
+everybody. They go to the user who installed the extension, with their own copy
+of the files.
 
-Nobody else gets an installation. A site grant recorded one person's answer, and
-handing it to every user would grant access nobody agreed to. Every user is asked
-again the first time an extension wants a doctype.
+Nobody else gets an installation, and every grant goes. A site grant recorded one
+person's answer, and giving it to every user would grant access nobody agreed to.
+Every user is asked again the first time an extension wants a doctype.
 
 What the extension made stays. A doctype, a token and a client script all outlive
-this change, and their rows are rewritten to name the extension rather than the
-record that is going away.
+this change, under rows that now name the extension.
 """
 
 import json
@@ -29,7 +28,7 @@ DEV_VERSION = "0.0.0-dev"
 
 # What a single-file build leaves behind. Anything else means the extension was
 # split into chunks, which no frame can import now that the code travels in the
-# handshake rather than over a URL.
+# handshake.
 EXPECTED_FILES = {"main.js", "manifest.json"}
 
 
@@ -110,11 +109,11 @@ def is_single_file(install: Path, icon: str | None) -> bool:
 
 
 def disable_split_install(old: frappe._dict, installation) -> None:
-	"""A split build cannot run any more, so it is turned off rather than left to fail.
+	"""A split build cannot run, so it is turned off rather than left to fail.
 
 	Chunks used to load from an asset route by URL. The entry now travels in the
-	connect handshake, so a relative import inside it resolves against nothing.
-	Rebuild the extension with the current SDK and install it again.
+	handshake, so a relative import inside it resolves against nothing. Rebuild
+	with the current SDK and install again.
 	"""
 	frappe.db.set_value(INSTALLATION_DOCTYPE, installation.name, "enabled", 0)
 	frappe.log_error(

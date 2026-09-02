@@ -41,18 +41,13 @@ const applyTheme = (theme: unknown) => document.documentElement.setAttribute("da
 /**
  * Runs the extension, from wherever the host said its code is.
  *
- * An installed extension arrives as source. No route can serve one user's copy:
- * this frame runs at an opaque origin and sends no cookie, so the host reads the
- * file under its own session and posts the code. A Blob URL is how a string
- * becomes a module.
+ * Installed code arrives as source, because a frame sends no cookie and no route
+ * can serve one user's copy. A Blob URL makes it a module, and the document's
+ * import map still resolves the SDK inside it: a map belongs to the document, not
+ * to the URL a module came from.
  *
- * A bare specifier still resolves. An import map belongs to the document, not to
- * the URL a module came from, so `frappe-builder-extension-sdk` inside a Blob
- * still reaches the one SDK instance this module is part of.
- *
- * A development extension keeps its URL. A dev server serves unbundled modules
- * that import each other by relative path, and a Blob has no path for those to
- * resolve against.
+ * A dev extension keeps its URL. A dev server serves unbundled modules that
+ * import each other by relative path, and a Blob gives them no path.
  */
 const runEntry = async (message: ConnectMessage) => {
 	if (message.source === undefined) {

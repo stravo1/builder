@@ -10,12 +10,9 @@ const extensionsResource = createResource({
 });
 
 /**
- * Every extension this user runs: their own installations, plus the one loaded
- * from a dev server this session.
- *
- * A dev extension replaces the installation of the same name, because developing
- * an extension that is also installed is the ordinary case. Two entries under one
- * name would give it two entry frames and one dispatcher.
+ * Every extension this user runs: their installations, plus the one loaded from a
+ * dev server this session. A dev extension replaces the installation of the same
+ * name, because two entries would give it two frames.
  */
 export const installedExtensions = computed<InstalledExtension[]>(() => {
 	const installed: InstalledExtension[] = extensionsResource.data ?? [];
@@ -30,14 +27,10 @@ export const loadExtensions = () => extensionsResource.fetch();
 /**
  * The built entry of one installation, which a frame runs from a Blob.
  *
- * The editor reads it, not the frame. A frame runs at an opaque origin and sends
- * no session, so no route can tell one user's request for their own copy from
- * anyone else's.
- *
- * Fetched once and shared by the five frames that may mount one extension. The
- * checksum joins the key, so a rebuild is fetched again rather than answered from
- * the copy the editor already holds. A failed fetch is dropped, so a reload of
- * the frame asks again instead of replaying the error forever.
+ * The editor reads it, not the frame, because a frame sends no session. Fetched
+ * once and shared by the five frames that mount one extension. The checksum joins
+ * the key, so a rebuild is fetched again. A failed fetch is dropped, so a
+ * reloaded frame asks rather than replaying the error.
  */
 const sources = new Map<string, Promise<string>>();
 

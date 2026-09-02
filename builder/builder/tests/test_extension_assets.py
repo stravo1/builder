@@ -15,9 +15,8 @@ class TestExtensionAsset(FrappeTestCase):
 	"""The route serves the SDK, and nothing else.
 
 	An extension's own code never travels by URL now. Every user has their own
-	copy, and a frame runs at an opaque origin and sends no session, so a route
-	could not tell whose copy a request was asking for. The editor reads the file
-	and posts the code instead.
+	copy, and a frame sends no session, so a route could not tell whose copy a
+	request wanted. The editor reads the file and posts the code instead.
 	"""
 
 	def asset(self, path):
@@ -57,7 +56,7 @@ class TestExtensionAsset(FrappeTestCase):
 		self.assertFalse(self.asset("/builder_extension_asset/sdk/nothing.js").can_render())
 
 	def test_no_folder_but_the_sdk_is_served(self):
-		"""What used to serve an install. One user's files have no URL any more."""
+		"""What used to serve an install. One user's files have no URL now."""
 		self.assertFalse(self.asset("/builder_extension_asset/acme-icons@1.0.0/main.js").can_render())
 
 	def test_another_route_is_not_claimed(self):

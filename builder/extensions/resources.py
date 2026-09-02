@@ -1,18 +1,14 @@
 # Copyright (c) 2026, Frappe Technologies Pvt Ltd and contributors
 # For license information, please see license.txt
 
-"""What an extension made, so no caller has to guess ownership from a name.
+"""What an extension made, so no caller guesses ownership from a name.
 
-These rows name the extension, not one user's installation of it. That is what
-makes them survive a user leaving: a doctype holds the site's data, a token
-styles every page, and a client script runs for every visitor, so none of the
-three belongs to one person.
+These rows name the extension, not one user's installation. That is what makes
+them survive a user leaving: a doctype holds the site's data, a token styles
+every page, and a client script runs for every visitor.
 
-It also means a later installation of the same extension owns what an earlier one
-made. An extension can edit the doctype it created, whoever installed it.
-
-Every resource kind shares these four helpers, which is why they live here rather
-than beside the first kind that needed them.
+It also means a later installation owns what an earlier one made. An extension
+can edit the doctype it created, whoever installed it.
 """
 
 import frappe

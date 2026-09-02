@@ -4,8 +4,8 @@
 """What every extension test needs: one user's installation, and its files.
 
 An extension used to be one site record, so a test could make one in three lines.
-It is now a record per user, with that user's own copy of the entry, so the setup
-lives here rather than in each of the seven files that need it.
+It is now a record per user with its own copy of the entry, so the setup lives
+here rather than in each of the seven files that need it.
 """
 
 import json
@@ -21,10 +21,10 @@ INSTALLATION_DOCTYPE = "Builder User Extension"
 
 
 def make_installation(extension="acme/listed", user=None, capabilities=None, source=None, **values):
-	"""This user's installation of one extension, and its files when a source is given.
+	"""This user's installation of one extension, with files when a source is given.
 
-	Grants every capability by default, so a test that is not about the gate does
-	not have to list them. A test that checks a refusal names the shorter list.
+	Grants every capability by default, so a test that is not about the gate lists
+	none. A test that checks a refusal names fewer.
 	"""
 	user = user or frappe.session.user
 	granted = list(CAPABILITIES) if capabilities is None else list(capabilities)
@@ -75,9 +75,9 @@ def drop_installations(extension: str):
 def remove_orphan_installs():
 	"""Install directories with no record left.
 
-	A test rolls the database back, so a record made by `make_installation` goes
-	without `on_trash` ever running, and its files would stay on the site. Removing
-	what no record names keeps a run from leaving anything behind.
+	A test rolls the database back, so `on_trash` never runs and the files would
+	stay on the site. Removing what no record names keeps a run from leaving
+	anything behind.
 	"""
 	root = pathlib.Path(get_files_path(EXTENSIONS_FOLDER, is_private=True))
 	if not root.is_dir():
@@ -90,11 +90,10 @@ def remove_orphan_installs():
 
 
 def make_user(email="extension-tester@example.com", roles=("Website Manager",)):
-	"""A second Builder user, so a test can show that an installation is one person's.
+	"""A second Builder user, to show that an installation is one person's.
 
-	Website Manager is what gives read on Builder Page, which is the check the
-	extension gate makes before it looks for an installation. Pass no roles for a
-	user the gate has to turn away.
+	Website Manager gives read on Builder Page, the check the gate makes before it
+	looks for an installation. Pass no roles for a user the gate turns away.
 	"""
 	if not frappe.db.exists("User", email):
 		frappe.get_doc(

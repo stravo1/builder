@@ -3,19 +3,15 @@
 
 """Storage an extension owns outright (1.12).
 
-No capability gates any of this, because none of it touches Builder's state. The
-extension's own drawer is not a write to the page, so a read-only page does not
-close it.
+No capability gates this. The extension's own drawer is not a write to the page,
+so a read-only page does not close it.
 
-It lives on the site rather than in the browser for two reasons. A sandboxed
-frame has no storage of its own, and the host used to keep it in `localStorage`
-under the extension's name. That store is per browser, so two people sharing a
-machine shared every extension's state. Here it follows the user instead, between
-machines and between browsers.
+One row per key, on the site. The store used to be `localStorage`, which is per
+browser, so two people sharing a machine shared every extension's state. Here it
+follows the user between machines.
 
-A development extension still uses the browser store. Its installation is deleted
-on every `pagehide`, so a row here would not survive the reload an author needs to
-test.
+A development extension still uses the browser. Its installation goes on every
+`pagehide`, so a row here would not survive the reload an author needs.
 """
 
 import json
@@ -40,13 +36,9 @@ def get_state(extension: str) -> dict:
 def set_state(extension: str, state: dict) -> None:
 	"""A patch, merged at the top level.
 
-	`set` never removes what a call leaves unmentioned, which is the rule
-	`set_extension_tokens` follows too (D6). An extension has up to five frames
-	and any of them may write. Merging is what stops a panel saving its query from
-	erasing what the entry frame stored.
-
-	One row per key, so two frames writing different keys cannot lose each other's
-	write.
+	`set` never removes what a call leaves unmentioned (D6). An extension has up to
+	five frames, and merging stops a panel saving its query from erasing what the
+	entry stored. One row per key, so two writing different keys never race.
 	"""
 	installation = assert_extension_access(extension)
 	patch = read_patch(state)
@@ -73,8 +65,8 @@ def unset_state(extension: str, key: str) -> None:
 def read_rows(installation: str) -> dict:
 	"""Every stored key, by key.
 
-	One query rather than one per key. A store is capped well under a megabyte, so
-	reading it whole costs less than the round trips would.
+	One query, not one per key. A store is capped under a megabyte, so reading it
+	whole costs less than the round trips.
 	"""
 	rows = frappe.get_all(
 		STATE_DOCTYPE, filters={"installation": installation}, fields=["name", "key", "value"]
@@ -90,10 +82,9 @@ def read_patch(state) -> dict:
 
 
 def assert_room_for(extension: str, rows: dict, patch: dict) -> None:
-	"""The cap is on the whole store, not on one key.
+	"""The cap is on the whole store, not one key.
 
-	A per-key cap would let an extension write a thousand small keys and use a
-	hundred times what one user's drawer is meant to hold.
+	A per-key cap would let an extension write a thousand small keys.
 	"""
 	kept = sum(len(row.value or "") for key, row in rows.items() if key not in patch)
 	incoming = sum(len(json.dumps(value)) for value in patch.values())

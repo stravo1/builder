@@ -327,7 +327,7 @@ class TestDevExtension(FrappeTestCase):
 		self.assertFalse(frappe.db.exists("Builder Token", {"extension": self.extension}))
 
 	def test_leaves_a_real_installation_alone(self):
-		"""The name may belong to an extension the user really has installed."""
+		"""The name may belong to an extension the user really installed."""
 		make_installation(self.extension, version="1.4.0")
 
 		remove_dev_extension(self.extension)

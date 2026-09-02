@@ -43,7 +43,7 @@ class TestAssertExtensionAccess(FrappeTestCase):
 			assert_extension_access(EXTENSION)
 
 	def test_refuses_a_user_who_cannot_read_a_builder_page(self):
-		"""Builder access is the second gate, before any installation is looked for."""
+		"""Builder access is the second gate, checked before any installation."""
 		outsider = make_user("extension-outsider@example.com", roles=())
 		make_installation(EXTENSION, user=outsider)
 		frappe.set_user(outsider)

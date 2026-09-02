@@ -4,13 +4,13 @@
 """The one SDK build every extension frame shares.
 
 Nothing else is served here. An extension's own code reaches its frame through
-the connect handshake, because the frame runs at an opaque origin and sends no
-session, so no route can tell one user's request from another's.
+the connect handshake, because a frame sends no session and no route could tell
+one user's request from another's.
 
 The frame still needs this file over HTTP: its import map resolves the bare
 `frappe-builder-extension-sdk` specifier to this URL, and a module script at an
-opaque origin is a cross-origin request. The web server serves the app's public
-directory without a CORS header, so Builder answers this one itself.
+opaque origin is a cross-origin request. The web server sends no CORS header for
+the app's public directory, so Builder answers this one itself.
 """
 
 import mimetypes
@@ -24,8 +24,8 @@ from werkzeug.wsgi import wrap_file
 ROUTE_PREFIX = "builder_extension_asset"
 SDK_FOLDER = "sdk"
 
-# The name never changes, so the file cannot be immutable. It revalidates
-# instead, and an unchanged build answers 304.
+# The name never changes, so the file cannot be immutable. It revalidates, and an
+# unchanged build answers 304.
 CACHE_CONTROL = "public, no-cache"
 
 # a module script is MIME-strict: the wrong type stops the browser running it,

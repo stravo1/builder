@@ -64,14 +64,11 @@ const installed = (): InstalledExtension => {
 /**
  * Where this frame gets the extension's code.
  *
- * A development extension names a URL its dev server serves, and the frame
- * imports that: a dev server ships unbundled modules that import each other by
- * relative path, and only a real URL resolves those.
+ * A dev extension names a URL its dev server serves: those modules import each
+ * other by relative path, and only a real URL resolves them.
  *
- * An installation has no URL. Every user has their own copy, and a frame runs at
- * an opaque origin and sends no session, so no route can tell whose request it is
- * answering. The editor reads the file under its own session instead, and the
- * frame runs the string from a Blob.
+ * An installation has no URL. Every user has their own copy, and a frame sends no
+ * session, so no route could tell whose copy it was answering with.
  */
 const code = async (): Promise<{ entry: string } | { source: string }> => {
 	const extension = installed();

@@ -1,19 +1,12 @@
 /**
- * Storage an extension owns outright (1.12).
+ * Storage an extension owns outright (1.12). No capability gates it: the drawer
+ * is not a write to the page, so a read-only page does not close it.
  *
- * No capability gates any of this, because none of it touches Builder's state.
- * That also means `state.set` is not a write capability, so the read-only
- * refusal does not reach it: a read-only page is about the page, and this is the
- * extension's own drawer.
+ * One row per key, on the site. It used to be `localStorage`, which is per
+ * browser, so two people sharing a machine shared every extension's state.
  *
- * An installation keeps its store on the site, one row per key. It used to live
- * in `localStorage` under the extension's name, and `localStorage` is per
- * browser, so two people sharing a machine shared every extension's state. On the
- * site it belongs to one user and follows them between machines.
- *
- * A development extension still uses the browser. Its installation is deleted on
- * every `pagehide`, so a row on the site would not survive the reload an author
- * needs to test that their own state persists.
+ * A dev extension still uses the browser: its installation goes on every
+ * `pagehide`, so a site row would not survive the reload an author needs.
  */
 
 import { isDevExtension } from "@/extensions/devExtension";
@@ -37,9 +30,8 @@ const invoke = (method: string, params: Record<string, unknown>) =>
 		});
 
 /**
- * Generous for settings and a cached list, small enough that no extension can
- * fill the origin the editor shares with it. The server holds the same ceiling
- * for an installation.
+ * Room for settings and a cached list, small enough that no extension fills the
+ * origin the editor shares with it. The server holds the same ceiling.
  */
 const MAX_BYTES = 100_000;
 
@@ -47,11 +39,9 @@ const MAX_BYTES = 100_000;
 const keyFor = (extension: InstalledExtension) => `builder-extension:${extension.name}`;
 
 /**
- * A store that will not parse is treated as absent.
- *
- * This is the one place a broad fallback is right: the value is the extension's
- * own, nothing else reads it, and the alternative is an extension that can never
- * write again because of one bad entry it cannot see or clear.
+ * A store that will not parse is treated as absent. A broad fallback is right
+ * here. The value is the extension's own, and one bad entry would otherwise stop
+ * the extension writing ever again.
  */
 const readLocal = (extension: InstalledExtension): Store => {
 	const stored = localStorage.getItem(keyFor(extension));
@@ -86,11 +76,9 @@ const get = (_params: unknown, extension: InstalledExtension) =>
 
 /**
  * A patch, merged at the top level. `set` never removes what a call leaves
- * unmentioned, which is the rule `tokens.set` follows too (D6).
- *
- * An extension has up to five frames and any of them may write. Merging is what
- * stops a panel saving its query from erasing what the entry frame stored. The
- * server keeps one row per key, so two frames writing different keys never race.
+ * unmentioned (D6). An extension has up to five frames, and merging stops a panel
+ * saving its query from erasing what the entry stored. The server keeps one row
+ * per key, so two writing different keys never race.
  */
 const set = (params: unknown, extension: InstalledExtension) => {
 	const patch = fields(params).state;

@@ -3,10 +3,9 @@
 
 """What the editor loads, and how an extension's code reaches a frame.
 
-An extension frame runs at an opaque origin. It sends no cookie, so no route can
-tell who is asking for a file, and one user's copy cannot be served safely by
-URL. The editor reads the built entry here instead, under its own session, and
-posts the code into the frame it mounts.
+A frame sends no cookie, so no route can tell who is asking and one user's copy
+cannot be served safely by URL. The editor reads the entry here under its own
+session and posts the code into the frame it mounts.
 """
 
 import json
@@ -22,11 +21,10 @@ from builder.utils import has_page_read
 @frappe.whitelist()
 @has_page_read("You do not have permission to load extensions.")
 def get_enabled_extensions() -> list[dict]:
-	"""This user's enabled extensions, in the shape the editor host mounts a frame from.
+	"""This user's enabled extensions, shaped the way the editor mounts a frame.
 
 	A development installation is left out. It has no files, and the browser adds
-	its own entry for it from the dev server, so listing it here would give one
-	extension two entries and two entry frames.
+	its own entry for it, so listing it here would give one extension two frames.
 	"""
 	installations = frappe.get_all(
 		INSTALLATION_DOCTYPE,
@@ -43,13 +41,11 @@ def get_enabled_extensions() -> list[dict]:
 def describe_extension(installation: str) -> dict:
 	"""Reads the whole document, because the icon is derived, not stored.
 
-	The icon travels as a data URI. Building a URL for it would need a route that
-	serves one user's private files to an anonymous request, which is the thing
-	this design does not do.
+	The icon travels as a data URI. A URL would need a route that serves one user's
+	private files to an anonymous request, which this design refuses.
 
-	The source is not here. It is one call per extension, made once and shared by
-	the five frames that mount it, so a list of five extensions does not carry
-	five bundles.
+	The source takes its own call, made once and shared by the five frames that
+	mount it, so a list of five does not carry five bundles.
 	"""
 	extension = frappe.get_cached_doc(INSTALLATION_DOCTYPE, installation)
 	return {
@@ -71,17 +67,15 @@ def get_extension_source(extension: str) -> str:
 
 @frappe.whitelist(methods=["POST"])
 def install_dev_extension(extension: str) -> str:
-	"""Give an extension served from a dev server an installation for this session.
+	"""Give a dev-server extension an installation for this session.
 
-	The gate needs no bypass this way: a development extension passes it the same
-	way an installed one does.
+	The gate then needs no bypass: a development extension passes it the way an
+	installed one does.
 
-	An extension the user already has installed keeps that installation. Building
-	an extension you also run is the ordinary case, and a second record under one
-	name is not something the unique key allows or the user wants.
+	An extension the user already installed keeps that installation. Building one
+	you also run is the ordinary case, and the unique key allows no second record.
 
-	The capabilities come from the constant, never from the caller. The dev server
-	declares what it asks for, and the browser bridge narrows to that list.
+	The capabilities come from the constant, never from the caller.
 	"""
 	assert_developer_mode()
 	frappe.has_permission("Builder Page", ptype="read", throw=True)
@@ -106,10 +100,10 @@ def install_dev_extension(extension: str) -> str:
 
 @frappe.whitelist(methods=["POST"])
 def remove_dev_extension(extension: str) -> None:
-	"""Remove a development installation and the tokens that only exist for its session.
+	"""Remove a development installation and the tokens of its session.
 
 	Quiet about an installation this method did not make. The name may belong to
-	an extension the user really has installed, and the dev session borrowed it.
+	an extension the user really installed.
 	"""
 	assert_developer_mode()
 
