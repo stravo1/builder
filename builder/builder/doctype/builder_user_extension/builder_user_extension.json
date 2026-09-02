@@ -12,8 +12,10 @@
   "label",
   "description",
   "icon",
+  "readme",
   "version",
   "checksum",
+  "requested_capabilities",
   "granted_capabilities",
   "installed_on"
  ],
@@ -75,6 +77,12 @@
    "label": "Icon"
   },
   {
+   "description": "The extension's own README, as Markdown. Builder Hub sends it, or the installer reads it from the author's folder.",
+   "fieldname": "readme",
+   "fieldtype": "Long Text",
+   "label": "Readme"
+  },
+  {
    "description": "The release this user runs. Another user can run another one.",
    "fieldname": "version",
    "fieldtype": "Data",
@@ -87,6 +95,13 @@
    "fieldname": "checksum",
    "fieldtype": "Data",
    "label": "Checksum",
+   "read_only": 1
+  },
+  {
+   "description": "JSON list of capability keys the manifest asked for. A grant cannot reach outside this list.",
+   "fieldname": "requested_capabilities",
+   "fieldtype": "Small Text",
+   "label": "Requested Capabilities",
    "read_only": 1
   },
   {
@@ -105,7 +120,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-02 19:30:00.000000",
+ "modified": "2026-09-02 21:00:00.000000",
  "modified_by": "Administrator",
  "module": "Builder",
  "name": "Builder User Extension",

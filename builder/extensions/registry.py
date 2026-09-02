@@ -13,7 +13,11 @@ import json
 import frappe
 from frappe import _
 
-from builder.extensions.access import INSTALLATION_DOCTYPE, assert_extension_access
+from builder.extensions.access import (
+	INSTALLATION_DOCTYPE,
+	assert_extension_access,
+	find_own_installation,
+)
 from builder.extensions.constants import CAPABILITIES, DEV_EXTENSION_VERSION
 from builder.utils import has_page_read
 
@@ -91,6 +95,7 @@ def install_dev_extension(extension: str) -> str:
 			"extension": extension,
 			"label": extension,
 			"version": DEV_EXTENSION_VERSION,
+			"requested_capabilities": json.dumps(list(CAPABILITIES)),
 			"granted_capabilities": json.dumps(list(CAPABILITIES)),
 			"enabled": 1,
 		}
@@ -119,13 +124,6 @@ def remove_dev_extension(extension: str) -> None:
 
 	delete_extension_tokens(extension)
 	document.delete()
-
-
-def find_own_installation(extension: str) -> str | None:
-	"""This user's installation, enabled or not. The gate wants only the enabled one."""
-	return frappe.db.get_value(
-		INSTALLATION_DOCTYPE, {"user": frappe.session.user, "extension": extension}, "name"
-	)
 
 
 def assert_developer_mode() -> None:

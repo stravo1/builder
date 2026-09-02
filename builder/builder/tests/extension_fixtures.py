@@ -20,19 +20,24 @@ from builder.extensions.constants import CAPABILITIES, ENTRY_FILE, EXTENSIONS_FO
 INSTALLATION_DOCTYPE = "Builder User Extension"
 
 
-def make_installation(extension="acme/listed", user=None, capabilities=None, source=None, **values):
+def make_installation(
+	extension="acme/listed", user=None, capabilities=None, granted=None, source=None, **values
+):
 	"""This user's installation of one extension, with files when a source is given.
 
-	Grants every capability by default, so a test that is not about the gate lists
-	none. A test that checks a refusal names fewer.
+	`capabilities` is what the manifest asked for, and every one of them is granted
+	unless `granted` narrows it. Both default to every capability, so a test that is
+	not about the gate lists none.
 	"""
 	user = user or frappe.session.user
-	granted = list(CAPABILITIES) if capabilities is None else list(capabilities)
+	requested = list(CAPABILITIES) if capabilities is None else list(capabilities)
+	allowed = requested if granted is None else list(granted)
 	fields = {
 		"label": extension,
 		"version": "1.0.0",
 		"checksum": "sum123",
-		"granted_capabilities": json.dumps(granted),
+		"requested_capabilities": json.dumps(requested),
+		"granted_capabilities": json.dumps(allowed),
 		"enabled": 1,
 		**values,
 	}

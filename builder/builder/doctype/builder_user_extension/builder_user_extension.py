@@ -17,6 +17,7 @@ from builder.extensions.constants import (
 	EXTENSION_NAME_PATTERN,
 	EXTENSIONS_FOLDER,
 	ICON_PATTERN,
+	MAX_README_BYTES,
 	MAX_SOURCE_BYTES,
 	VERSION_PATTERN,
 )
@@ -42,6 +43,8 @@ class BuilderUserExtension(Document):
 		icon: DF.Data | None
 		installed_on: DF.Datetime | None
 		label: DF.Data | None
+		readme: DF.LongText | None
+		requested_capabilities: DF.SmallText | None
 		source_url: DF.Data | None
 		user: DF.Link
 		version: DF.Data
@@ -64,6 +67,7 @@ class BuilderUserExtension(Document):
 		self.validate_identity()
 		self.validate_icon()
 		self.validate_capabilities()
+		self.validate_readme()
 
 	def on_trash(self):
 		self.delete_extension_state()
@@ -77,7 +81,13 @@ class BuilderUserExtension(Document):
 
 	@property
 	def capabilities(self) -> list[str]:
-		return frappe.parse_json(self.granted_capabilities or "[]")
+		"""What this user allowed. Every gate reads this list and no other."""
+		return self.capability_list("granted_capabilities")
+
+	@property
+	def requested(self) -> list[str]:
+		"""What the manifest asked for. A grant cannot reach outside it."""
+		return self.capability_list("requested_capabilities")
 
 	@property
 	def source(self) -> str:
@@ -123,19 +133,35 @@ class BuilderUserExtension(Document):
 			frappe.throw(_("Icon must name one SVG file in the install root, such as icon.svg."))
 
 	def validate_capabilities(self):
+		outside = sorted(set(self.capabilities) - set(self.requested))
+		if outside:
+			frappe.throw(
+				_('"{0}" never asked for {1}, so it cannot be granted.').format(
+					self.extension, ", ".join(outside)
+				)
+			)
+
+	def capability_list(self, field: str) -> list[str]:
+		"""One of the two lists, parsed and checked against what Builder has."""
 		# parse_json raises on text that is not JSON, which would reach the user as a
 		# traceback instead of the message below
 		try:
-			granted = self.capabilities
+			keys = frappe.parse_json(self.get(field) or "[]")
 		except ValueError:
-			granted = None
+			keys = None
 
-		if not isinstance(granted, list):
-			frappe.throw(_("Granted Capabilities must be a JSON list."))
+		label = self.meta.get_label(field)
+		if not isinstance(keys, list):
+			frappe.throw(_("{0} must be a JSON list.").format(label))
 
-		unknown = sorted(set(granted) - set(CAPABILITIES))
+		unknown = sorted(set(keys) - set(CAPABILITIES))
 		if unknown:
-			frappe.throw(_("Unknown capabilities: {0}").format(", ".join(unknown)))
+			frappe.throw(_("Unknown capabilities in {0}: {1}").format(label, ", ".join(unknown)))
+		return keys
+
+	def validate_readme(self):
+		if self.readme and len(self.readme.encode()) > MAX_README_BYTES:
+			frappe.throw(_("A README may hold {0} bytes at most.").format(MAX_README_BYTES))
 
 	def delete_extension_files(self):
 		"""This user's copy alone. Another user's copy is another directory."""

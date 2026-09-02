@@ -12,6 +12,7 @@ from builder.builder.tests.extension_fixtures import (
 	make_installation,
 	make_user,
 )
+from builder.extensions.constants import MAX_README_BYTES
 
 EXTENSION = "acme/record"
 
@@ -88,6 +89,15 @@ class TestBuilderUserExtension(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			make_installation(EXTENSION, granted_capabilities='{"data.access": true}')
 
+	def test_refuses_a_grant_the_manifest_never_asked_for(self):
+		"""The user can only ever answer a question the extension asked."""
+		with self.assertRaises(frappe.ValidationError):
+			make_installation(EXTENSION, capabilities=["page.read"], granted=["page.read", "schema.write"])
+
+	def test_refuses_a_readme_bigger_than_the_cap(self):
+		with self.assertRaises(frappe.ValidationError):
+			make_installation(EXTENSION, readme="x" * (MAX_README_BYTES + 1))
+
 	def test_reads_the_entry_it_installed(self):
 		installation = make_installation(EXTENSION, source="export const ok = true;")
 
@@ -126,9 +136,7 @@ class TestBuilderUserExtension(FrappeTestCase):
 
 		self.assertFalse(frappe.db.exists("Builder Extension State", {"installation": installation.name}))
 		self.assertFalse(
-			frappe.db.exists(
-				"Builder Extension Grant", {"extension": EXTENSION, "user": frappe.session.user}
-			)
+			frappe.db.exists("Builder Extension Grant", {"extension": EXTENSION, "user": frappe.session.user})
 		)
 
 	def test_uninstall_leaves_another_users_grants_alone(self):

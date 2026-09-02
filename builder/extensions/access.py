@@ -45,9 +45,18 @@ def find_installation(extension: str) -> str | None:
 	return matches[0] if matches else None
 
 
-def assert_extension_access(
-	extension: str, capability: str | None = None, writes: str | None = None
-) -> str:
+def find_own_installation(extension: str) -> str | None:
+	"""This user's installation, enabled or not.
+
+	The gate wants only the enabled one. Managing an installation has to reach a
+	disabled one, because turning it back on is the point.
+	"""
+	return frappe.db.get_value(
+		INSTALLATION_DOCTYPE, {"user": frappe.session.user, "extension": extension}, "name"
+	)
+
+
+def assert_extension_access(extension: str, capability: str | None = None, writes: str | None = None) -> str:
 	"""Refuse unless this user may do this. Answers with their installation name.
 
 	`writes` names the doctype the caller is about to change, so Frappe applies
@@ -84,9 +93,7 @@ def assert_capability(installation: str, extension: str, capability: str | None)
 
 	granted = frappe.get_cached_doc(INSTALLATION_DOCTYPE, installation).capabilities
 	if capability not in granted:
-		frappe.throw(
-			_('"{0}" was not granted {1}.').format(extension, capability), frappe.PermissionError
-		)
+		frappe.throw(_('"{0}" was not granted {1}.').format(extension, capability), frappe.PermissionError)
 
 
 # Desk sees what the methods above enforce. hooks.py registers these, so a list

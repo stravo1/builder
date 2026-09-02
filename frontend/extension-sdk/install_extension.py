@@ -48,6 +48,16 @@ class ExtensionPackage:
 		return frappe.parse_json(path.read_text())
 
 	@property
+	def readme(self) -> str | None:
+		"""The author's README, which the package never ships.
+
+		A package holds three files, so this file stays in the author's folder. A
+		Builder Hub install reads the same text from the Hub instead.
+		"""
+		path = self.directory / "README.md"
+		return path.read_text() if path.is_file() else None
+
+	@property
 	def source_directory(self) -> pathlib.Path:
 		"""`dist` after a build, `src` otherwise.
 
@@ -154,12 +164,17 @@ class ExtensionInstaller:
 
 	def upsert_installation(self):
 		manifest = self.package.manifest
+		# Nothing asks the user yet, so the manifest's ask is also the grant. The
+		# two fields are separate so a Hub install can put a question between them.
+		capabilities = frappe.as_json(manifest.get("capabilities") or [])
 		values = {
 			"label": manifest.get("label"),
 			"description": manifest.get("description"),
+			"readme": self.package.readme,
 			"icon": manifest.get("icon"),
 			"version": manifest["version"],
-			"granted_capabilities": frappe.as_json(manifest.get("capabilities") or []),
+			"requested_capabilities": capabilities,
+			"granted_capabilities": capabilities,
 			"checksum": self.package.checksum,
 			"enabled": 1,
 		}

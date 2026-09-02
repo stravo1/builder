@@ -82,6 +82,8 @@ def install_for_owner(old: frappe._dict) -> None:
 			"icon": old.icon,
 			"version": old.version,
 			"checksum": old.checksum,
+			# The site record held one list, which was both the ask and the grant
+			"requested_capabilities": old.capabilities or json.dumps([]),
 			"granted_capabilities": old.capabilities or json.dumps([]),
 			"enabled": 1,
 		}
