@@ -13,6 +13,7 @@ import {
 	contextMenu,
 	data,
 	leftPanel,
+	open,
 	page,
 	properties,
 	schema,
@@ -20,11 +21,10 @@ import {
 	state,
 	toolbar,
 	tokens,
-	declare,
 } from "./namespaces";
 import { resourceFetcher } from "./resourceFetcher";
 import { registerMain, registerSlot, use, type Mounter, type SlotEntry } from "./slots";
-import { ui, type FrameSize } from "./ui";
+import { ui } from "./ui";
 
 export type HostInfo = { version: string; protocol: number };
 
@@ -53,18 +53,16 @@ const builder = {
 		register: (entry: SlotEntry) => registerSlot("dialog", entry),
 	},
 
-	/**
-	 * The same, for the floating panel `ui.openPopover` opens.
-	 *
-	 * Builder chrome opens a declared popover itself, so the size travels with
-	 * the registration rather than with the open call. Omit it for the default.
-	 */
+	/** The same, for the floating panel `ui.openPopover` opens. */
 	popover: {
-		register: ({ component, ...size }: SlotEntry & FrameSize) => {
-			registerSlot("popover", { component });
-			return declare("popover.register", size);
-		},
+		register: (entry: SlotEntry) => registerSlot("popover", entry),
 	},
+
+	/**
+	 * What the Open button in this extension's details pane opens: a popover, a
+	 * dialog, or its own left panel tab. Declare none and the pane draws none.
+	 */
+	open,
 
 	/** One tab, registered from the entry frame and drawn by the host (Tier C). */
 	leftPanel,

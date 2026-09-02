@@ -15,18 +15,13 @@
  */
 
 import { toast } from "frappe-ui";
-import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
-import { reactive } from "vue";
-import { bridge } from "../host/bridge";
 import type { MethodTable } from "../host/capabilities";
 import { fields, oneOf, text } from "../params";
-import { createFrameSurface, frameSize, type FrameSize } from "./frameSurface";
+import { createFrameSurface } from "./frameSurface";
 
 const dialog = createFrameSurface("dialog");
 const popover = createFrameSurface("popover", { sized: true });
 const toastTypes = ["success", "error", "warning", "info"] as const;
-/** The declared popovers, each with the size its registration asked for. */
-export const registeredPopovers = reactive(new Map<string, FrameSize>());
 
 const showToast = (params: unknown) => {
 	const values = fields(params);
@@ -44,19 +39,13 @@ export const openPopovers = popover.open;
 export const dismissDialog = dialog.dismiss;
 export const dismissPopover = popover.dismiss;
 
-const registerPopover = (params: unknown, extension: InstalledExtension) => {
-	if (registeredPopovers.has(extension.name)) return;
-	registeredPopovers.set(extension.name, frameSize(params));
-	bridge.registerTeardown(extension.name, () => registeredPopovers.delete(extension.name));
-};
-
-/** Opens the extension's declared popover from Builder chrome, if it has one. */
-export const openRegisteredPopover = (extension: InstalledExtension) => {
-	const size = registeredPopovers.get(extension.name);
-	if (!size) return false;
-	void popover.start(size, extension);
-	return true;
-};
+/**
+ * Read by `surfaces/openMethods.ts`, which opens a frame because the user
+ * pressed Open in Builder's own chrome. No capability is checked there: the
+ * extension asked for nothing, so it needs no grant.
+ */
+export const startDialog = dialog.start;
+export const startPopover = popover.start;
 
 export const uiMethods: MethodTable = {
 	// Toasts are rate limited by the bridge, but need no capability: they do not change editor state.
@@ -64,8 +53,6 @@ export const uiMethods: MethodTable = {
 	// a modal covers the editor, so it is the intrusive case (1.7)
 	"ui.openDialog": { needs: "ui.dialog", run: dialog.start },
 	"ui.closeDialog": { needs: "ui.dialog", run: dialog.finish },
-	// A declaration lets Builder chrome offer an extension's popover without guessing.
-	"popover.register": { needs: null, run: registerPopover },
 	// a popover leaves the editor usable, so it is not the same grant
 	"ui.openPopover": { needs: "ui.popover", run: popover.start },
 	"ui.closePopover": { needs: "ui.popover", run: popover.finish },

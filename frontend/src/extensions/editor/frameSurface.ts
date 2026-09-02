@@ -23,13 +23,13 @@ import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 export type FrameSize = { width?: number; height?: number };
 
 /**
- * Reads a size off whatever a frame sent, for an open call or a registration.
+ * Reads a size off whatever the open call sent.
  *
  * Only a sized surface calls it. A dialog is drawn at the host's own size, so a
  * `width` sent to `ui.openDialog` is dropped like any other field it has no use
  * for, rather than kept where nothing would read it.
  */
-export const frameSize = (params: unknown): FrameSize => {
+const frameSize = (params: unknown): FrameSize => {
 	const sent = fields(params);
 	return {
 		width: optionalWholeNumber(sent.width, "width"),

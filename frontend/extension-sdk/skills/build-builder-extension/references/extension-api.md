@@ -24,7 +24,7 @@ An extension can use these frames:
 | `panel` | Content for one left panel tab | `builder.leftPanel.register({ component })` |
 | `settings` | Content for one global settings page | `builder.settings.registerItem({ component })` |
 | `dialog` | Content for a modal dialog | `builder.dialog.register({ component })` |
-| `popover` | Content for a draggable popover | `builder.popover.register({ component, width, height })` |
+| `popover` | Content for a draggable popover | `builder.popover.register({ component })` |
 
 Each frame imports the same extension entry. The SDK runs only the slot that Builder names during the handshake.
 
@@ -438,17 +438,29 @@ Give a popover a start size with `width` and `height`, in pixels. Builder uses i
 size for a field you omit. The user can always drag the corner to resize it.
 
 ```ts
-builder.popover.register({ component: () => import("./Popover.vue"), width: 333, height: 591 });
-
 await builder.ui.openPopover({ title: "Palette", width: 333, height: 591 });
 ```
-
-Builder chrome opens a declared popover from the extension list. Put the size on the
-registration for that popover, because no open call is made for it.
 
 A dialog has no size. Builder draws it at one size for every extension.
 
 Builder permits one open dialog and one open popover per extension.
+
+### The Open button
+
+The extension details pane draws an `Open` button. Say what it opens with
+`builder.open.register`. An extension that registers no target gets no button.
+
+```ts
+builder.open.register({ kind: "popover", width: 333, height: 591 });
+builder.open.register({ kind: "dialog", title: "Choose an icon" });
+builder.open.register({ kind: "leftPanel", name: "icons" });
+```
+
+Declare it at module scope, beside the slot or the tab it opens. A `leftPanel` target
+names a tab this extension registered. Builder opens the target itself, so the
+extension needs no capability for it.
+
+Use `builder.open.unregister()` to take the button back.
 
 ### Toast
 

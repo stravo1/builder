@@ -127,3 +127,40 @@ describe("a function action", () => {
 		expect(() => actions.runAction({ action: "spacing.gap" })).toThrow(/registered no action/);
 	});
 });
+
+describe("the open target", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		call.mockResolvedValue(undefined);
+	});
+
+	it("declares it from the entry frame", async () => {
+		const { slots, namespaces } = await loadNamespaces();
+		slots.setActiveSlot("main");
+
+		await namespaces.open.register({ kind: "popover", width: 420 });
+
+		expect(call).toHaveBeenCalledWith("open.register", { kind: "popover", width: 420 });
+	});
+
+	// every frame reads the entry module, so a declaration made in one of them
+	// would tell the host the same thing a second and a third time
+	it("sends nothing from a visual frame", async () => {
+		const { slots, namespaces } = await loadNamespaces();
+		slots.setActiveSlot("panel");
+
+		await namespaces.open.register({ kind: "leftPanel", name: "icons" });
+
+		expect(call).not.toHaveBeenCalled();
+	});
+
+	// a call, not a declaration: any frame may take the button back
+	it("takes it back from any frame", async () => {
+		const { slots, namespaces } = await loadNamespaces();
+		slots.setActiveSlot("panel");
+
+		await namespaces.open.unregister();
+
+		expect(call).toHaveBeenCalledWith("open.unregister", undefined);
+	});
+});

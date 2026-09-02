@@ -14,6 +14,7 @@
  * copy of a rule on this side would be a second thing to keep in step.
  */
 
+import type { OpenTarget } from "../types";
 import { holdAction, releaseAction, type ActionHandler } from "./actions";
 import { getChannel } from "./connect";
 import { getActiveSlot, registerSlot } from "./slots";
@@ -180,6 +181,17 @@ export const leftPanel = {
 	},
 	unregister: (name: string) => call("leftPanel.unregister", { name }),
 	update: (name: string, patch: ItemPatch) => call("leftPanel.update", { name, patch }),
+};
+
+/**
+ * What the Open button in the extension's details pane does.
+ *
+ * A declaration, not a slot: `kind` names an interface the extension registered
+ * elsewhere, and Builder opens it. Declare none and the pane draws no button.
+ */
+export const open = {
+	register: (target: OpenTarget) => declare("open.register", target),
+	unregister: () => call("open.unregister"),
 };
 
 export const toolbar = {

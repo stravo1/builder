@@ -25,8 +25,6 @@ import {
 	dismissPopover,
 	openDialogs,
 	openPopovers,
-	openRegisteredPopover,
-	registeredPopovers,
 	uiMethods,
 } from "../uiMethods";
 import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
@@ -60,7 +58,6 @@ beforeEach(() => {
 	teardowns.splice(0).forEach((stop) => stop());
 	openDialogs.clear();
 	openPopovers.clear();
-	registeredPopovers.clear();
 	vi.clearAllMocks();
 });
 
@@ -172,25 +169,6 @@ describe("how it ends", () => {
 });
 
 describe("the popover", () => {
-	it("makes a declared popover available to Builder chrome", () => {
-		uiMethods["popover.register"].run({}, record());
-
-		expect(openRegisteredPopover(record())).toBe(true);
-		expect(openPopovers.get("acme/icons")?.title).toBe("Icon Library");
-	});
-
-	it("does not open a popover an extension did not declare", () => {
-		expect(openRegisteredPopover(record())).toBe(false);
-		expect(openPopovers.has("acme/icons")).toBe(false);
-	});
-
-	it("forgets a declared popover when its extension is removed", () => {
-		uiMethods["popover.register"].run({}, record());
-		teardowns.splice(0).forEach((stop) => stop());
-
-		expect(openRegisteredPopover(record())).toBe(false);
-	});
-
 	it("records one the host can render", () => {
 		void openPopover({ title: "Palette", props: { set: "lucide" } });
 
@@ -225,14 +203,6 @@ describe("the popover", () => {
 
 	it("refuses a size that is not a whole number", () => {
 		expect(codeOf(() => openPopover({ width: "333px" }))).toBe("invalid_params");
-	});
-
-	// Builder chrome opens a declared popover, so the registration is where its size can come from
-	it("opens a declared popover at the size it registered", () => {
-		uiMethods["popover.register"].run({ width: 333, height: 591 }, record());
-		openRegisteredPopover(record());
-
-		expect(openPopovers.get("acme/icons")?.size).toEqual({ width: 333, height: 591 });
 	});
 
 	it("resolves the opener with the result the popover passed", async () => {

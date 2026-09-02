@@ -27,10 +27,10 @@
 				<p v-if="details.description" class="text-p-sm text-ink-gray-7">{{ details.description }}</p>
 
 				<ExtensionActions
-					:can-open="Boolean(mounted && hasPopover)"
+					:can-open="Boolean(mounted && canOpen(mounted))"
 					:enabled="details.enabled"
 					:working="working"
-					@open="openPopover"
+					@open="open"
 					@set-enabled="setEnabled"
 					@uninstall="uninstall" />
 
@@ -88,7 +88,7 @@ import {
 	type ExtensionGrant,
 	type InstallationDetails,
 } from "@/data/extensions";
-import { openRegisteredPopover, registeredPopovers } from "@/extensions/editor/uiMethods";
+import { canOpen, openExtension } from "@/extensions/surfaces/openMethods";
 import { confirm } from "@/utils/helpers";
 import { Button, LoadingIndicator, toast } from "frappe-ui";
 import { computed, ref, watch } from "vue";
@@ -100,12 +100,10 @@ const details = ref<InstallationDetails | null>(null);
 const error = ref("");
 const working = ref(false);
 
-/** The running record, which a disabled extension does not have. Its popover needs a frame. */
+/** The running record, which a disabled extension does not have. Its open target needs a frame. */
 const mounted = computed(() => installedExtensions.value.find((row) => row.name === props.extension));
 
-const hasPopover = computed(() => registeredPopovers.has(props.extension));
-
-const openPopover = () => mounted.value && openRegisteredPopover(mounted.value);
+const open = () => mounted.value && openExtension(mounted.value);
 
 const readme = computed(() => (details.value?.readme ? renderMarkdown(details.value.readme) : ""));
 

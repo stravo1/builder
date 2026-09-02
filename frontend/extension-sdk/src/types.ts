@@ -8,6 +8,19 @@
 /** The five documents an extension can have. The host names one at the handshake. */
 export type ExtensionSlot = "main" | "panel" | "dialog" | "popover" | "settings";
 
+/**
+ * What Builder opens when the user opens this extension from its details pane.
+ *
+ * An extension declares one or Builder draws no Open button. A popover and a
+ * dialog are frames Builder draws itself, so neither needs the capability the
+ * matching `ui.open*` call needs: the user pressed a button in Builder's own
+ * chrome, and the extension asked for nothing.
+ */
+export type OpenTarget =
+	| { kind: "popover"; width?: number; height?: number }
+	| { kind: "dialog"; title?: string }
+	| { kind: "leftPanel"; name: string };
+
 /** Every capability the bridge gates a method by. Mirrors CAPABILITIES in builder_extension.py. */
 export const CAPABILITIES = [
 	"context.read",
