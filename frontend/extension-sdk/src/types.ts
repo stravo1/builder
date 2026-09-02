@@ -5,6 +5,8 @@
  * holds the guards over these shapes.
  */
 
+import { CAPABILITIES, PROTOCOL_VERSION } from "./protocol.js";
+
 /** The five documents an extension can have. The host names one at the handshake. */
 export type ExtensionSlot = "main" | "panel" | "dialog" | "popover" | "settings";
 
@@ -21,22 +23,21 @@ export type OpenTarget =
 	| { kind: "dialog"; title?: string }
 	| { kind: "leftPanel"; name: string };
 
-/** Every capability the bridge gates a method by. Mirrors CAPABILITIES in builder_extension.py. */
-export const CAPABILITIES = [
-	"context.read",
-	"block.read",
-	"block.update",
-	"block.insert",
-	"page.read",
-	"page.write",
-	"token.write",
-	"ui.dialog",
-	"ui.popover",
-	"data.access",
-	"schema.write",
-] as const;
+/** Every capability the bridge gates a method by. Mirrors the server protocol. */
+export { CAPABILITIES, PROTOCOL_VERSION };
 
 export type Capability = (typeof CAPABILITIES)[number];
+
+export type ExtensionManifest = {
+	v: typeof PROTOCOL_VERSION;
+	name: string;
+	label: string;
+	description: string;
+	version: string;
+	entry: "main.js";
+	icon?: string;
+	capabilities: Capability[];
+};
 
 /** One of this user's installations, as get_enabled_extensions returns it. */
 export type InstalledExtension = {
@@ -122,8 +123,6 @@ export type EditorContext = {
  * Extensions ship on their own schedule and will run against an older Builder,
  * so every message names the version it was written for.
  */
-export const PROTOCOL_VERSION = 1;
-
 /**
  * The one message sent on the window, with the port transferred beside it.
  * Everything after this runs on the port.
@@ -181,9 +180,7 @@ export type PortMessage = RequestMessage | ResponseMessage | EventMessage;
  * built against a newer Builder learns why its call failed.
  */
 export type AnyVersionMessage = (
-	| Omit<RequestMessage, "v">
-	| Omit<ResponseMessage, "v">
-	| Omit<EventMessage, "v">
+	Omit<RequestMessage, "v"> | Omit<ResponseMessage, "v"> | Omit<EventMessage, "v">
 ) & {
 	v: number;
 };

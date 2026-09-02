@@ -1,6 +1,6 @@
 {
 	"name": "frappe-builder-extension-sdk",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "The package an extension author installs. The runtime half is served by Builder.",
 	"license": "MIT",
 	"repository": {
@@ -9,10 +9,16 @@
 		"directory": "frontend/extension-sdk"
 	},
 	"type": "module",
+	"bin": {
+		"builder-extension": "./bin/builder-extension.js"
+	},
 	"files": [
+		"bin",
 		"dist",
+		"package.js",
 		"src",
 		"skills",
+		"templates",
 		"vite.js",
 		"install_extension.py",
 		"README.md"
@@ -45,6 +51,7 @@
 	},
 	"scripts": {
 		"build": "vite build && tsc -p tsconfig.build.json",
+		"package:extension": "node ./bin/builder-extension.js package",
 		"prepare": "yarn build"
 	},
 	"peerDependencies": {

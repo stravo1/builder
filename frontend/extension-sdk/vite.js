@@ -14,6 +14,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseJson, validateManifest } from "./src/protocol.js";
 
 const SDK = "frappe-builder-extension-sdk";
 const MANIFEST = "manifest.json";
@@ -88,7 +89,8 @@ const findEntry = (root) => {
 const readManifest = (root) => {
 	const file = path.join(root, MANIFEST);
 	if (!fs.existsSync(file)) throw new Error(`[builder] no ${MANIFEST} beside vite.config.js`);
-	return fs.readFileSync(file, "utf8");
+	const source = fs.readFileSync(file, "utf8");
+	return { manifest: validateManifest(parseJson(MANIFEST, source)), source };
 };
 
 /**
@@ -219,14 +221,14 @@ export default function builderExtension({ builderUrl } = {}) {
 		/** What "load development extension" reads: identity, grants, and the entry. */
 		configureServer(server) {
 			server.middlewares.use(DESCRIPTOR_PATH, (request, response) => {
-				const manifest = JSON.parse(readManifest(root));
+				const { manifest } = readManifest(root);
 				response.setHeader("Content-Type", "application/json");
 				// a middleware added here runs before Vite's own, so the CORS setting
 				// above has not been applied yet. The editor reads this cross-origin
 				response.setHeader("Access-Control-Allow-Origin", "*");
 				response.end(
 					JSON.stringify({
-						v: 1,
+						v: manifest.v,
 						name: manifest.name,
 						label: manifest.label,
 						description: manifest.description,
@@ -249,12 +251,11 @@ export default function builderExtension({ builderUrl } = {}) {
 		generateBundle: {
 			order: "post",
 			handler(_options, bundle) {
-				const source = readManifest(root);
+				const { manifest, source } = readManifest(root);
 				this.emitFile({ type: "asset", fileName: MANIFEST, source });
 
 				// the installation reads its icon from the install root, so the file
 				// lands there under the name the manifest gave it
-				const manifest = JSON.parse(source);
 				if (manifest.icon) {
 					this.emitFile({ type: "asset", fileName: manifest.icon, source: readIcon(findIcon(manifest)) });
 				}

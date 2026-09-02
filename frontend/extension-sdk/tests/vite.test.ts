@@ -15,6 +15,18 @@ const BUILDER_URL = "http://builder.localhost:8000";
 
 let roots: string[] = [];
 
+const manifest = (values: Record<string, unknown> = {}) =>
+	JSON.stringify({
+		v: 1,
+		name: "acme/icons",
+		label: "Icons",
+		description: "Add and manage icons.",
+		version: "1.0.0",
+		entry: "main.js",
+		capabilities: [],
+		...values,
+	});
+
 const project = (files: Record<string, string>) => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "builder-extension-"));
 	roots.push(root);
@@ -94,7 +106,8 @@ describe("builderExtension", () => {
 	const asset = (fileName: string, source = "") => ({ type: "asset", fileName, source });
 
 	it("copies the manifest into the build", () => {
-		const root = project({ "src/main.js": "", "manifest.json": '{"name":"acme/icons"}' });
+		const source = manifest();
+		const root = project({ "src/main.js": "", "manifest.json": source });
 		const plugin = configured(root, "build");
 		const emitFile = vi.fn();
 
@@ -103,7 +116,7 @@ describe("builderExtension", () => {
 		expect(emitFile).toHaveBeenCalledWith({
 			type: "asset",
 			fileName: "manifest.json",
-			source: '{"name":"acme/icons"}',
+			source,
 		});
 	});
 
@@ -114,11 +127,20 @@ describe("builderExtension", () => {
 		expect(() => plugin.generateBundle.handler.call({ emitFile: vi.fn() }, {}, {})).toThrow(/manifest.json/);
 	});
 
+	it("refuses a build whose manifest does not match protocol 1", () => {
+		const root = project({ "src/main.js": "", "manifest.json": manifest({ network: ["example.com"] }) });
+		const plugin = configured(root, "build");
+
+		expect(() => plugin.generateBundle.handler.call({ emitFile: vi.fn() }, {}, {})).toThrow(
+			/unknown field "network"/,
+		);
+	});
+
 	it("copies the icon to the install root, where the record's URL points", () => {
 		const root = project({
 			"src/main.js": "",
 			"src/icon.svg": "<svg />",
-			"manifest.json": '{"name":"acme/icons","icon":"icon.svg"}',
+			"manifest.json": manifest({ icon: "icon.svg" }),
 		});
 		const plugin = configured(root, "build");
 		const emitFile = vi.fn();
@@ -133,7 +155,7 @@ describe("builderExtension", () => {
 	});
 
 	it("emits no icon for a manifest that names none", () => {
-		const root = project({ "src/main.js": "", "manifest.json": '{"name":"acme/icons"}' });
+		const root = project({ "src/main.js": "", "manifest.json": manifest() });
 		const plugin = configured(root, "build");
 		const emitFile = vi.fn();
 
@@ -143,7 +165,7 @@ describe("builderExtension", () => {
 	});
 
 	it("refuses a build whose manifest names an icon that is not there", () => {
-		const root = project({ "src/main.js": "", "manifest.json": '{"name":"acme/icons","icon":"icon.svg"}' });
+		const root = project({ "src/main.js": "", "manifest.json": manifest({ icon: "icon.svg" }) });
 		const plugin = configured(root, "build");
 
 		expect(() => plugin.generateBundle.handler.call({ emitFile: vi.fn() }, {}, {})).toThrow(/icon.svg/);
@@ -154,7 +176,7 @@ describe("builderExtension", () => {
 	 * it resolves against nothing. The build has to say so, naming the file.
 	 */
 	it("refuses a build that emitted a second script", () => {
-		const root = project({ "src/main.js": "", "manifest.json": '{"name":"acme/icons"}' });
+		const root = project({ "src/main.js": "", "manifest.json": manifest() });
 		const plugin = configured(root, "build");
 		const bundle = { "main.js": chunk(), "lazy-a1b2.js": chunk(false) };
 
@@ -164,7 +186,7 @@ describe("builderExtension", () => {
 	});
 
 	it("refuses a build that emitted a separate asset", () => {
-		const root = project({ "src/main.js": "", "manifest.json": '{"name":"acme/icons"}' });
+		const root = project({ "src/main.js": "", "manifest.json": manifest() });
 		const plugin = configured(root, "build");
 		const bundle = { "main.js": chunk(), "logo-c3d4.png": asset("logo-c3d4.png") };
 
@@ -177,7 +199,7 @@ describe("builderExtension", () => {
 		const root = project({
 			"src/main.js": "",
 			"src/icon.svg": "<svg />",
-			"manifest.json": '{"name":"acme/icons","icon":"icon.svg"}',
+			"manifest.json": manifest({ icon: "icon.svg" }),
 		});
 		const plugin = configured(root, "build");
 		const bundle = {
@@ -191,7 +213,7 @@ describe("builderExtension", () => {
 
 	// the stylesheet is folded in before the check, so CSS is never a second file
 	it("folds the stylesheet into the entry and allows the build", () => {
-		const root = project({ "src/main.js": "", "manifest.json": '{"name":"acme/icons"}' });
+		const root = project({ "src/main.js": "", "manifest.json": manifest() });
 		const plugin = configured(root, "build");
 		const entry = chunk();
 		const bundle = { "main.js": entry, "style-e5f6.css": asset("style-e5f6.css", "a{}") };
@@ -214,7 +236,7 @@ describe("builderExtension", () => {
 		// the list replaces Vite's default, so the project has to be named too
 		const [project_, packaged] = configure(root).server.fs.allow;
 		expect(project_).toBe(root);
-		expect(packaged).toMatch(/extension-sdk$/);
+		expect(packaged).toBe(path.resolve(import.meta.dirname, ".."));
 	});
 });
 
@@ -301,13 +323,7 @@ describe("the descriptor", () => {
 	it("names the extension, its grants and the entry the frame imports", () => {
 		const root = project({
 			"src/main.js": "",
-			"manifest.json": JSON.stringify({
-				name: "acme/icons",
-				label: "Icons",
-				description: "Add and manage icons.",
-				version: "2.1.0",
-				capabilities: ["block.update"],
-			}),
+			"manifest.json": manifest({ version: "2.1.0", capabilities: ["block.update"] }),
 		});
 
 		expect(read(root).body).toEqual({
@@ -323,7 +339,7 @@ describe("the descriptor", () => {
 	});
 
 	it("asks for nothing when the manifest grants nothing", () => {
-		const root = project({ "src/main.js": "", "manifest.json": JSON.stringify({ name: "acme/icons" }) });
+		const root = project({ "src/main.js": "", "manifest.json": manifest() });
 
 		expect(read(root).body.capabilities).toEqual([]);
 	});
@@ -332,14 +348,14 @@ describe("the descriptor", () => {
 		const root = project({
 			"src/main.js": "",
 			"src/icon.svg": "<svg />",
-			"manifest.json": JSON.stringify({ name: "acme/icons", icon: "icon.svg" }),
+			"manifest.json": manifest({ icon: "icon.svg" }),
 		});
 
 		expect(read(root).body.icon).toBe("/src/icon.svg");
 	});
 
 	it("is readable from the editor, which is another origin", () => {
-		const root = project({ "src/main.js": "", "manifest.json": JSON.stringify({ name: "acme/icons" }) });
+		const root = project({ "src/main.js": "", "manifest.json": manifest() });
 
 		// this middleware runs before Vite's own, so it sets the header itself
 		expect(read(root).headers["Access-Control-Allow-Origin"]).toBe("*");

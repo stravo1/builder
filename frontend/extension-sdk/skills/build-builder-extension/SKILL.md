@@ -24,7 +24,8 @@ and naming.
 
 ## Create the project
 
-1. Make `manifest.json`, `package.json`, `vite.config.js`, and `src/main.ts`.
+1. Make `manifest.json`, `versions.json`, `README.md`, `LICENSE`, `package.json`,
+   `vite.config.js`, and `src/main.ts`.
 2. Install the SDK: `npm install --save-dev frappe-builder-extension-sdk`. The package is
    not on npm yet, so until it lands, install it from git:
    `npm install --save-dev github:stravo1/frappe-builder-extension-sdk`.
@@ -142,6 +143,10 @@ Register an action before the surface that names it. Put startup work in `builde
 Request only the capabilities the code uses. Map each protected call to its capability with
 the table in `references/extension-api.md`.
 
+Use the exact version 1 manifest fields: `v`, `name`, `label`, `description`, `version`,
+`entry`, optional `icon`, and `capabilities`. Set `entry` to `main.js`. Map the current
+version to protocol `1` in `versions.json`.
+
 ## Run it
 
 1. Run `npm run dev` in the extension directory.
@@ -164,6 +169,22 @@ cd /path/to/bench/sites
 ```
 
 Run it again after every build.
+
+## Publish it through Builder Hub
+
+1. Update `manifest.json` and add the same version to `versions.json`.
+2. Run `npm run build`.
+3. Run `npx builder-extension package`.
+4. Create a GitHub release whose tag exactly equals the manifest version, without `v`.
+5. Attach the generated `release/<publisher>-<name>-<version>.builderext` file.
+
+For automation, copy
+`node_modules/frappe-builder-extension-sdk/templates/github/workflows/release.yml` to
+`.github/workflows/release.yml`. A pushed version tag then validates, builds, packages,
+and creates the GitHub release with the package attached.
+
+Submit the public repository to Builder Hub for its first release. Later valid releases
+are detected from GitHub and do not need another listing submission.
 
 ## Check the result
 

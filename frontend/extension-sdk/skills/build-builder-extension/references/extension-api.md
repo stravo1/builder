@@ -2,7 +2,7 @@
 
 Use this guide when a user asks for a Builder extension or a Builder component.
 
-This guide describes the current extension API. Hub distribution and zip installation are not complete.
+This guide describes the current extension API and its Builder Hub package contract.
 
 ## Extension model
 
@@ -51,6 +51,9 @@ Use this minimum structure:
 ```text
 my-extension/
 ├── manifest.json
+├── versions.json
+├── README.md
+├── LICENSE
 ├── package.json
 ├── vite.config.js
 └── src/
@@ -90,6 +93,7 @@ Put `manifest.json` beside `vite.config.js`.
   "label": "Image Tools",
   "description": "Edit and optimize images.",
   "version": "1.0.0",
+  "entry": "main.js",
   "icon": "icon.svg",
   "capabilities": ["context.read", "block.read", "block.update"]
 }
@@ -97,9 +101,11 @@ Put `manifest.json` beside `vite.config.js`.
 
 Use `publisher/name` for `name`. Use lowercase letters, digits, and hyphens in each part.
 
-`description` is optional. Keep it short; Builder shows it below the label in the Extensions panel.
+`description` is required and can contain up to 240 plain text characters. Builder shows it below
+the label in the Extensions panel.
 
-The `version` value can contain letters, digits, dots, plus signs, and hyphens.
+The `version` value must be SemVer without a `v` prefix. The `entry` value must be `main.js`.
+Version 1 rejects unknown manifest fields.
 
 The `icon` value is optional. Builder shows it beside the extension in the Extensions panel. Follow
 these rules:
@@ -764,7 +770,7 @@ Use icon names that Builder already renders. An unknown icon name can produce an
 
 ## Development workflow
 
-1. Create `manifest.json`, `vite.config.js`, and `src/main.ts`.
+1. Create `manifest.json`, `versions.json`, `README.md`, `LICENSE`, `vite.config.js`, and `src/main.ts`.
 2. Request only the required capabilities.
 3. Register actions and surfaces at module scope.
 4. Put long-lived work inside `builder.main`.
@@ -774,6 +780,18 @@ Use icon names that Builder already renders. An unknown icon name can produce an
 8. Enter any URL from the extension Vite server.
 9. Test each surface in the editor.
 10. Run `npm run build` and inspect `dist/main.js` and `dist/manifest.json`.
+
+## Publishing workflow
+
+Map each published version to its minimum protocol in `versions.json`, for example
+`{ "1.0.0": 1 }`. Run `npx builder-extension package` after the build. The command writes
+`release/<publisher>-<name>-<version>.builderext` after it validates the repository, manifest,
+built files, and package limits.
+
+The GitHub release tag must exactly equal the manifest version. Do not prefix it with `v`.
+Attach the generated package to that release. The SDK template at
+`templates/github/workflows/release.yml` automates the build, package checks, release creation,
+and attachment for a pushed version tag.
 
 Builder loads one development extension per session. A new development extension replaces the current one.
 
@@ -787,7 +805,8 @@ Builder has no install API yet. To install a build on a site, use the script in
 [samplePlugin](../samplePlugin/install.py), which writes the files and inserts the
 `Builder Extension` record.
 
-The hub source and install-from-hub APIs are not implemented. Do not invent a distribution command.
+Use `builder-extension package` only for release packaging. Builder installation remains a
+separate host operation.
 
 ## Agent procedure
 
