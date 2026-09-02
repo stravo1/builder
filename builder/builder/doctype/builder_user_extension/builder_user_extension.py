@@ -156,3 +156,12 @@ class BuilderUserExtension(Document):
 		)
 		for grant in grants:
 			frappe.delete_doc(GRANT_DOCTYPE, grant, ignore_permissions=True)
+
+
+def on_doctype_update():
+	"""One installation per user per extension.
+
+	`find_installation` looks the pair up by field, so a second row would make it
+	answer with whichever the database returned first.
+	"""
+	frappe.db.add_unique("Builder User Extension", ["user", "extension"], constraint_name="unique_user_extension")

@@ -3,6 +3,7 @@
 
 import uuid
 
+import frappe
 from frappe.model.document import Document
 
 
@@ -30,3 +31,12 @@ class BuilderExtensionGrant(Document):
 		# stale the first time a doctype is renamed
 		if not self.name:
 			self.name = str(uuid.uuid4())
+
+
+def on_doctype_update():
+	"""One answer per user, extension and doctype."""
+	frappe.db.add_unique(
+		"Builder Extension Grant",
+		["user", "extension", "document_type"],
+		constraint_name="unique_user_extension_doctype",
+	)

@@ -3,6 +3,7 @@
 
 import uuid
 
+import frappe
 from frappe.model.document import Document
 
 
@@ -25,3 +26,21 @@ class BuilderExtensionState(Document):
 		# would hold a key the extension chose, in a document name
 		if not self.name:
 			self.name = str(uuid.uuid4())
+
+
+TABLE = "tabBuilder Extension State"
+UNIQUE_INDEX = "unique_installation_key"
+
+
+def on_doctype_update():
+	"""One row per key. `set_state` upserts by the pair, so a second row would hide one.
+
+	Written by hand rather than through `frappe.db.add_unique`, which does not
+	quote a field name. `key` is a reserved word in MariaDB.
+	"""
+	if frappe.db.has_index(TABLE, UNIQUE_INDEX):
+		return
+
+	frappe.db.sql_ddl(
+		f"alter table `{TABLE}` add unique index `{UNIQUE_INDEX}` (`installation`, `key`)"
+	)

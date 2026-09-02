@@ -4,8 +4,9 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from builder.extension_data import get_extension_grant
-from builder.extension_schema import (
+from builder.builder.tests.extension_fixtures import drop_installations, make_installation
+from builder.extensions.data import get_extension_grant
+from builder.extensions.schema import (
 	create_doctype,
 	delete_doctype,
 	get_doctype,
@@ -17,37 +18,29 @@ NAME = "Sample Widget"
 
 
 def make_extension(name="acme/schema", **kwargs):
-	defaults = {
-		"doctype": "Builder Extension",
-		"extension_name": name,
-		"label": "Schema",
-		"version": "1.0.0",
-		"checksum": "sum123",
-		"enabled": 1,
-		"capabilities": '["schema.write", "data.access"]',
-	}
-	return frappe.get_doc({**defaults, **kwargs}).insert()
+	return make_installation(name, label="Schema", capabilities=["schema.write", "data.access"], **kwargs)
 
 
 def a_field(**over):
 	return {"fieldname": "title", "label": "Title", "fieldtype": "Data", **over}
 
 
-EXTENSIONS = ("acme-schema", "acme-other", "acme-idle")
+EXTENSIONS = ("acme/schema", "acme/other", "acme/idle")
 
 
 def clean_up():
 	"""Creating a doctype runs DDL, and DDL commits the transaction in MariaDB.
 
 	So `db.rollback()` cannot undo an insert that happened before one, and every
-	record this file makes has to be removed by hand. Dropping the extension
-	takes its grants and resources with it, through `on_trash`.
+	record this file makes has to be removed by hand. A resource row outlives an
+	uninstall now, so it goes separately.
 	"""
 	if frappe.db.exists("DocType", NAME):
 		frappe.delete_doc("DocType", NAME, force=True)
 	for name in EXTENSIONS:
-		if frappe.db.exists("Builder Extension", name):
-			frappe.delete_doc("Builder Extension", name, force=True)
+		drop_installations(name)
+		frappe.db.delete("Builder Extension Resource", {"extension": name})
+		frappe.db.delete("Builder Extension Grant", {"extension": name})
 	frappe.db.commit()
 
 
@@ -84,7 +77,7 @@ class TestExtensionSchema(FrappeTestCase):
 		self.assertTrue(
 			frappe.db.exists(
 				"Builder Extension Resource",
-				{"extension": self.extension.name, "resource_type": "DocType", "resource_name": NAME},
+				{"extension": "acme/schema", "resource_type": "DocType", "resource_name": NAME},
 			)
 		)
 
@@ -220,11 +213,15 @@ class TestExtensionSchema(FrappeTestCase):
 
 		self.assertEqual(list_doctypes("acme/idle"), [])
 
-	def test_uninstall_forgets_the_resource_but_keeps_the_table(self):
-		"""A table holds the user's data, so uninstalling must not take it away."""
+	def test_uninstall_keeps_the_table_and_who_made_it(self):
+		"""A table holds the site's data, so one user leaving takes neither.
+
+		The ownership row stays too, so the next person to install this extension
+		owns what this one made.
+		"""
 		self.create()
 
-		frappe.delete_doc("Builder Extension", self.extension.name)
+		drop_installations("acme/schema")
 
-		self.assertFalse(frappe.db.exists("Builder Extension Resource", {"resource_name": NAME}))
+		self.assertTrue(frappe.db.exists("Builder Extension Resource", {"resource_name": NAME}))
 		self.assertTrue(frappe.db.exists("DocType", NAME))

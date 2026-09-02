@@ -39,6 +39,20 @@ class TestExtensionShell(FrappeTestCase):
 		"""One document serves every extension and every slot (D5)."""
 		self.assertNotIn("extension_name", self.html)
 
+	def test_the_policy_allows_a_blob_script(self):
+		"""How an installed extension runs. The host posts the code, and the SDK
+		turns the string into a module through a Blob URL."""
+		script_src = re.search(r"script-src ([^;]*);", self.html).group(1)
+
+		self.assertIn("blob:", script_src)
+
+	def test_the_policy_still_names_no_external_origin(self):
+		"""blob: is the only thing that loosened. An extension reaches the site alone."""
+		connect_src = re.search(r"connect-src ([^;]*);", self.html).group(1)
+
+		self.assertNotIn("blob:", connect_src)
+		self.assertIn("'self'", connect_src)
+
 	def test_a_production_site_allows_no_dev_server(self):
 		"""The shell in setUp renders on this site, which is in developer mode. Render it again without."""
 		with patch.dict(frappe.conf, {"developer_mode": 0}):

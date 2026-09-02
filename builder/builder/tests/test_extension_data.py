@@ -4,7 +4,13 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from builder.extension_data import (
+from builder.builder.tests.extension_fixtures import (
+	INSTALLATION_DOCTYPE,
+	drop_installations,
+	make_installation,
+	make_user,
+)
+from builder.extensions.data import (
 	MAX_PAGE_LENGTH,
 	ExtensionGrantRequired,
 	assert_grant,
@@ -20,16 +26,7 @@ from builder.extension_data import (
 
 
 def make_extension(name="acme/data", **kwargs):
-	defaults = {
-		"doctype": "Builder Extension",
-		"extension_name": name,
-		"label": "Data",
-		"version": "1.0.0",
-		"checksum": "sum123",
-		"enabled": 1,
-		"capabilities": '["data.access"]',
-	}
-	return frappe.get_doc({**defaults, **kwargs}).insert()
+	return make_installation(name, label="Data", capabilities=["data.access"], **kwargs)
 
 
 class TestExtensionGrants(FrappeTestCase):
@@ -46,11 +43,32 @@ class TestExtensionGrants(FrappeTestCase):
 			grant, {"doctype": "Contact", "read": False, "write": False, "delete": False, "denied": False}
 		)
 
-	def test_an_unknown_extension_allows_nothing(self):
-		"""The same answer as an ungranted doctype: nothing is allowed yet."""
-		grant = get_extension_grant("acme/absent", "Contact")
+	def test_an_extension_this_user_has_not_installed_is_refused(self):
+		"""The capability gate runs first, so there is nothing to answer about."""
+		drop_installations("acme/absent")
 
-		self.assertFalse(grant["read"])
+		self.assertRaises(frappe.PermissionError, get_extension_grant, "acme/absent", "Contact")
+
+	def test_the_grant_belongs_to_the_user_who_answered(self):
+		record_extension_grant("acme/data", "Contact", ["read"])
+
+		self.assertEqual(
+			frappe.db.get_value(
+				"Builder Extension Grant", {"extension": "acme/data", "document_type": "Contact"}, "user"
+			),
+			frappe.session.user,
+		)
+
+	def test_another_user_is_asked_again(self):
+		"""One person's answer is not everybody's."""
+		record_extension_grant("acme/data", "Contact", ["read"])
+		theirs = make_user()
+		make_extension(user=theirs)
+
+		frappe.set_user(theirs)
+		self.addCleanup(frappe.set_user, "Administrator")
+
+		self.assertFalse(get_extension_grant("acme/data", "Contact")["read"])
 
 	def test_recording_a_grant_allows_what_was_asked(self):
 		grant = record_extension_grant("acme/data", "Contact", ["read"])
@@ -97,7 +115,7 @@ class TestExtensionGrants(FrappeTestCase):
 
 		rows = frappe.get_all(
 			"Builder Extension Grant",
-			filters={"extension": self.extension.name, "document_type": "Contact"},
+			filters={"extension": "acme/data", "document_type": "Contact"},
 		)
 		self.assertEqual(len(rows), 1)
 
@@ -122,22 +140,27 @@ class TestExtensionGrants(FrappeTestCase):
 
 		self.assertRaises(frappe.PermissionError, assert_grant, "acme/data", "Contact", "write")
 
-	def test_assert_grant_refuses_an_unknown_extension(self):
-		self.assertRaises(frappe.PermissionError, assert_grant, "acme/absent", "Contact", "read")
-
 	def test_assert_grant_refuses_with_its_own_class(self):
 		"""The class name travels as exc_type, which is how the host says "ask the user"."""
 		self.assertRaises(ExtensionGrantRequired, assert_grant, "acme/data", "Contact", "read")
 
-	def test_uninstalling_drops_the_grants(self):
-		"""A grant is a Link, so without this the extension cannot be deleted at all."""
+	def test_uninstalling_drops_only_this_users_grants(self):
 		record_extension_grant("acme/data", "Contact", ["read"])
+		theirs = make_user()
+		frappe.get_doc(
+			{
+				"doctype": "Builder Extension Grant",
+				"user": theirs,
+				"extension": "acme/data",
+				"document_type": "Contact",
+				"can_read": 1,
+			}
+		).insert()
 
-		frappe.delete_doc("Builder Extension", self.extension.name)
+		frappe.delete_doc(INSTALLATION_DOCTYPE, self.extension.name)
 
-		self.assertFalse(
-			frappe.get_all("Builder Extension Grant", filters={"extension": self.extension.name})
-		)
+		kept = frappe.get_all("Builder Extension Grant", filters={"extension": "acme/data"}, pluck="user")
+		self.assertEqual(kept, [theirs])
 
 
 def make_contact(first_name="Ada"):
@@ -177,7 +200,7 @@ class TestExtensionDocuments(FrappeTestCase):
 		make_contact("Grace")
 		sent = frappe.local.form_dict
 		frappe.local.form_dict = frappe._dict(
-			cmd="builder.extension_data.get_count", extension="acme/data", doctype="Contact"
+			cmd="builder.extensions.data.get_count", extension="acme/data", doctype="Contact"
 		)
 		try:
 			self.assertGreaterEqual(get_count("acme/data", "Contact"), 1)
