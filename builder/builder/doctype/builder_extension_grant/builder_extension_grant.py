@@ -21,22 +21,34 @@ class BuilderExtensionGrant(Document):
 		can_write: DF.Check
 		denied: DF.Check
 		document_type: DF.Link
-		extension: DF.Data
-		user: DF.Link
+		installation: DF.Link
 	# end: auto-generated types
 
 	def autoname(self):
-		# a uuid, and (user, extension, document_type) is looked up by field, the
-		# way Builder Token looks up (extension, key). A composite name would go
-		# stale the first time a doctype is renamed
+		# a uuid, and (installation, document_type) is looked up by field, the way
+		# Builder Extension State looks up (installation, key). A composite name
+		# would go stale the first time a doctype is renamed
 		if not self.name:
 			self.name = str(uuid.uuid4())
 
 
+TABLE = "tabBuilder Extension Grant"
+UNIQUE_INDEX = "unique_installation_doctype"
+OLD_UNIQUE_INDEX = "unique_user_extension_doctype"
+
+
 def on_doctype_update():
-	"""One answer per user, extension and doctype."""
+	"""One answer per installation and doctype.
+
+	The old key named the user and the extension, which is the installation's
+	identity minus its source. Two copies of one extension shared one answer, and
+	uninstalling either took both. The old index is dropped here, because Frappe
+	leaves a removed field's column behind and a unique index over empty columns
+	would let one doctype be granted once for the whole site.
+	"""
+	if frappe.db.has_index(TABLE, OLD_UNIQUE_INDEX):
+		frappe.db.sql_ddl(f"alter table `{TABLE}` drop index `{OLD_UNIQUE_INDEX}`")
+
 	frappe.db.add_unique(
-		"Builder Extension Grant",
-		["user", "extension", "document_type"],
-		constraint_name="unique_user_extension_doctype",
+		"Builder Extension Grant", ["installation", "document_type"], constraint_name=UNIQUE_INDEX
 	)

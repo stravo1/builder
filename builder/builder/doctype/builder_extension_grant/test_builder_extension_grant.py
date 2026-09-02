@@ -4,9 +4,14 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+from builder.builder.tests.extension_fixtures import make_installation, make_user
+
 
 class TestBuilderExtensionGrant(FrappeTestCase):
-	"""One user's answer about one doctype, for one extension."""
+	"""One installation's answer about one doctype."""
+
+	def setUp(self):
+		self.installation = make_installation("acme/grants")
 
 	def tearDown(self):
 		frappe.db.rollback()
@@ -15,8 +20,7 @@ class TestBuilderExtensionGrant(FrappeTestCase):
 		return frappe.get_doc(
 			{
 				"doctype": "Builder Extension Grant",
-				"user": frappe.session.user,
-				"extension": "acme/grants",
+				"installation": self.installation.name,
 				"document_type": "Contact",
 				**values,
 			}
@@ -26,21 +30,27 @@ class TestBuilderExtensionGrant(FrappeTestCase):
 		"""A composite name would go stale the first time a doctype is renamed."""
 		self.assertEqual(len(self.grant(can_read=1).insert().name), 36)
 
-	def test_user_must_exist(self):
-		self.assertRaises(frappe.LinkValidationError, self.grant(user="nobody@example.com").insert)
+	def test_installation_must_exist(self):
+		self.assertRaises(frappe.LinkValidationError, self.grant(installation="no-such-copy").insert)
 
 	def test_document_type_must_exist(self):
 		self.assertRaises(frappe.LinkValidationError, self.grant(document_type="No Such Doctype").insert)
 
-	def test_the_extension_is_a_name_and_needs_no_record(self):
-		"""There is no site extension record. The name is the identity."""
-		self.assertEqual(self.grant(extension="acme/never-installed").insert().extension, "acme/never-installed")
-
 	def test_two_users_answer_separately(self):
 		"""One person allowing an extension says nothing about the next."""
-		mine = self.grant(can_read=1).insert()
-		theirs = self.grant(user="Guest", can_read=0).insert()
+		theirs = make_installation("acme/grants", user=make_user())
 
-		self.assertNotEqual(mine.name, theirs.name)
-		self.assertEqual(mine.user, frappe.session.user)
-		self.assertEqual(theirs.user, "Guest")
+		mine = self.grant(can_read=1).insert()
+		other = self.grant(installation=theirs.name, can_read=0).insert()
+
+		self.assertNotEqual(mine.name, other.name)
+		self.assertEqual(mine.installation, self.installation.name)
+
+	def test_two_copies_of_one_extension_answer_separately(self):
+		"""The old key named the user and the extension, so two sources shared one answer."""
+		hub_copy = make_installation("acme/grants", source_url="https://hub.example/acme/grants")
+
+		mine = self.grant(can_read=1).insert()
+		other = self.grant(installation=hub_copy.name, can_read=0).insert()
+
+		self.assertNotEqual(mine.name, other.name)

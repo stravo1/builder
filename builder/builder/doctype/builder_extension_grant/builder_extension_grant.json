@@ -1,12 +1,11 @@
 {
  "actions": [],
  "creation": "2026-08-20 10:00:00.000000",
- "description": "What one extension may do to one doctype, for one user. The user answers this in the Builder editor, never here. A grant belongs to the user who gave it and applies to nobody else. Each call still runs with that user's own permissions, so a grant widens what an extension may attempt, never what Frappe allows. An admin can narrow a grant here, or delete it to let the extension ask again.",
+ "description": "What one extension may do to one doctype, for one installation. The user answers this in the Builder editor, never here. A grant belongs to the installation that holds it, so one user's answer applies to nobody else, and two copies of one extension answer separately. Each call still runs with that user's own permissions, so a grant widens what an extension may attempt, never what Frappe allows. An admin can narrow a grant here, or delete it to let the extension ask again.",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "user",
-  "extension",
+  "installation",
   "document_type",
   "can_read",
   "can_write",
@@ -15,23 +14,13 @@
  ],
  "fields": [
   {
-   "description": "Set from the session. The server never reads this from a caller.",
-   "fieldname": "user",
+   "description": "The copy this answer was given to. It names the user, the source and the extension.",
+   "fieldname": "installation",
    "fieldtype": "Link",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "User",
-   "options": "User",
-   "read_only": 1,
-   "reqd": 1
-  },
-  {
-   "description": "The namespaced identity a frame carries over the bridge, as \"publisher/name\".",
-   "fieldname": "extension",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Extension",
+   "label": "Installation",
+   "options": "Builder User Extension",
    "read_only": 1,
    "reqd": 1
   },
@@ -77,7 +66,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-02 14:00:00.000000",
+ "modified": "2026-09-03 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Builder",
  "name": "Builder Extension Grant",

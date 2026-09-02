@@ -61,7 +61,7 @@ def get_installation(extension: str) -> dict:
 		"granted_capabilities": installation.capabilities,
 		"grants": frappe.get_all(
 			GRANT_DOCTYPE,
-			filters={"user": frappe.session.user, "extension": extension},
+			filters={"installation": installation.name},
 			fields=["document_type", "can_read", "can_write", "can_delete", "denied"],
 			order_by="document_type asc",
 		),

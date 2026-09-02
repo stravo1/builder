@@ -25,7 +25,7 @@ import frappe
 from frappe import _
 
 from builder.extensions.access import assert_extension_access
-from builder.extensions.data import GRANT_DOCTYPE, assert_grant, describe_grant, find_extension_grant
+from builder.extensions.data import GRANT_DOCTYPE, assert_grant, describe_grant, find_extension_grant, upsert_grant
 from builder.extensions.resources import (
 	RESOURCE_DOCTYPE,
 	find_resource,
@@ -121,7 +121,7 @@ def create_doctype(
 	table, so asking whether it may read the table would be a question with one
 	sensible answer.
 	"""
-	assert_extension_access(extension, "schema.write", writes=RESOURCE_DOCTYPE)
+	installation = assert_extension_access(extension, "schema.write", writes=RESOURCE_DOCTYPE)
 	rows = read_fields(fields)
 	if not rows:
 		frappe.throw(_("A doctype needs at least one field."))
@@ -140,15 +140,15 @@ def create_doctype(
 	).insert()
 
 	record_resource(extension, "DocType", document.name)
-	grant_everything(extension, document.name)
+	grant_everything(installation, document.name)
 	return describe_doctype(document.name)
 
 
 @frappe.whitelist()
 def get_doctype(extension: str, doctype: str) -> dict:
 	"""The field list of a doctype this extension may read."""
-	assert_extension_access(extension, "schema.write")
-	assert_grant(extension, doctype, "read")
+	installation = assert_extension_access(extension, "schema.write")
+	assert_grant(installation, extension, doctype, "read")
 	return describe_doctype(doctype)
 
 
@@ -186,12 +186,12 @@ def delete_doctype(extension: str, doctype: str) -> None:
 	doctype created later under the same name would inherit that grant without
 	anyone being asked.
 	"""
-	assert_extension_access(extension, "schema.write")
+	installation = assert_extension_access(extension, "schema.write")
 	assert_owned(extension, doctype)
 
 	frappe.delete_doc("DocType", doctype)
 	forget_resource(extension, "DocType", doctype)
-	forget_grant(extension, doctype)
+	forget_grant(installation, doctype)
 
 
 @frappe.whitelist()
@@ -257,33 +257,19 @@ def describe_doctype(doctype: str) -> dict:
 	}
 
 
-def forget_grant(extension: str, doctype: str) -> None:
-	name = find_extension_grant(extension, doctype)
+def forget_grant(installation: str, doctype: str) -> None:
+	name = find_extension_grant(installation, doctype)
 	if name:
 		frappe.delete_doc(GRANT_DOCTYPE, name)
 
 
-def grant_everything(extension: str, doctype: str) -> None:
+def grant_everything(installation: str, doctype: str) -> None:
 	"""A full grant on a doctype this extension just made, with no prompt.
 
-	For this user alone. Another user installing the same extension is asked the
-	ordinary way, because they did not make this table.
+	For this installation alone. Another user installing the same extension is
+	asked the ordinary way, because they did not make this table.
 	"""
-	values = {"can_read": 1, "can_write": 1, "can_delete": 1, "denied": 0}
-	name = find_extension_grant(extension, doctype)
-	if name:
-		frappe.get_doc(GRANT_DOCTYPE, name).update(values).save()
-		return
-
-	frappe.get_doc(
-		{
-			"doctype": GRANT_DOCTYPE,
-			"user": frappe.session.user,
-			"extension": extension,
-			"document_type": doctype,
-			**values,
-		}
-	).insert()
+	upsert_grant(installation, doctype, {"can_read": 1, "can_write": 1, "can_delete": 1, "denied": 0})
 
 
 def assert_owned(extension: str, doctype: str) -> None:

@@ -1,7 +1,7 @@
 # Copyright (c) 2026, Frappe Technologies Pvt Ltd and contributors
 # For license information, please see license.txt
 
-"""What one extension may do to one doctype, for one user.
+"""What one extension may do to one doctype, for one installation.
 
 Three gates stand between an extension and a document. The capability says the
 extension may work with site data at all, and the user answers that at install.
@@ -10,8 +10,9 @@ runs. Frappe's own permission says whether that user may do it, and it is the
 only one that cannot be widened: nothing in this module passes
 `ignore_permissions`.
 
-Every gate belongs to one person. One user allowing an extension to read Contact
-says nothing about the next user, who is asked again.
+Every gate belongs to one installation, the way `Builder Extension State` does.
+One user allowing an extension to read Contact says nothing about the next user,
+who is asked again, and nothing about a second copy of that extension.
 
 A grant is asked for, never assumed. `data.requestAccess` in the browser is the
 one path that opens a dialog, and every other call refuses without a grant.
@@ -48,8 +49,8 @@ class ExtensionGrantRequired(frappe.PermissionError):
 @frappe.whitelist()
 def get_extension_grant(extension: str, doctype: str) -> dict:
 	"""What this extension may already do to this doctype, for this user."""
-	assert_extension_access(extension, "data.access")
-	return describe_grant(extension, doctype)
+	installation = assert_extension_access(extension, "data.access")
+	return describe_grant(installation, doctype)
 
 
 @frappe.whitelist()
@@ -66,27 +67,14 @@ def record_extension_grant(
 	`set_extension_tokens` follows too. An admin narrows a grant in Desk, and a
 	later `data.revokeAccess` can narrow it from an extension.
 	"""
-	assert_extension_access(extension, "data.access", writes=GRANT_DOCTYPE)
+	installation = assert_extension_access(extension, "data.access", writes=GRANT_DOCTYPE)
 	allowed = set() if denied else read_access(access)
 
 	values = {field: 1 for name, field in ACCESS_FIELDS.items() if name in allowed}
 	values["denied"] = int(denied)
 
-	name = find_extension_grant(extension, doctype)
-	if name:
-		frappe.get_doc(GRANT_DOCTYPE, name).update(values).save()
-	else:
-		frappe.get_doc(
-			{
-				"doctype": GRANT_DOCTYPE,
-				"user": frappe.session.user,
-				"extension": extension,
-				"document_type": doctype,
-				**values,
-			}
-		).insert()
-
-	return describe_grant(extension, doctype)
+	upsert_grant(installation, doctype, values)
+	return describe_grant(installation, doctype)
 
 
 def read_access(access: list[str] | None) -> set[str]:
@@ -97,10 +85,10 @@ def read_access(access: list[str] | None) -> set[str]:
 	return access
 
 
-def describe_grant(extension: str, doctype: str) -> dict:
+def describe_grant(installation: str, doctype: str) -> dict:
 	grant = frappe.db.get_value(
 		GRANT_DOCTYPE,
-		{"user": frappe.session.user, "extension": extension, "document_type": doctype},
+		{"installation": installation, "document_type": doctype},
 		[*ACCESS_FIELDS.values(), "denied"],
 		as_dict=True,
 	)
@@ -111,21 +99,43 @@ def describe_grant(extension: str, doctype: str) -> dict:
 	return {"doctype": doctype, **answer, "denied": bool(grant.denied)}
 
 
-def find_extension_grant(extension: str, doctype: str) -> str | None:
+def find_extension_grant(installation: str, doctype: str) -> str | None:
 	return frappe.db.get_value(
-		GRANT_DOCTYPE,
-		{"user": frappe.session.user, "extension": extension, "document_type": doctype},
-		"name",
+		GRANT_DOCTYPE, {"installation": installation, "document_type": doctype}, "name"
 	)
 
 
-def assert_grant(extension: str, doctype: str, access: str) -> None:
+def upsert_grant(installation: str, doctype: str, values: dict) -> None:
+	"""Write an answer, merging into whatever stands.
+
+	Both callers merge: `record_extension_grant` writes what the user answered,
+	and `schema.grant_everything` writes a full grant on a table the extension
+	just made. Neither removes what its call leaves unmentioned.
+	"""
+	name = find_extension_grant(installation, doctype)
+	if name:
+		frappe.get_doc(GRANT_DOCTYPE, name).update(values).save()
+		return
+
+	frappe.get_doc(
+		{
+			"doctype": GRANT_DOCTYPE,
+			"installation": installation,
+			"document_type": doctype,
+			**values,
+		}
+	).insert()
+
+
+def assert_grant(installation: str, extension: str, doctype: str, access: str) -> None:
 	"""What this user allowed for this doctype. Refuses loudly, and names what is missing.
 
 	Called from the server rather than trusted to the browser, so the grant is
-	checked on the same side as the write it guards.
+	checked on the same side as the write it guards. `extension` names the
+	refusal, because the message travels to the author and an installation name
+	is a uuid.
 	"""
-	if describe_grant(extension, doctype).get(access):
+	if describe_grant(installation, doctype).get(access):
 		return
 
 	frappe.throw(
@@ -141,8 +151,8 @@ def assert_data_access(extension: str, doctype: str, access: str) -> None:
 	which doctype. Neither replaces the other, and Frappe checks the user after
 	both.
 	"""
-	assert_extension_access(extension, "data.access")
-	assert_grant(extension, doctype, access)
+	installation = assert_extension_access(extension, "data.access")
+	assert_grant(installation, extension, doctype, access)
 
 
 @frappe.whitelist()

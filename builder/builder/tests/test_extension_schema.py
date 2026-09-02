@@ -40,7 +40,6 @@ def clean_up():
 	for name in EXTENSIONS:
 		drop_installations(name)
 		frappe.db.delete("Builder Extension Resource", {"extension": name})
-		frappe.db.delete("Builder Extension Grant", {"extension": name})
 	frappe.db.commit()
 
 

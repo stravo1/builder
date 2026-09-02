@@ -173,15 +173,12 @@ class BuilderUserExtension(Document):
 			frappe.delete_doc(STATE_DOCTYPE, state, ignore_permissions=True)
 
 	def delete_extension_grants(self):
-		"""What this user allowed, and nobody else's answer.
+		"""What this user allowed this copy, and nobody else's answer.
 
 		Nothing the extension made goes with it. A doctype, a token and a client
 		script all serve the site, so all three outlive one user leaving.
 		"""
-		grants = frappe.get_all(
-			GRANT_DOCTYPE, filters={"user": self.user, "extension": self.extension}, pluck="name"
-		)
-		for grant in grants:
+		for grant in frappe.get_all(GRANT_DOCTYPE, filters={"installation": self.name}, pluck="name"):
 			frappe.delete_doc(GRANT_DOCTYPE, grant, ignore_permissions=True)
 
 

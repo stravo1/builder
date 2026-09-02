@@ -21,9 +21,8 @@ class TestBuilderUserExtension(FrappeTestCase):
 	"""The one extension record. There is no site-wide one."""
 
 	def setUp(self):
+		# a grant Links to the installation, so dropping the copy takes the grant
 		drop_installations(EXTENSION)
-		# a grant insert can commit, so a rollback between tests does not reach one
-		frappe.db.delete("Builder Extension Grant", {"extension": EXTENSION})
 
 	def test_name_is_a_uuid(self):
 		"""It is also the install directory, so it must hold no path separator."""
@@ -125,8 +124,7 @@ class TestBuilderUserExtension(FrappeTestCase):
 		frappe.get_doc(
 			{
 				"doctype": "Builder Extension Grant",
-				"user": frappe.session.user,
-				"extension": EXTENSION,
+				"installation": installation.name,
 				"document_type": "Contact",
 				"can_read": 1,
 			}
@@ -135,18 +133,15 @@ class TestBuilderUserExtension(FrappeTestCase):
 		installation.delete()
 
 		self.assertFalse(frappe.db.exists("Builder Extension State", {"installation": installation.name}))
-		self.assertFalse(
-			frappe.db.exists("Builder Extension Grant", {"extension": EXTENSION, "user": frappe.session.user})
-		)
+		self.assertFalse(frappe.db.exists("Builder Extension Grant", {"installation": installation.name}))
 
 	def test_uninstall_leaves_another_users_grants_alone(self):
 		installation = make_installation(EXTENSION)
-		theirs = make_user()
+		theirs = make_installation(EXTENSION, user=make_user())
 		frappe.get_doc(
 			{
 				"doctype": "Builder Extension Grant",
-				"user": theirs,
-				"extension": EXTENSION,
+				"installation": theirs.name,
 				"document_type": "Contact",
 				"can_read": 1,
 			}
@@ -154,4 +149,4 @@ class TestBuilderUserExtension(FrappeTestCase):
 
 		installation.delete()
 
-		self.assertTrue(frappe.db.exists("Builder Extension Grant", {"user": theirs, "extension": EXTENSION}))
+		self.assertTrue(frappe.db.exists("Builder Extension Grant", {"installation": theirs.name}))

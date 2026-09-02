@@ -111,23 +111,27 @@ def scoped_to_user(doctype: str, user: str | None) -> str:
 	return f"`tab{doctype}`.`user` = {frappe.db.escape(user)}"
 
 
+def scoped_to_installation(doctype: str, user: str | None) -> str:
+	"""For a row that names no user. Its installation does, so the scope goes through that."""
+	user = user or frappe.session.user
+	if is_system_manager(user):
+		return ""
+	return (
+		f"`tab{doctype}`.`installation` in "
+		f"(select name from `tab{INSTALLATION_DOCTYPE}` where user = {frappe.db.escape(user)})"
+	)
+
+
 def installation_conditions(user: str | None = None) -> str:
 	return scoped_to_user(INSTALLATION_DOCTYPE, user)
 
 
 def grant_conditions(user: str | None = None) -> str:
-	return scoped_to_user(GRANT_DOCTYPE, user)
+	return scoped_to_installation(GRANT_DOCTYPE, user)
 
 
 def state_conditions(user: str | None = None) -> str:
-	"""State names no user. Its installation does, so the scope goes through that."""
-	user = user or frappe.session.user
-	if is_system_manager(user):
-		return ""
-	return (
-		f"`tab{STATE_DOCTYPE}`.`installation` in "
-		f"(select name from `tab{INSTALLATION_DOCTYPE}` where user = {frappe.db.escape(user)})"
-	)
+	return scoped_to_installation(STATE_DOCTYPE, user)
 
 
 def owns_row(doc, ptype=None, user=None, debug=False) -> bool:
@@ -135,7 +139,8 @@ def owns_row(doc, ptype=None, user=None, debug=False) -> bool:
 	return doc.user == user or is_system_manager(user)
 
 
-def owns_state(doc, ptype=None, user=None, debug=False) -> bool:
+def owns_through_installation(doc, ptype=None, user=None, debug=False) -> bool:
+	"""A grant and a state row both belong to whoever owns the installation."""
 	user = user or frappe.session.user
 	if is_system_manager(user):
 		return True

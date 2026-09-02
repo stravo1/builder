@@ -16,7 +16,7 @@ from builder.extensions.access import (
 	grant_conditions,
 	installation_conditions,
 	owns_row,
-	owns_state,
+	owns_through_installation,
 	state_conditions,
 )
 
@@ -120,15 +120,15 @@ class TestExtensionRowScoping(FrappeTestCase):
 		theirs = make_user()
 
 		self.assertIn(frappe.db.escape(theirs), installation_conditions(theirs))
-		self.assertIn(frappe.db.escape(theirs), grant_conditions(theirs))
 
-	def test_state_is_scoped_through_its_installation(self):
-		"""State names no user, so the condition goes through the record that does."""
+	def test_a_grant_and_state_are_scoped_through_their_installation(self):
+		"""Neither names a user, so the condition goes through the record that does."""
 		theirs = make_user()
 
-		condition = state_conditions(theirs)
-		self.assertIn(INSTALLATION_DOCTYPE, condition)
-		self.assertIn(frappe.db.escape(theirs), condition)
+		for conditions in (grant_conditions, state_conditions):
+			condition = conditions(theirs)
+			self.assertIn(INSTALLATION_DOCTYPE, condition)
+			self.assertIn(frappe.db.escape(theirs), condition)
 
 	def test_a_user_may_read_their_own_row(self):
 		theirs = make_user()
@@ -137,17 +137,29 @@ class TestExtensionRowScoping(FrappeTestCase):
 		self.assertTrue(owns_row(installation, user=theirs))
 		self.assertFalse(owns_row(installation, user="Guest"))
 
-	def test_a_user_may_read_the_state_under_their_own_installation(self):
+	def test_a_user_may_read_what_hangs_off_their_own_installation(self):
+		"""One rule for both, because a grant and a state row belong the same way."""
 		theirs = make_user()
 		installation = make_installation("acme/scoped-state", user=theirs)
-		row = frappe.get_doc(
-			{
-				"doctype": "Builder Extension State",
-				"installation": installation.name,
-				"key": "theme",
-				"value": '"dark"',
-			}
-		).insert()
+		rows = [
+			frappe.get_doc(
+				{
+					"doctype": "Builder Extension State",
+					"installation": installation.name,
+					"key": "theme",
+					"value": '"dark"',
+				}
+			).insert(),
+			frappe.get_doc(
+				{
+					"doctype": "Builder Extension Grant",
+					"installation": installation.name,
+					"document_type": "Contact",
+					"can_read": 1,
+				}
+			).insert(),
+		]
 
-		self.assertTrue(owns_state(row, user=theirs))
-		self.assertFalse(owns_state(row, user="Guest"))
+		for row in rows:
+			self.assertTrue(owns_through_installation(row, user=theirs))
+			self.assertFalse(owns_through_installation(row, user="Guest"))

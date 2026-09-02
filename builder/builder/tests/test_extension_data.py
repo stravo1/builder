@@ -15,6 +15,7 @@ from builder.extensions.data import (
 	ExtensionGrantRequired,
 	assert_grant,
 	delete_doc,
+	describe_grant,
 	get_count,
 	get_doc,
 	get_extension_grant,
@@ -22,6 +23,7 @@ from builder.extensions.data import (
 	insert_doc,
 	record_extension_grant,
 	update_doc,
+	upsert_grant,
 )
 
 
@@ -49,15 +51,23 @@ class TestExtensionGrants(FrappeTestCase):
 
 		self.assertRaises(frappe.PermissionError, get_extension_grant, "acme/absent", "Contact")
 
-	def test_the_grant_belongs_to_the_user_who_answered(self):
+	def test_the_grant_belongs_to_the_copy_that_answered(self):
 		record_extension_grant("acme/data", "Contact", ["read"])
 
 		self.assertEqual(
 			frappe.db.get_value(
-				"Builder Extension Grant", {"extension": "acme/data", "document_type": "Contact"}, "user"
+				"Builder Extension Grant", {"document_type": "Contact"}, "installation"
 			),
-			frappe.session.user,
+			self.extension.name,
 		)
+
+	def test_two_copies_of_one_extension_answer_separately(self):
+		"""The old key named the user and the extension, so two sources shared one answer."""
+		hub_copy = make_extension(source_url="https://hub.example/acme/data")
+		upsert_grant(self.extension.name, "Contact", {"can_read": 1})
+
+		self.assertTrue(describe_grant(self.extension.name, "Contact")["read"])
+		self.assertFalse(describe_grant(hub_copy.name, "Contact")["read"])
 
 	def test_another_user_is_asked_again(self):
 		"""One person's answer is not everybody's."""
@@ -109,13 +119,13 @@ class TestExtensionGrants(FrappeTestCase):
 	def test_an_unknown_access_word_is_refused(self):
 		self.assertRaises(frappe.ValidationError, record_extension_grant, "acme/data", "Contact", ["publish"])
 
-	def test_one_grant_per_extension_and_doctype(self):
+	def test_one_grant_per_installation_and_doctype(self):
 		record_extension_grant("acme/data", "Contact", ["read"])
 		record_extension_grant("acme/data", "Contact", ["write"])
 
 		rows = frappe.get_all(
 			"Builder Extension Grant",
-			filters={"extension": "acme/data", "document_type": "Contact"},
+			filters={"installation": self.extension.name, "document_type": "Contact"},
 		)
 		self.assertEqual(len(rows), 1)
 
@@ -133,34 +143,41 @@ class TestExtensionGrants(FrappeTestCase):
 	def test_assert_grant_passes_what_was_granted(self):
 		record_extension_grant("acme/data", "Contact", ["read"])
 
-		assert_grant("acme/data", "Contact", "read")
+		assert_grant(self.extension.name, "acme/data", "Contact", "read")
 
 	def test_assert_grant_refuses_what_was_not(self):
 		record_extension_grant("acme/data", "Contact", ["read"])
 
-		self.assertRaises(frappe.PermissionError, assert_grant, "acme/data", "Contact", "write")
+		self.assertRaises(
+			frappe.PermissionError, assert_grant, self.extension.name, "acme/data", "Contact", "write"
+		)
 
 	def test_assert_grant_refuses_with_its_own_class(self):
 		"""The class name travels as exc_type, which is how the host says "ask the user"."""
-		self.assertRaises(ExtensionGrantRequired, assert_grant, "acme/data", "Contact", "read")
+		self.assertRaises(
+			ExtensionGrantRequired, assert_grant, self.extension.name, "acme/data", "Contact", "read"
+		)
 
 	def test_uninstalling_drops_only_this_users_grants(self):
 		record_extension_grant("acme/data", "Contact", ["read"])
-		theirs = make_user()
-		frappe.get_doc(
-			{
-				"doctype": "Builder Extension Grant",
-				"user": theirs,
-				"extension": "acme/data",
-				"document_type": "Contact",
-				"can_read": 1,
-			}
-		).insert()
+		theirs = make_extension(user=make_user())
+		upsert_grant(theirs.name, "Contact", {"can_read": 1})
 
 		frappe.delete_doc(INSTALLATION_DOCTYPE, self.extension.name)
 
-		kept = frappe.get_all("Builder Extension Grant", filters={"extension": "acme/data"}, pluck="user")
-		self.assertEqual(kept, [theirs])
+		kept = frappe.get_all(
+			"Builder Extension Grant", filters={"document_type": "Contact"}, pluck="installation"
+		)
+		self.assertEqual(kept, [theirs.name])
+
+	def test_uninstalling_one_copy_leaves_the_other_copys_grant(self):
+		"""The old cascade deleted by user and extension, so it took both copies."""
+		hub_copy = make_extension(source_url="https://hub.example/acme/data")
+		upsert_grant(hub_copy.name, "Contact", {"can_read": 1})
+
+		frappe.delete_doc(INSTALLATION_DOCTYPE, self.extension.name)
+
+		self.assertTrue(describe_grant(hub_copy.name, "Contact")["read"])
 
 
 def make_contact(first_name="Ada"):

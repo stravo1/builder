@@ -102,8 +102,8 @@ permission_query_conditions = {
 
 has_permission = {
 	"Builder User Extension": "builder.extensions.access.owns_row",
-	"Builder Extension Grant": "builder.extensions.access.owns_row",
-	"Builder Extension State": "builder.extensions.access.owns_state",
+	"Builder Extension Grant": "builder.extensions.access.owns_through_installation",
+	"Builder Extension State": "builder.extensions.access.owns_through_installation",
 }
 
 user_invitation = {
