@@ -22,8 +22,14 @@ const LAST_URL_KEY = "builder-extension:dev-url";
 const INSTALL_METHOD = "builder.extensions.registry.install_dev_extension";
 const REMOVE_METHOD = "/api/method/builder.extensions.registry.remove_dev_extension";
 
+export type DevelopmentExtension = InstalledExtension & {
+	version: string;
+	serverOrigin: string;
+	readme?: string;
+};
+
 /** One at a time: a second load replaces the first, as one dialog replaces another. */
-export const devExtension = ref<InstalledExtension | null>(null);
+export const devExtension = ref<DevelopmentExtension | null>(null);
 
 export const showDevExtensionDialog = ref(false);
 
@@ -86,7 +92,7 @@ const remove = (extension: InstalledExtension) =>
 	}).catch((error) => console.error(`Could not remove development extension "${extension.name}"`, error));
 
 /** Takes any URL on the dev server, because an author pastes what the terminal printed. */
-export const loadDevExtension = async (url: string): Promise<InstalledExtension> => {
+export const loadDevExtension = async (url: string): Promise<DevelopmentExtension> => {
 	const origin = new URL(url.trim()).origin;
 	const descriptor = await read(origin);
 	if (devExtension.value) await remove(devExtension.value);
@@ -97,6 +103,9 @@ export const loadDevExtension = async (url: string): Promise<InstalledExtension>
 		name: descriptor.name,
 		label: descriptor.label || descriptor.name,
 		description: descriptor.description,
+		version: descriptor.version,
+		serverOrigin: origin,
+		readme: descriptor.readme,
 		// the dev server serves the source entry, so the path comes from it
 		entry: `${origin}${descriptor.entry}`,
 		icon: descriptor.icon ? `${origin}${descriptor.icon}` : undefined,

@@ -20,13 +20,28 @@
 					<div class="flex min-w-0 flex-col gap-0.5">
 						<span class="truncate text-base text-ink-gray-9">{{ details.label }}</span>
 						<span class="truncate text-xs text-ink-gray-5">{{ details.name }}</span>
-						<span class="text-xs text-ink-gray-5">Version {{ details.version }}</span>
+						<div class="flex items-center gap-1.5">
+							<span class="text-xs text-ink-gray-5">Version {{ details.version }}</span>
+							<Badge v-if="details.is_development" size="sm" theme="orange" label="Dev" />
+						</div>
 					</div>
 				</div>
 
 				<p v-if="details.description" class="text-p-sm text-ink-gray-7">{{ details.description }}</p>
 
+				<div v-if="details.is_development" class="flex gap-2">
+					<Button
+						v-if="mounted && canOpen(mounted)"
+						variant="solid"
+						size="sm"
+						icon-left="lucide-panel-right"
+						label="Open"
+						@click="open" />
+					<Button variant="subtle" size="sm" icon-left="lucide-unplug" label="Stop" @click="stop" />
+				</div>
+
 				<ExtensionActions
+					v-else
 					:can-open="Boolean(mounted && canOpen(mounted))"
 					:enabled="details.enabled"
 					:working="working"
@@ -43,8 +58,11 @@
 				<section class="border-t border-outline-gray-1 py-4">
 					<div class="pb-3">
 						<h2 class="text-sm font-medium text-ink-gray-8">Capabilities</h2>
-						<p class="pt-0.5 text-xs text-ink-gray-5">
-							Control what {{ details.label }} may do in Builder and on this site.
+						<p class="pt-2 text-xs text-ink-gray-5">
+							<template v-if="details.is_development">
+								These come from the development manifest. Reload the extension after changing them.
+							</template>
+							<template v-else>Control what {{ details.label }} may do in Builder and on this site.</template>
 						</p>
 					</div>
 					<ExtensionCapabilities
@@ -52,6 +70,7 @@
 						:label="details.label ?? details.name"
 						:requested="details.requested_capabilities"
 						:granted="details.granted_capabilities"
+						:read-only="details.is_development"
 						@granted="(capabilities) => (details!.granted_capabilities = capabilities)" />
 				</section>
 
@@ -67,8 +86,11 @@
 				</div>
 
 				<div class="flex flex-col gap-1 border-t border-outline-gray-1 pt-4 text-xs text-ink-gray-5">
-					<p>{{ details.source_url || "Installed from a directory" }}</p>
-					<p>Installed on {{ installedOn }}</p>
+					<p v-if="details.is_development">Served by {{ details.development_server }}</p>
+					<template v-else>
+						<p>{{ details.source_url || "Installed from a directory" }}</p>
+						<p>Installed on {{ installedOn }}</p>
+					</template>
 				</div>
 			</div>
 		</div>
@@ -88,9 +110,10 @@ import {
 	type ExtensionGrant,
 	type InstallationDetails,
 } from "@/data/extensions";
+import { stopDevExtension } from "@/extensions/devExtension";
 import { canOpen, openExtension } from "@/extensions/surfaces/openMethods";
 import { confirm } from "@/utils/helpers";
-import { Button, LoadingIndicator, toast } from "frappe-ui";
+import { Badge, Button, LoadingIndicator, toast } from "frappe-ui";
 import { computed, ref, watch } from "vue";
 
 const props = defineProps<{ extension: string }>();
@@ -104,6 +127,11 @@ const working = ref(false);
 const mounted = computed(() => installedExtensions.value.find((row) => row.name === props.extension));
 
 const open = () => mounted.value && openExtension(mounted.value);
+
+const stop = () => {
+	stopDevExtension();
+	emit("back");
+};
 
 const readme = computed(() => (details.value?.readme ? renderMarkdown(details.value.readme) : ""));
 

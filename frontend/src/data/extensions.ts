@@ -88,6 +88,8 @@ export type InstallationDetails = UserInstallation & {
 	requested_capabilities: Capability[];
 	granted_capabilities: Capability[];
 	grants: ExtensionGrant[];
+	is_development?: boolean;
+	development_server?: string;
 };
 
 /**
@@ -115,7 +117,7 @@ export const userInstallations = computed<UserInstallation[]>(() => {
 			label: development.label,
 			description: development.description,
 			icon: development.icon,
-			version: "",
+			version: development.version,
 			source_url: "",
 			enabled: true,
 		},
@@ -134,8 +136,32 @@ export const reloadExtensions = async () => {
 	await Promise.all([extensionsResource.fetch(), installationsResource.fetch()]);
 };
 
-export const installationDetails = (extension: string) =>
-	call(`${METHOD}.get_installation`, { extension }) as Promise<InstallationDetails>;
+/**
+ * One installation, with the dev server standing in for what it owns.
+ *
+ * A development installation is real, so the record answers for the grants and
+ * the install date. Everything the manifest declares is read from the running
+ * dev server instead: the record was written once at load, and it holds every
+ * capability rather than the ones asked for, which no gate would honour.
+ */
+export const installationDetails = async (extension: string): Promise<InstallationDetails> => {
+	const details = (await call(`${METHOD}.get_installation`, { extension })) as InstallationDetails;
+	const development = devExtension.value;
+	if (!development || development.name !== extension) return details;
+
+	return {
+		...details,
+		label: development.label,
+		description: development.description,
+		icon: development.icon,
+		version: development.version,
+		readme: development.readme,
+		requested_capabilities: development.capabilities,
+		granted_capabilities: development.capabilities,
+		is_development: true,
+		development_server: development.serverOrigin,
+	};
+};
 
 /** What the site keeps when a user removes an extension. */
 export type UninstallSummary = {

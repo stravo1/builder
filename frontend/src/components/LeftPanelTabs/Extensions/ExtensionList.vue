@@ -18,15 +18,13 @@
 					<ItemListRow
 						v-for="extension in installed"
 						:key="extension.name"
-						:class="[
-							hasDetails(extension) && 'cursor-pointer hover:bg-surface-gray-2',
-							!extension.enabled && 'opacity-60',
-						]"
-						:role="hasDetails(extension) ? 'button' : undefined"
-						:tabindex="hasDetails(extension) ? 0 : undefined"
+						class="cursor-pointer transition-none hover:bg-surface-gray-2"
+						:class="!extension.enabled && 'opacity-60'"
+						role="button"
+						tabindex="0"
 						size="md"
-						@click="open(extension)"
-						@keydown.enter="open(extension)">
+						@click="emit('select', extension.name)"
+						@keydown.enter.self="emit('select', extension.name)">
 						<template #prefix>
 							<!-- one box whatever the file measures, so a stray icon cannot set the row height -->
 							<img
@@ -41,9 +39,6 @@
 						<div class="flex min-w-0 flex-col gap-1">
 							<span class="truncate">{{ extension.label }}</span>
 							<div class="flex min-w-0 items-center gap-1.5">
-								<span v-if="extension.version" class="shrink-0 text-xs text-ink-gray-4">
-									{{ extension.version }}
-								</span>
 								<span v-if="extension.description" class="truncate text-xs text-ink-gray-5">
 									{{ extension.description }}
 								</span>
@@ -62,10 +57,7 @@
 									class="mr-2"
 									@click.stop="stopDevExtension()" />
 							</Tooltip>
-							<span
-								v-if="hasDetails(extension)"
-								class="lucide-chevron-right size-4 text-ink-gray-5"
-								aria-hidden="true" />
+							<span class="lucide-chevron-right size-4 text-ink-gray-5" aria-hidden="true" />
 						</template>
 					</ItemListRow>
 				</div>
@@ -93,7 +85,7 @@
 
 <script setup lang="ts">
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
-import { userInstallations, type UserInstallation } from "@/data/extensions";
+import { userInstallations } from "@/data/extensions";
 import { isDevExtension, showDevExtensionDialog, stopDevExtension } from "@/extensions/devExtension";
 import { Badge, Button, ItemListRow, Tooltip } from "frappe-ui";
 import { computed, ref } from "vue";
@@ -104,16 +96,6 @@ const emit = defineEmits<{ select: [extension: string] }>();
 const isDeveloperMode = Boolean(window.is_developer_mode);
 
 const filter = ref("");
-
-/**
- * A dev extension has no release, no source and no README, and stopping it is the
- * only management it has. So it keeps its Stop button and opens no details.
- */
-const hasDetails = (extension: UserInstallation) => !isDevExtension(extension);
-
-const open = (extension: UserInstallation) => {
-	if (hasDetails(extension)) emit("select", extension.name);
-};
 
 /** Search visible details and the package name, which remains a useful lookup key. */
 const installed = computed(() => {

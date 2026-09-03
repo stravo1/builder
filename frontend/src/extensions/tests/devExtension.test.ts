@@ -23,6 +23,7 @@ const DESCRIPTOR = {
 	version: "1.0.0",
 	capabilities: ["block.update"],
 	entry: "/src/main.js",
+	readme: "# Icons\n\nDevelopment documentation.",
 };
 
 const answer = (body: unknown, ok = true) =>
@@ -65,6 +66,14 @@ describe("loadDevExtension", () => {
 		expect(extension.entry).toBe("http://localhost:5173/src/main.js");
 		expect(extension.name).toBe("acme/icons");
 		expect(extension.label).toBe("Icons");
+	});
+
+	it("keeps the descriptor details needed by the dev extension page", async () => {
+		const extension = await dev.loadDevExtension("http://localhost:5173/src/main.js");
+
+		expect(extension.version).toBe("1.0.0");
+		expect(extension.serverOrigin).toBe("http://localhost:5173");
+		expect(extension.readme).toContain("Development documentation");
 	});
 
 	it("falls back to the name when the manifest carries no label", async () => {
@@ -189,7 +198,6 @@ describe("loadDevExtension", () => {
 /** The panel marks one row, and reads the list, never the object it was built from. */
 describe("isDevExtension", () => {
 	const listed = (name: string) => ({ name, label: name, entry: `/${name}.js`, capabilities: [] });
-
 
 	beforeEach(async () => {
 		localStorage.clear();
