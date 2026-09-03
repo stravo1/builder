@@ -178,8 +178,9 @@ export const makeZip = (files) => {
 export const packageExtension = ({ root = process.cwd(), dist = "dist", output = "release", tag } = {}) => {
 	const projectRoot = path.resolve(root);
 	const manifest = validateRepository(projectRoot);
-	if (tag !== undefined && tag !== manifest.version) {
-		fail(`release tag "${tag}" must equal manifest version "${manifest.version}"`);
+	const releaseTag = `v${manifest.version}`;
+	if (tag !== undefined && tag !== releaseTag) {
+		fail(`release tag "${tag}" must equal "${releaseTag}" for manifest version "${manifest.version}"`);
 	}
 
 	const distRoot = resolveProjectPath(projectRoot, dist, "dist directory");

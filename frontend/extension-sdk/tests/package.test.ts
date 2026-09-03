@@ -70,9 +70,9 @@ describe("packageExtension", () => {
 		const root = project({ icon: "icon.svg" });
 		write(root, "dist/icon.svg", "<svg />");
 
-		const first = packageExtension({ root, tag: "1.2.0" });
+		const first = packageExtension({ root, tag: "v1.2.0" });
 		const firstArchive = fs.readFileSync(first.path);
-		const second = packageExtension({ root, tag: "1.2.0" });
+		const second = packageExtension({ root, tag: "v1.2.0" });
 		const files = archiveFiles(firstArchive);
 
 		expect(first.filename).toBe("acme-icons-1.2.0.builderext");
@@ -84,15 +84,15 @@ describe("packageExtension", () => {
 		]);
 	});
 
-	it("requires a tag that exactly matches the manifest version", () => {
+	it("requires a v-prefixed tag that exactly matches the manifest version", () => {
 		const root = project();
-		expect(() => packageExtension({ root, tag: "v1.2.0" })).toThrow(/release tag.*must equal/);
+		expect(() => packageExtension({ root, tag: "1.2.0" })).toThrow(/release tag.*v1.2.0/);
 	});
 
 	it("runs through the published command-line entry", () => {
 		const root = project();
 		const command = fileURLToPath(new URL("../bin/builder-extension.js", import.meta.url));
-		const result = spawnSync(process.execPath, [command, "package", root, "--tag", "1.2.0"], {
+		const result = spawnSync(process.execPath, [command, "package", root, "--tag", "v1.2.0"], {
 			encoding: "utf8",
 		});
 

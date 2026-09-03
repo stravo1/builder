@@ -29,13 +29,14 @@ describe("slots", () => {
 		expect(main).toHaveBeenCalledOnce();
 	});
 
-	it("does not run main in a panel frame", () => {
+	it("does not run main in a panel frame", async () => {
 		const main = vi.fn();
 		slots.registerMain(main);
-		slots.registerSlot("panel", { component: () => Promise.resolve({}) });
+		slots.registerSlot("panel", { component: () => Promise.resolve({ mount: () => {} }) });
+		document.body.innerHTML = `<div id="app"></div>`;
 
 		slots.setActiveSlot("panel");
-		slots.runSlot();
+		await slots.runSlot();
 
 		expect(main).not.toHaveBeenCalled();
 	});

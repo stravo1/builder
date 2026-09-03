@@ -24,11 +24,16 @@ and naming.
 
 ## Create the project
 
-1. Make `manifest.json`, `README.md`, `LICENSE`, `package.json`, `vite.config.js`,
+Run `npx github:stravo1/frappe-builder-extension-sdk#v0.1.3 create` for a new
+project. It creates the manifest, publishing files, TypeScript Vue example, and
+development configuration.
+
+When you build the structure manually:
+
+1. Make `manifest.json`, `README.md`, `LICENSE`, `package.json`, `vite.config.ts`,
    and `src/main.ts`.
-2. Install the SDK: `npm install --save-dev frappe-builder-extension-sdk`. The package is
-   not on npm yet, so until it lands, install it from git:
-   `npm install --save-dev github:stravo1/frappe-builder-extension-sdk`.
+2. Install the SDK from its release tag:
+   `npm install --save-dev github:stravo1/frappe-builder-extension-sdk#v0.1.3`.
 3. Add `builderExtension({ builderUrl })` to the Vite plugin list.
 4. Add Vue, frappe-ui, and Tailwind when the feature needs a frame. Read the next section.
 
@@ -175,13 +180,14 @@ Run it again after every build.
 1. Update the version and protocol in `manifest.json`.
 2. Run `npm run build`.
 3. Run `npx builder-extension package`.
-4. Create a GitHub release whose tag exactly equals the manifest version, without `v`.
+4. Create a GitHub release whose tag is the manifest version with a `v` prefix.
 5. Attach the generated `release/<publisher>-<name>-<version>.builderext` file.
 
 For automation, copy
 `node_modules/frappe-builder-extension-sdk/templates/github/workflows/release.yml` to
-`.github/workflows/release.yml`. A pushed version tag then validates, builds, packages,
-and creates the GitHub release with the package attached.
+`.github/workflows/release.yml`. It supports a pushed version tag and a release
+created through GitHub. Both paths validate, build, package, and attach the
+release asset.
 
 Submit the public repository to Builder Hub for its first release. Later valid releases
 are detected from GitHub and do not need another listing submission.

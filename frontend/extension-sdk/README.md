@@ -6,8 +6,21 @@ helpers, and the Vite plugin that builds an extension.
 ## Install
 
 ```sh
-npm install --save-dev frappe-builder-extension-sdk
+npm install --save-dev github:stravo1/frappe-builder-extension-sdk#v0.1.3
 ```
+
+## Create an extension
+
+Run the scaffolder directly from GitHub. The SDK does not need to be published
+to npm.
+
+```sh
+npx github:stravo1/frappe-builder-extension-sdk#v0.1.3 create
+```
+
+It creates a TypeScript Vue extension with frappe-ui, Tailwind, a development
+server, an example toolbar popover, release automation, and a Git repository.
+It does not install dependencies. Run the commands it prints when it finishes.
 
 ## Two halves
 
@@ -102,10 +115,10 @@ The command validates the repository, manifest, built files, and package limits.
 package contains only `manifest.json`, `main.js`, and the optional SVG icon. The command
 writes `release/acme-icons-1.2.0.builderext` and prints its size and SHA-256.
 
-Create a GitHub release whose tag exactly matches the manifest version, without a
-`v` prefix, and attach that file. Copy the workflow shipped at
-`templates/github/workflows/release.yml` to `.github/workflows/release.yml` to build,
-package, and create the release whenever a version tag is pushed.
+Create a GitHub release whose tag is the manifest version with a `v` prefix. For
+example, manifest version `1.2.0` uses tag `v1.2.0`. Copy the workflow shipped at
+`templates/github/workflows/release.yml` to `.github/workflows/release.yml`. It
+supports both pushed tags and releases created on GitHub.
 
 The first release and repository need Builder Hub review. For a later release, update
 `manifest.json`, commit it, and push the exact version tag. Builder Hub detects and
@@ -124,9 +137,8 @@ Then ask the agent for a Builder extension.
 
 ## Versions
 
-The major version of this package is the protocol version it speaks. Version
-`1.x` works with any Builder that serves protocol 1. A Builder on a later
-protocol needs the matching major version.
+The SDK remains on `0.x` while its authoring API stabilizes. The extension
+protocol is versioned separately by the manifest's `v` field.
 
 ## License
 

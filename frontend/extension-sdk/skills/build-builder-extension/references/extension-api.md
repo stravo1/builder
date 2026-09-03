@@ -176,7 +176,9 @@ Dynamic imports stay as relative chunks. Do not change the relative Vite base.
 
 ## Protocol and errors
 
-SDK major version 1 uses extension protocol 1. Use `builder.host.info()` to read the active Builder version and protocol.
+The SDK remains on `0.x` while its API stabilizes. Its package version is
+separate from the extension protocol in `manifest.v`. Use `builder.host.info()`
+to read the active Builder version and protocol.
 
 Most SDK methods return a promise. Catch a rejection when the feature needs recovery or user feedback.
 
@@ -787,7 +789,8 @@ Set `manifest.v` to the minimum Builder extension protocol the release needs. Ru
 `release/<publisher>-<name>-<version>.builderext` after it validates the repository, manifest,
 built files, and package limits.
 
-The GitHub release tag must exactly equal the manifest version. Do not prefix it with `v`.
+The GitHub release tag must be the manifest version with a `v` prefix. For
+example, manifest version `1.2.0` uses tag `v1.2.0`.
 Attach the generated package to that release. The SDK template at
 `templates/github/workflows/release.yml` automates the build, package checks, release creation,
 and attachment for a pushed version tag.

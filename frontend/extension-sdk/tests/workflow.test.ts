@@ -8,13 +8,18 @@ const sdkRoot = path.resolve(import.meta.dirname, "..");
 describe("the published author toolkit", () => {
 	it("ships the package command and release template", () => {
 		expect(packageJson.bin).toEqual({ "builder-extension": "./bin/builder-extension.js" });
-		expect(packageJson.files).toEqual(expect.arrayContaining(["bin", "package.js", "templates"]));
+		expect(packageJson.files).toEqual(
+			expect.arrayContaining(["bin", "create.js", "package.js", "templates"]),
+		);
 	});
 
-	it("validates a pushed tag before it creates the GitHub release", () => {
+	it("publishes pushed tags and releases created on GitHub", () => {
 		const workflow = fs.readFileSync(path.join(sdkRoot, "templates/github/workflows/release.yml"), "utf8");
-		expect(workflow).toContain('builder-extension package --tag "$GITHUB_REF_NAME"');
-		expect(workflow).toContain('gh release create "$GITHUB_REF_NAME" release/*.builderext');
-		expect(workflow.indexOf("builder-extension package")).toBeLessThan(workflow.indexOf("gh release create"));
+		expect(workflow).toContain("release:");
+		expect(workflow).toContain("types:");
+		expect(workflow).toContain('npm run package -- --tag "$RELEASE_TAG"');
+		expect(workflow).toContain('gh release create "$RELEASE_TAG" release/*.builderext');
+		expect(workflow).toContain('gh release upload "$RELEASE_TAG" release/*.builderext');
+		expect(workflow).not.toContain("--clobber");
 	});
 });
