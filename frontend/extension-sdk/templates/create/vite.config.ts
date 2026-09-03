@@ -22,6 +22,8 @@ export default defineConfig({
 		builderExtension({ builderUrl: __BUILDER_URL__ }),
 	],
 	optimizeDeps: {
+		// The adapter must use the SDK instance connected by Builder's frame.
+		exclude: ["frappe-builder-extension-sdk/vue"],
 		include: [
 			"frappe-ui > feather-icons",
 			"frappe-ui > debug",
