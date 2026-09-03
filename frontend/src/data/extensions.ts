@@ -1,4 +1,4 @@
-import { devExtension } from "@/extensions/devExtension";
+import { devExtension, setDevCapabilities } from "@/extensions/devExtension";
 import type { Capability, InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { call, createResource } from "frappe-ui";
 import { computed } from "vue";
@@ -139,10 +139,9 @@ export const reloadExtensions = async () => {
 /**
  * One installation, with the dev server standing in for what it owns.
  *
- * A development installation is real, so the record answers for the grants and
- * the install date. Everything the manifest declares is read from the running
- * dev server instead: the record was written once at load, and it holds every
- * capability rather than the ones asked for, which no gate would honour.
+ * A development installation is real, so the record answers for the capabilities
+ * it granted, the doctype grants and the install date. What the dev server shows
+ * a user comes from the dev server, which is the copy running right now.
  */
 export const installationDetails = async (extension: string): Promise<InstallationDetails> => {
 	const details = (await call(`${METHOD}.get_installation`, { extension })) as InstallationDetails;
@@ -156,8 +155,6 @@ export const installationDetails = async (extension: string): Promise<Installati
 		icon: development.icon,
 		version: development.version,
 		readme: development.readme,
-		requested_capabilities: development.capabilities,
-		granted_capabilities: development.capabilities,
 		is_development: true,
 		development_server: development.serverOrigin,
 	};
@@ -193,6 +190,9 @@ export const setGrantedCapabilities = async (extension: string, capabilities: Ca
 		extension,
 		capabilities,
 	})) as Capability[];
+	// the mount list leaves a development installation out, so the reload below
+	// cannot carry the new grant to the entry the browser gate reads
+	setDevCapabilities(extension, granted);
 	await reloadExtensions();
 	return granted;
 };

@@ -70,13 +70,22 @@ const read = async (origin: string) => {
  * server gate an installed extension does. Without one, every call it makes to
  * Builder is refused.
  *
+ * The record answers with what it granted, and that answer is what this entry
+ * carries. Both gates then read one list, so narrowing it in the panel reaches
+ * the browser as well as the server.
+ *
  * An extension the user already has installed keeps that installation. The
- * server answers with it rather than making a second one.
+ * server answers with its capabilities rather than making a second record.
  */
-const install = (extension: string) =>
-	call(INSTALL_METHOD, { extension }).catch(() => {
+const install = (extension: string, capabilities: Capability[]) =>
+	call(INSTALL_METHOD, { extension, capabilities }).catch(() => {
 		throw new Error(`Builder could not register "${extension}". Is the site in developer mode?`);
-	});
+	}) as Promise<Capability[]>;
+
+/** A grant written in the panel, carried back to the entry the browser gate reads. */
+export const setDevCapabilities = (extension: string, capabilities: Capability[]) => {
+	if (devExtension.value?.name === extension) devExtension.value.capabilities = capabilities;
+};
 
 /**
  * Raw `fetch` rather than `call`, because `keepalive` is what lets a request
@@ -96,7 +105,7 @@ export const loadDevExtension = async (url: string): Promise<DevelopmentExtensio
 	const origin = new URL(url.trim()).origin;
 	const descriptor = await read(origin);
 	if (devExtension.value) await remove(devExtension.value);
-	await install(descriptor.name);
+	const granted = await install(descriptor.name, grantedFrom(descriptor.capabilities));
 
 	localStorage.setItem(LAST_URL_KEY, origin);
 	devExtension.value = {
@@ -109,7 +118,7 @@ export const loadDevExtension = async (url: string): Promise<DevelopmentExtensio
 		// the dev server serves the source entry, so the path comes from it
 		entry: `${origin}${descriptor.entry}`,
 		icon: descriptor.icon ? `${origin}${descriptor.icon}` : undefined,
-		capabilities: grantedFrom(descriptor.capabilities),
+		capabilities: granted,
 	};
 	return devExtension.value;
 };

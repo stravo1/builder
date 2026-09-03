@@ -107,7 +107,7 @@ describe("installationDetails", () => {
 			capabilities: ["block.update"],
 		});
 
-	it("lets the live descriptor answer for what the manifest declares", async () => {
+	it("lets the dev server answer for what it shows a user", async () => {
 		call.mockResolvedValue(recorded);
 		modules.dev.devExtension.value = running();
 
@@ -117,23 +117,21 @@ describe("installationDetails", () => {
 			development_server: "http://localhost:5173",
 			is_development: true,
 			readme: "# Icons\n\nDevelopment documentation.",
-			requested_capabilities: ["block.update"],
-			granted_capabilities: ["block.update"],
 		});
 	});
 
 	/**
-	 * The record grants every capability, so reading it would tell a developer
-	 * their extension may do what no gate would let it do.
+	 * The record holds what the user narrowed to, and the entry holds what the
+	 * manifest asked for. Reading the entry would show a grant they took back.
 	 */
-	it("never lets the record widen what the manifest asked for", async () => {
-		call.mockResolvedValue(recorded);
+	it("lets the record answer for the capabilities, which a user can narrow", async () => {
+		call.mockResolvedValue({ ...recorded, granted_capabilities: ["block.update"] });
 		modules.dev.devExtension.value = running();
 
 		const details = await modules.data.installationDetails("acme/icons");
 
+		expect(details.requested_capabilities).toEqual(recorded.requested_capabilities);
 		expect(details.granted_capabilities).toEqual(["block.update"]);
-		expect(details.requested_capabilities).toEqual(["block.update"]);
 	});
 
 	it("keeps the grants, which only the record holds", async () => {

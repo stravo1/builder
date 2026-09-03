@@ -18,7 +18,7 @@ from builder.extensions.access import (
 	assert_extension_access,
 	find_own_installation,
 )
-from builder.extensions.constants import CAPABILITIES, DEV_EXTENSION_VERSION
+from builder.extensions.constants import DEV_EXTENSION_VERSION
 from builder.utils import has_page_read
 
 
@@ -70,23 +70,31 @@ def get_extension_source(extension: str) -> str:
 
 
 @frappe.whitelist(methods=["POST"])
-def install_dev_extension(extension: str) -> str:
-	"""Give a dev-server extension an installation for this session.
+def install_dev_extension(extension: str, capabilities: list[str] | None = None) -> list[str]:
+	"""Give a dev-server extension an installation, and answer with what it grants.
 
 	The gate then needs no bypass: a development extension passes it the way an
 	installed one does.
 
-	An extension the user already installed keeps that installation. Building one
-	you also run is the ordinary case, and the unique key allows no second record.
+	The manifest names the capabilities, so the record holds the list both gates
+	read and a user narrows it the way they narrow an installed extension's. The
+	record refuses one Builder does not have, and refuses granting outside what
+	was asked for, so a caller cannot widen its own reach by asking.
 
-	The capabilities come from the constant, never from the caller.
+	Loading again rewrites both lists. That is how a developer picks up a manifest
+	they just edited, and how they undo a narrowing they were testing with.
+
+	An extension the user already installed keeps that installation as it stands.
+	Building one you also run is the ordinary case, and its release already
+	answered for its own capabilities.
 	"""
 	assert_developer_mode()
 	frappe.has_permission("Builder Page", ptype="read", throw=True)
 
+	asked = json.dumps(capabilities or [])
 	existing = find_own_installation(extension)
 	if existing:
-		return existing
+		return refresh_dev_capabilities(existing, asked)
 
 	installation = frappe.get_doc(
 		{
@@ -95,12 +103,24 @@ def install_dev_extension(extension: str) -> str:
 			"extension": extension,
 			"label": extension,
 			"version": DEV_EXTENSION_VERSION,
-			"requested_capabilities": json.dumps(list(CAPABILITIES)),
-			"granted_capabilities": json.dumps(list(CAPABILITIES)),
+			"requested_capabilities": asked,
+			"granted_capabilities": asked,
 			"enabled": 1,
 		}
 	).insert()
-	return installation.name
+	return installation.capabilities
+
+
+def refresh_dev_capabilities(installation: str, asked: str) -> list[str]:
+	"""A development installation follows its manifest. A real one is left alone."""
+	document = frappe.get_cached_doc(INSTALLATION_DOCTYPE, installation)
+	if document.version != DEV_EXTENSION_VERSION:
+		return document.capabilities
+
+	document.requested_capabilities = asked
+	document.granted_capabilities = asked
+	document.save()
+	return document.capabilities
 
 
 @frappe.whitelist(methods=["POST"])

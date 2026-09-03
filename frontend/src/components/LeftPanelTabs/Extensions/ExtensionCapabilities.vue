@@ -12,7 +12,6 @@
 				<div v-for="capability in group.capabilities" :key="capability" class="py-3">
 					<Switch
 						size="sm"
-						:disabled="readOnly"
 						:description="capabilityDetails[capability].warning"
 						:model-value="granted.includes(capability)"
 						@update:model-value="(allow: boolean) => answer(capability, allow)">
@@ -76,7 +75,6 @@ const props = defineProps<{
 	requested: Capability[];
 	granted: Capability[];
 	grants: ExtensionGrant[];
-	readOnly?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -134,7 +132,6 @@ const writeGrant = async (grant: ExtensionGrant, access: GrantAction[], denied =
  * direction carries the warning.
  */
 const answer = async (capability: Capability, allow: boolean) => {
-	if (props.readOnly) return;
 	if (allow && isSensitive(capability) && !(await confirmSensitive(capability))) return;
 
 	const next = allow

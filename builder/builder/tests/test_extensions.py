@@ -299,24 +299,43 @@ class TestDevExtension(FrappeTestCase):
 		)
 
 	def test_registers_an_installation_the_gate_accepts(self):
-		install_dev_extension(self.extension)
+		install_dev_extension(self.extension, ["block.read", "ui.popover"])
 
 		installed = self.installed()
 		self.assertEqual(installed.version, "0.0.0-dev")
-		self.assertEqual(frappe.parse_json(installed.granted_capabilities), list(CAPABILITIES))
+		self.assertEqual(frappe.parse_json(installed.granted_capabilities), ["block.read", "ui.popover"])
+
+	def test_grants_only_what_the_manifest_asks_for(self):
+		"""Both gates read this list, so a wider one would name what none allows."""
+		granted = install_dev_extension(self.extension, ["block.read"])
+
+		self.assertEqual(granted, ["block.read"])
+		self.assertNotEqual(granted, list(CAPABILITIES))
+
+	def test_loading_again_follows_the_manifest(self):
+		"""A developer edits the manifest, or undoes a narrowing they were testing."""
+		install_dev_extension(self.extension, ["block.read"])
+
+		granted = install_dev_extension(self.extension, ["block.read", "page.read"])
+
+		self.assertEqual(granted, ["block.read", "page.read"])
+
+	def test_refuses_a_capability_builder_does_not_have(self):
+		with self.assertRaises(frappe.ValidationError):
+			install_dev_extension(self.extension, ["quantum.read"])
 
 	def test_keeps_an_installation_the_user_already_has(self):
 		"""Building an extension you also run is the ordinary case."""
 		make_installation(self.extension, version="1.4.0", capabilities=["page.read"])
 
-		install_dev_extension(self.extension)
+		install_dev_extension(self.extension, ["block.read"])
 
 		installed = self.installed()
 		self.assertEqual(installed.version, "1.4.0")
 		self.assertEqual(frappe.parse_json(installed.granted_capabilities), ["page.read"])
 
 	def test_removes_the_installation_and_the_tokens_of_the_session(self):
-		install_dev_extension(self.extension)
+		install_dev_extension(self.extension, ["token.write"])
 		set_extension_tokens(
 			self.extension, [{"key": "a", "token_name": "A", "type": "Color", "value": "#fff"}]
 		)

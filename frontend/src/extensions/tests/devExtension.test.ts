@@ -9,10 +9,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
 let registers = true;
 
+/** What the record answers it granted. Null stands for "everything it was asked". */
+let grantAnswer: string[] | null = null;
+
 vi.mock("frappe-ui", () => ({
 	call: (method: string, params: Record<string, unknown>) => {
 		calls.push({ method, params });
-		return registers ? Promise.resolve(null) : Promise.reject(new Error("refused"));
+		if (!registers) return Promise.reject(new Error("refused"));
+		return Promise.resolve(grantAnswer ?? params.capabilities ?? null);
 	},
 }));
 
@@ -43,6 +47,7 @@ describe("loadDevExtension", () => {
 		vi.restoreAllMocks();
 		calls.length = 0;
 		registers = true;
+		grantAnswer = null;
 		vi.stubGlobal("fetch", answer(DESCRIPTOR));
 		window.csrf_token = "token123";
 		dev = await loadModule();
@@ -88,7 +93,7 @@ describe("loadDevExtension", () => {
 
 		expect(calls).toContainEqual({
 			method: "builder.extensions.registry.install_dev_extension",
-			params: { extension: "acme/icons" },
+			params: { extension: "acme/icons", capabilities: ["block.update"] },
 		});
 	});
 
@@ -126,6 +131,18 @@ describe("loadDevExtension", () => {
 		vi.stubGlobal("fetch", answer({ ...DESCRIPTOR, capabilities: undefined }));
 
 		expect((await dev.loadDevExtension("http://localhost:5173")).capabilities).toEqual([]);
+	});
+
+	/**
+	 * Both gates read this list. Taking it from the manifest would let an
+	 * extension keep reaching for what the user narrowed away in the panel.
+	 */
+	it("carries what the record granted, not what the manifest asked for", async () => {
+		grantAnswer = [];
+
+		const extension = await dev.loadDevExtension("http://localhost:5173");
+
+		expect(extension.capabilities).toEqual([]);
 	});
 
 	it("names the server when nothing answers", async () => {
@@ -196,6 +213,34 @@ describe("loadDevExtension", () => {
 });
 
 /** The panel marks one row, and reads the list, never the object it was built from. */
+describe("setDevCapabilities", () => {
+	beforeEach(async () => {
+		localStorage.clear();
+		vi.restoreAllMocks();
+		calls.length = 0;
+		registers = true;
+		grantAnswer = null;
+		vi.stubGlobal("fetch", answer(DESCRIPTOR));
+		dev = await loadModule();
+	});
+
+	it("carries a panel grant to the entry the browser gate reads", async () => {
+		await dev.loadDevExtension("http://localhost:5173");
+
+		dev.setDevCapabilities("acme/icons", ["page.read"]);
+
+		expect(dev.devExtension.value?.capabilities).toEqual(["page.read"]);
+	});
+
+	it("leaves another extension's entry alone", async () => {
+		await dev.loadDevExtension("http://localhost:5173");
+
+		dev.setDevCapabilities("acme/other", ["page.read"]);
+
+		expect(dev.devExtension.value?.capabilities).toEqual(["block.update"]);
+	});
+});
+
 describe("isDevExtension", () => {
 	const listed = (name: string) => ({ name, label: name, entry: `/${name}.js`, capabilities: [] });
 
@@ -204,6 +249,7 @@ describe("isDevExtension", () => {
 		vi.restoreAllMocks();
 		calls.length = 0;
 		registers = true;
+		grantAnswer = null;
 		vi.stubGlobal("fetch", answer(DESCRIPTOR));
 		window.csrf_token = "token123";
 		dev = await loadModule();

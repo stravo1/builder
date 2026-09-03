@@ -59,10 +59,10 @@
 					<div class="pb-3">
 						<h2 class="text-sm font-medium text-ink-gray-8">Capabilities</h2>
 						<p class="pt-2 text-xs text-ink-gray-5">
+							Control what {{ details.label }} may do in Builder and on this site.
 							<template v-if="details.is_development">
-								The capabilities come from the development manifest. Reload the extension after changing them.
+								Loading it again restores what its manifest asks for.
 							</template>
-							<template v-else>Control what {{ details.label }} may do in Builder and on this site.</template>
 						</p>
 					</div>
 					<ExtensionCapabilities
@@ -71,7 +71,6 @@
 						:requested="details.requested_capabilities"
 						:granted="details.granted_capabilities"
 						:grants="details.grants"
-						:read-only="details.is_development"
 						@granted="(capabilities) => (details!.granted_capabilities = capabilities)"
 						@grants="(grants) => (details!.grants = grants)" />
 				</section>
