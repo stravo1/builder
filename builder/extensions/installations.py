@@ -22,6 +22,7 @@ from builder.extensions.access import (
 	INSTALLATION_DOCTYPE,
 	find_own_installation,
 )
+from builder.extensions.data import ACCESS_FIELDS, forget_grant, upsert_grant
 from builder.extensions.constants import DEV_EXTENSION_VERSION
 from builder.utils import has_page_read
 
@@ -59,13 +60,45 @@ def get_installation(extension: str) -> dict:
 		"readme": installation.readme,
 		"requested_capabilities": installation.requested,
 		"granted_capabilities": installation.capabilities,
-		"grants": frappe.get_all(
-			GRANT_DOCTYPE,
-			filters={"installation": installation.name},
-			fields=["document_type", "can_read", "can_write", "can_delete", "denied"],
-			order_by="document_type asc",
-		),
+		"grants": installation_grants(installation.name),
 	}
+
+
+def installation_grants(installation: str) -> list[dict]:
+	"""Every doctype this user answered for, as the panel lists them."""
+	return frappe.get_all(
+		GRANT_DOCTYPE,
+		filters={"installation": installation},
+		fields=["document_type", "can_read", "can_write", "can_delete", "denied"],
+		order_by="document_type asc",
+	)
+
+
+@frappe.whitelist(methods=["POST"])
+@has_page_read(NOT_INSTALLED)
+def deny_extension_grant(extension: str, doctype: str) -> list[dict]:
+	"""Take back a doctype, and stop the extension asking for it again.
+
+	The user manages their own installation here, so the gate is theirs and not
+	the extension's. A disabled extension, or one whose `data.access` they already
+	turned off, still has answers they must be able to take back.
+	"""
+	installation = own_installation(extension)
+	upsert_grant(installation, doctype, {**dict.fromkeys(ACCESS_FIELDS.values(), 0), "denied": 1})
+	return installation_grants(installation)
+
+
+@frappe.whitelist(methods=["POST"])
+@has_page_read(NOT_INSTALLED)
+def forget_extension_grant(extension: str, doctype: str) -> list[dict]:
+	"""Drop the answer, so the extension asks again the next time it needs this.
+
+	The only way back from a denial: `data.requestAccess` refuses to prompt while
+	one stands, so without this a mistaken no is permanent.
+	"""
+	installation = own_installation(extension)
+	forget_grant(installation, doctype)
+	return installation_grants(installation)
 
 
 @frappe.whitelist(methods=["POST"])

@@ -25,7 +25,7 @@ import frappe
 from frappe import _
 
 from builder.extensions.access import assert_extension_access
-from builder.extensions.data import GRANT_DOCTYPE, assert_grant, describe_grant, find_extension_grant, upsert_grant
+from builder.extensions.data import assert_grant, describe_grant, forget_grant, upsert_grant
 from builder.extensions.resources import (
 	RESOURCE_DOCTYPE,
 	find_resource,
@@ -255,12 +255,6 @@ def describe_doctype(doctype: str) -> dict:
 			for field in meta.fields
 		],
 	}
-
-
-def forget_grant(installation: str, doctype: str) -> None:
-	name = find_extension_grant(installation, doctype)
-	if name:
-		frappe.delete_doc(GRANT_DOCTYPE, name)
 
 
 def grant_everything(installation: str, doctype: str) -> None:

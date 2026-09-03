@@ -127,6 +127,18 @@ def upsert_grant(installation: str, doctype: str, values: dict) -> None:
 	).insert()
 
 
+def forget_grant(installation: str, doctype: str) -> None:
+	"""Drop the answer, so the next request asks again.
+
+	Nothing here narrows a grant. A user takes one back by forgetting it, and a
+	dropped doctype forgets its own, so a doctype remade under the same name
+	inherits nothing.
+	"""
+	name = find_extension_grant(installation, doctype)
+	if name:
+		frappe.delete_doc(GRANT_DOCTYPE, name)
+
+
 def assert_grant(installation: str, extension: str, doctype: str, access: str) -> None:
 	"""What this user allowed for this doctype. Refuses loudly, and names what is missing.
 

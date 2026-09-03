@@ -10,7 +10,10 @@ from builder.builder.tests.extension_fixtures import (
 	make_user,
 )
 from builder.extensions.access import assert_extension_access
+from builder.extensions.data import record_extension_grant
 from builder.extensions.installations import (
+	deny_extension_grant,
+	forget_extension_grant,
 	get_installation,
 	get_uninstall_summary,
 	get_user_installations,
@@ -185,3 +188,59 @@ class TestUninstall(FrappeTestCase):
 	def test_refuses_an_extension_this_user_has_not_installed(self):
 		with self.assertRaises(frappe.PermissionError):
 			uninstall_extension(EXTENSION)
+
+
+class TestGrantAnswers(FrappeTestCase):
+	"""Taking back a doctype the user already answered for.
+
+	The gate is the user's own installation, never the extension's access. They
+	must reach an answer after disabling the extension or turning `data.access`
+	off, which is when they most want it back.
+	"""
+
+	def setUp(self):
+		drop_installations(EXTENSION)
+		self.addCleanup(frappe.set_user, "Administrator")
+
+	def test_denying_clears_the_access_it_stood_for(self):
+		make_installation(EXTENSION)
+		record_extension_grant(EXTENSION, "Contact", ["read", "write"])
+
+		grants = deny_extension_grant(EXTENSION, "Contact")
+
+		self.assertEqual(len(grants), 1)
+		self.assertTrue(grants[0]["denied"])
+		self.assertFalse(grants[0]["can_read"])
+		self.assertFalse(grants[0]["can_write"])
+
+	def test_forgetting_drops_the_answer_so_it_asks_again(self):
+		make_installation(EXTENSION)
+		record_extension_grant(EXTENSION, "Contact", ["read"])
+
+		self.assertEqual(forget_extension_grant(EXTENSION, "Contact"), [])
+
+	def test_forgetting_is_the_way_back_from_a_denial(self):
+		make_installation(EXTENSION)
+		record_extension_grant(EXTENSION, "Contact", denied=True)
+
+		forget_extension_grant(EXTENSION, "Contact")
+
+		self.assertEqual(get_installation(EXTENSION)["grants"], [])
+
+	def test_answers_a_disabled_extension_the_user_can_still_manage(self):
+		make_installation(EXTENSION)
+		record_extension_grant(EXTENSION, "Contact", ["read"])
+		set_extension_enabled(EXTENSION, False)
+
+		self.assertEqual(forget_extension_grant(EXTENSION, "Contact"), [])
+
+	def test_answers_after_the_user_took_data_access_away(self):
+		make_installation(EXTENSION)
+		record_extension_grant(EXTENSION, "Contact", ["read"])
+		set_granted_capabilities(EXTENSION, ["block.read"])
+
+		self.assertEqual(forget_extension_grant(EXTENSION, "Contact"), [])
+
+	def test_refuses_an_extension_this_user_has_not_installed(self):
+		with self.assertRaises(frappe.PermissionError):
+			forget_extension_grant(EXTENSION, "Contact")
