@@ -1,6 +1,6 @@
 {
 	"name": "frappe-builder-extension-sdk",
-	"version": "0.1.3",
+	"version": "0.1.4",
 	"description": "The package an extension author installs. The runtime half is served by Builder.",
 	"license": "MIT",
 	"repository": {
