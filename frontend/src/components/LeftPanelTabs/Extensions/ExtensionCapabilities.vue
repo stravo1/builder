@@ -26,20 +26,30 @@
 					The doctypes answered for sit under the capability they elaborate, so
 					turning that capability off shows what it leaves behind.
 				-->
-				<div
-					v-for="grant in grantsUnder(group)"
-					:key="grant.document_type"
-					class="flex items-center justify-between gap-2 py-3">
-					<div class="min-w-0">
-						<p class="truncate text-xs text-ink-gray-8">{{ grant.document_type }}</p>
-						<p class="text-xs text-ink-gray-5">{{ grantSummary(grant) }}</p>
+				<div v-for="grant in grantsUnder(group)" :key="grant.document_type" class="py-3">
+					<div class="flex items-center justify-between gap-2">
+						<p class="min-w-0 truncate text-xs text-ink-gray-8">{{ grant.document_type }}</p>
+						<Select
+							size="sm"
+							class="w-28 shrink-0"
+							:model-value="grant.denied ? 'denied' : 'allowed'"
+							:options="grantOptions(grant)"
+							@update:model-value="(answer: unknown) => answerGrant(grant, answer)" />
 					</div>
-					<Select
-						size="sm"
-						class="w-28 shrink-0"
-						:model-value="grant.denied ? 'denied' : 'allowed'"
-						:options="grantOptions(grant)"
-						@update:model-value="(answer: unknown) => answerGrant(grant, answer)" />
+
+					<p v-if="grant.denied" class="pt-1 text-xs text-ink-gray-5">It stopped asking about this.</p>
+					<div v-else class="flex flex-col gap-2 pt-2">
+						<Switch
+							v-for="action in GRANT_ACTIONS"
+							:key="action"
+							size="sm"
+							:model-value="Boolean(grant[`can_${action}`])"
+							@update:model-value="(allow: boolean) => setAction(grant, action, allow)">
+							<template #label>
+								<span class="text-xs capitalize text-ink-gray-7">{{ action }}</span>
+							</template>
+						</Switch>
+					</div>
 				</div>
 			</div>
 		</section>
@@ -47,12 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-	denyExtensionGrant,
-	forgetExtensionGrant,
-	setGrantedCapabilities,
-	type ExtensionGrant,
-} from "@/data/extensions";
+import { setExtensionGrant, setGrantedCapabilities, type ExtensionGrant } from "@/data/extensions";
 import {
 	capabilityDetails,
 	groupCapabilities,
@@ -86,16 +91,13 @@ const groups = computed(() =>
 
 const grantsUnder = (group: CapabilityGroup) => (group.name === SITE_DATA_CLASS ? props.grants : []);
 
-const grantSummary = (grant: ExtensionGrant) => {
-	if (grant.denied) return "It stopped asking about this.";
-	const allowed = ["read", "write", "delete"].filter(
-		(action) => grant[`can_${action}` as keyof ExtensionGrant],
-	);
-	return allowed.join(", ") || "nothing";
-};
+const GRANT_ACTIONS = ["read", "write", "delete"] as const;
+type GrantAction = (typeof GRANT_ACTIONS)[number];
+
+const accessOf = (grant: ExtensionGrant) => GRANT_ACTIONS.filter((action) => grant[`can_${action}`]);
 
 /**
- * A denial records no access, so nothing stands to allow again. Forgetting is
+ * A denial records no access, so nothing stands to allow again. Asking again is
  * the way back: the extension asks, and the answer is a fresh one.
  */
 const grantOptions = (grant: ExtensionGrant) => [
@@ -104,13 +106,23 @@ const grantOptions = (grant: ExtensionGrant) => [
 	{ label: "Ask again", value: "forgotten" },
 ];
 
-/** "allowed" is the standing answer, so choosing it again writes nothing. */
-const answerGrant = async (grant: ExtensionGrant, answer: unknown) => {
-	if (answer !== "denied" && answer !== "forgotten") return;
+/** Turning the last action off allows nothing, so the answer goes and it asks again. */
+const setAction = (grant: ExtensionGrant, action: GrantAction, allow: boolean) => {
+	const access = allow
+		? [...accessOf(grant), action]
+		: accessOf(grant).filter((granted) => granted !== action);
+	return writeGrant(grant, access);
+};
 
-	const write = answer === "denied" ? denyExtensionGrant : forgetExtensionGrant;
+/** "allowed" is the standing answer, so choosing it again writes nothing. */
+const answerGrant = (grant: ExtensionGrant, answer: unknown) => {
+	if (answer === "denied") return writeGrant(grant, [], true);
+	if (answer === "forgotten") return writeGrant(grant, []);
+};
+
+const writeGrant = async (grant: ExtensionGrant, access: GrantAction[], denied = false) => {
 	try {
-		emit("grants", await write(props.extension, grant.document_type));
+		emit("grants", await setExtensionGrant(props.extension, grant.document_type, access, denied));
 	} catch (thrown) {
 		toast.error((thrown as Error).message);
 	}
