@@ -165,8 +165,11 @@ class TestExtensionGrants(FrappeTestCase):
 
 		frappe.delete_doc(INSTALLATION_DOCTYPE, self.extension.name)
 
+		# the two this test made, so a grant the site already held cannot fail it
 		kept = frappe.get_all(
-			"Builder Extension Grant", filters={"document_type": "Contact"}, pluck="installation"
+			"Builder Extension Grant",
+			filters={"installation": ["in", [self.extension.name, theirs.name]]},
+			pluck="installation",
 		)
 		self.assertEqual(kept, [theirs.name])
 
