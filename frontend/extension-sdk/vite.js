@@ -93,6 +93,11 @@ const readManifest = (root) => {
 	return { manifest: validateManifest(parseJson(MANIFEST, source)), source };
 };
 
+const readReadme = (root) => {
+	const file = path.join(root, "README.md");
+	return fs.statSync(file, { throwIfNoEntry: false })?.isFile() ? fs.readFileSync(file, "utf8") : undefined;
+};
+
 /**
  * @param {{ builderUrl: string }} options `builderUrl` is the origin the editor
  * is opened on. It has no default: the dev server imports the SDK from it by
@@ -233,6 +238,7 @@ export default function builderExtension({ builderUrl } = {}) {
 						label: manifest.label,
 						description: manifest.description,
 						version: manifest.version,
+						readme: readReadme(root),
 						capabilities: manifest.capabilities ?? [],
 						entry: servedPath(entry),
 						icon: manifest.icon ? servedPath(findIcon(manifest)) : undefined,

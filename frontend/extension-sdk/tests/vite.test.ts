@@ -344,6 +344,16 @@ describe("the descriptor", () => {
 		expect(read(root).body.capabilities).toEqual([]);
 	});
 
+	it("includes the project README for the details page", () => {
+		const root = project({
+			"src/main.js": "",
+			"manifest.json": manifest(),
+			"README.md": "# Icons\n\nDevelopment documentation.\n",
+		});
+
+		expect(read(root).body.readme).toBe("# Icons\n\nDevelopment documentation.\n");
+	});
+
 	it("names the icon where the dev server serves it, not where a build puts it", () => {
 		const root = project({
 			"src/main.js": "",
