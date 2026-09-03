@@ -21,17 +21,48 @@
 						</template>
 					</Switch>
 				</div>
+
+				<!--
+					The doctypes answered for sit under the capability they elaborate, so
+					turning that capability off shows what it leaves behind.
+				-->
+				<div
+					v-for="grant in grantsUnder(group)"
+					:key="grant.document_type"
+					class="flex items-center justify-between gap-2 py-3">
+					<div class="min-w-0">
+						<p class="truncate text-xs text-ink-gray-8">{{ grant.document_type }}</p>
+						<p class="text-xs text-ink-gray-5">{{ grantSummary(grant) }}</p>
+					</div>
+					<Select
+						size="sm"
+						class="w-28 shrink-0"
+						:model-value="grant.denied ? 'denied' : 'allowed'"
+						:options="grantOptions(grant)"
+						@update:model-value="(answer: unknown) => answerGrant(grant, answer)" />
+				</div>
 			</div>
 		</section>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { setGrantedCapabilities } from "@/data/extensions";
-import { capabilityDetails, groupCapabilities, isSensitive } from "@/extensions/capabilityClasses";
+import {
+	denyExtensionGrant,
+	forgetExtensionGrant,
+	setGrantedCapabilities,
+	type ExtensionGrant,
+} from "@/data/extensions";
+import {
+	capabilityDetails,
+	groupCapabilities,
+	isSensitive,
+	SITE_DATA_CLASS,
+	type CapabilityGroup,
+} from "@/extensions/capabilityClasses";
 import { confirm } from "@/utils/helpers";
 import type { Capability } from "frappe-builder-extension-sdk/types";
-import { Switch, toast } from "frappe-ui";
+import { Select, Switch, toast } from "frappe-ui";
 import { computed } from "vue";
 
 const props = defineProps<{
@@ -39,13 +70,51 @@ const props = defineProps<{
 	label: string;
 	requested: Capability[];
 	granted: Capability[];
+	grants: ExtensionGrant[];
 	readOnly?: boolean;
 }>();
 
-const emit = defineEmits<{ granted: [capabilities: Capability[]] }>();
+const emit = defineEmits<{
+	granted: [capabilities: Capability[]];
+	grants: [grants: ExtensionGrant[]];
+}>();
 
 /** Only what this extension asked for. A capability it never asked for is not a choice. */
-const groups = computed(() => groupCapabilities(props.requested));
+const groups = computed(() =>
+	groupCapabilities(props.requested, props.grants.length ? [SITE_DATA_CLASS] : []),
+);
+
+const grantsUnder = (group: CapabilityGroup) => (group.name === SITE_DATA_CLASS ? props.grants : []);
+
+const grantSummary = (grant: ExtensionGrant) => {
+	if (grant.denied) return "It stopped asking about this.";
+	const allowed = ["read", "write", "delete"].filter(
+		(action) => grant[`can_${action}` as keyof ExtensionGrant],
+	);
+	return allowed.join(", ") || "nothing";
+};
+
+/**
+ * A denial records no access, so nothing stands to allow again. Forgetting is
+ * the way back: the extension asks, and the answer is a fresh one.
+ */
+const grantOptions = (grant: ExtensionGrant) => [
+	...(grant.denied ? [] : [{ label: "Allowed", value: "allowed" }]),
+	{ label: "Denied", value: "denied" },
+	{ label: "Ask again", value: "forgotten" },
+];
+
+/** "allowed" is the standing answer, so choosing it again writes nothing. */
+const answerGrant = async (grant: ExtensionGrant, answer: unknown) => {
+	if (answer !== "denied" && answer !== "forgotten") return;
+
+	const write = answer === "denied" ? denyExtensionGrant : forgetExtensionGrant;
+	try {
+		emit("grants", await write(props.extension, grant.document_type));
+	} catch (thrown) {
+		toast.error((thrown as Error).message);
+	}
+};
 
 /**
  * Turning one off asks nothing: a narrower grant can break the extension and

@@ -163,6 +163,18 @@ export const installationDetails = async (extension: string): Promise<Installati
 	};
 };
 
+/**
+ * Both answers a user can take back, each answering with the grants that stand.
+ *
+ * Denying stops the extension asking again. Forgetting is the only way back from
+ * a denial, because `data.requestAccess` refuses to prompt while one stands.
+ */
+export const denyExtensionGrant = (extension: string, doctype: string) =>
+	call(`${METHOD}.deny_extension_grant`, { extension, doctype }) as Promise<ExtensionGrant[]>;
+
+export const forgetExtensionGrant = (extension: string, doctype: string) =>
+	call(`${METHOD}.forget_extension_grant`, { extension, doctype }) as Promise<ExtensionGrant[]>;
+
 /** What the site keeps when a user removes an extension. */
 export type UninstallSummary = {
 	resources: { resource_type: string; count: number }[];

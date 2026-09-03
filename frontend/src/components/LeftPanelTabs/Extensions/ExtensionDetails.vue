@@ -60,7 +60,7 @@
 						<h2 class="text-sm font-medium text-ink-gray-8">Capabilities</h2>
 						<p class="pt-2 text-xs text-ink-gray-5">
 							<template v-if="details.is_development">
-								These come from the development manifest. Reload the extension after changing them.
+								The capabilities come from the development manifest. Reload the extension after changing them.
 							</template>
 							<template v-else>Control what {{ details.label }} may do in Builder and on this site.</template>
 						</p>
@@ -70,20 +70,11 @@
 						:label="details.label ?? details.name"
 						:requested="details.requested_capabilities"
 						:granted="details.granted_capabilities"
+						:grants="details.grants"
 						:read-only="details.is_development"
-						@granted="(capabilities) => (details!.granted_capabilities = capabilities)" />
+						@granted="(capabilities) => (details!.granted_capabilities = capabilities)"
+						@grants="(grants) => (details!.grants = grants)" />
 				</section>
-
-				<div v-if="details.grants.length" class="border-t border-outline-gray-1 pt-4">
-					<p class="pb-1 text-sm text-ink-gray-8">Doctypes you answered for</p>
-					<p class="pb-3 text-xs text-ink-gray-5">Clear one and it asks you again.</p>
-					<div class="flex flex-col gap-1">
-						<div v-for="grant in details.grants" :key="grant.document_type" class="flex items-baseline gap-2">
-							<span class="truncate text-p-sm text-ink-gray-7">{{ grant.document_type }}</span>
-							<span class="text-xs text-ink-gray-5">{{ grantSummary(grant) }}</span>
-						</div>
-					</div>
-				</div>
 
 				<div class="flex flex-col gap-1 border-t border-outline-gray-1 pt-4 text-xs text-ink-gray-5">
 					<p v-if="details.is_development">Served by {{ details.development_server }}</p>
@@ -107,7 +98,6 @@ import {
 	setExtensionEnabled,
 	uninstallExtension,
 	uninstallSummary,
-	type ExtensionGrant,
 	type InstallationDetails,
 } from "@/data/extensions";
 import { stopDevExtension } from "@/extensions/devExtension";
@@ -193,13 +183,6 @@ const uninstallMessage = (summary: Awaited<ReturnType<typeof uninstallSummary>>)
 	if (kept.length) lines.push(`The site keeps ${kept.join(", ")}, because published pages use them.`);
 	if (summary.other_users) lines.push(`${summary.other_users} other user(s) still have it installed.`);
 	return lines.join(" ");
-};
-
-const grantSummary = (grant: ExtensionGrant) => {
-	if (grant.denied) return "denied";
-	return ["read", "write", "delete"]
-		.filter((action) => grant[`can_${action}` as keyof ExtensionGrant])
-		.join(", ");
 };
 </script>
 
