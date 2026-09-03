@@ -88,16 +88,8 @@ builder.popover.register({ component: () => import("./Popover.vue") });
 
 ## Package a release
 
-Builder Hub reads four files from the repository root: `manifest.json`, `README.md`,
-`LICENSE`, and `versions.json`. Map every published version to its minimum Builder
-extension protocol in `versions.json`:
-
-```json
-{
-	"1.0.0": 1,
-	"1.2.0": 1
-}
-```
+Builder Hub reads `manifest.json`, `README.md`, and `LICENSE` from the repository root.
+Each release manifest declares its required Builder extension protocol in `v`.
 
 Build, then create the release package:
 
@@ -116,8 +108,8 @@ Create a GitHub release whose tag exactly matches the manifest version, without 
 package, and create the release whenever a version tag is pushed.
 
 The first release and repository need Builder Hub review. For a later release, update
-both `manifest.json` and `versions.json`, commit them, and push the exact version tag.
-Builder Hub detects and validates the new GitHub release without another listing submission.
+`manifest.json`, commit it, and push the exact version tag. Builder Hub detects and
+validates the new GitHub release without another listing submission.
 
 ## Agent skill
 

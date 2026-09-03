@@ -51,7 +51,6 @@ Use this minimum structure:
 ```text
 my-extension/
 ├── manifest.json
-├── versions.json
 ├── README.md
 ├── LICENSE
 ├── package.json
@@ -770,7 +769,7 @@ Use icon names that Builder already renders. An unknown icon name can produce an
 
 ## Development workflow
 
-1. Create `manifest.json`, `versions.json`, `README.md`, `LICENSE`, `vite.config.js`, and `src/main.ts`.
+1. Create `manifest.json`, `README.md`, `LICENSE`, `vite.config.js`, and `src/main.ts`.
 2. Request only the required capabilities.
 3. Register actions and surfaces at module scope.
 4. Put long-lived work inside `builder.main`.
@@ -783,8 +782,8 @@ Use icon names that Builder already renders. An unknown icon name can produce an
 
 ## Publishing workflow
 
-Map each published version to its minimum protocol in `versions.json`, for example
-`{ "1.0.0": 1 }`. Run `npx builder-extension package` after the build. The command writes
+Set `manifest.v` to the minimum Builder extension protocol the release needs. Run
+`npx builder-extension package` after the build. The command writes
 `release/<publisher>-<name>-<version>.builderext` after it validates the repository, manifest,
 built files, and package limits.
 

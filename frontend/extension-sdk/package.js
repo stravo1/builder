@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import zlib from "node:zlib";
-import { parseJson, validateManifest, validateVersions } from "./src/protocol.js";
+import { parseJson, validateManifest } from "./src/protocol.js";
 
 export const MAX_PACKAGE_BYTES = 10 * 1024 * 1024;
 
@@ -35,7 +35,6 @@ export const validateRepository = (root) => {
 	const manifest = validateManifest(readJson(requiredFile(root, "manifest.json")));
 	requiredFile(root, "README.md");
 	requiredFile(root, "LICENSE");
-	validateVersions(readJson(requiredFile(root, "versions.json")), manifest);
 	return manifest;
 };
 

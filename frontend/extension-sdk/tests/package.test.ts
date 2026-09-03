@@ -34,7 +34,6 @@ const project = (values: Record<string, unknown> = {}) => {
 	write(root, "manifest.json", JSON.stringify(current));
 	write(root, "README.md", "# Icons\n");
 	write(root, "LICENSE", "MIT\n");
-	write(root, "versions.json", JSON.stringify({ [current.version as string]: current.v }));
 	write(root, "dist/manifest.json", JSON.stringify(current));
 	write(root, "dist/main.js", "export {};\n");
 	return root;
@@ -102,14 +101,10 @@ describe("packageExtension", () => {
 		expect(result.stdout).toContain("SHA-256");
 	});
 
-	it("requires repository publishing files and a current versions entry", () => {
+	it("requires repository publishing files", () => {
 		const root = project();
 		fs.rmSync(path.join(root, "README.md"));
 		expect(() => packageExtension({ root })).toThrow(/README.md/);
-
-		write(root, "README.md", "# Icons\n");
-		write(root, "versions.json", '{"1.0.0":1}');
-		expect(() => packageExtension({ root })).toThrow(/current version/);
 	});
 
 	it("refuses a stale built manifest", () => {

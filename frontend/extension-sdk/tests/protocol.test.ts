@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateManifest, validateVersions } from "../src/protocol.js";
+import { validateManifest } from "../src/protocol.js";
 
 const manifest = (values: Record<string, unknown> = {}) => ({
 	v: 1,
@@ -30,27 +30,5 @@ describe("the version 1 manifest", () => {
 		["unknown capability", { capabilities: ["network.access"] }, /unknown capability/],
 	])("rejects %s", (_name, values, expected) => {
 		expect(() => validateManifest(manifest(values))).toThrow(expected as RegExp);
-	});
-});
-
-describe("versions.json", () => {
-	it("maps the current version to its protocol", () => {
-		expect(validateVersions({ "1.0.0": 1, "1.2.0": 1 }, manifest())).toEqual({
-			"1.0.0": 1,
-			"1.2.0": 1,
-		});
-	});
-
-	it("rejects a missing current version", () => {
-		expect(() => validateVersions({ "1.0.0": 1 }, manifest())).toThrow(/current version/);
-	});
-
-	it("rejects a root manifest older than a listed version", () => {
-		expect(() => validateVersions({ "1.2.0": 1, "2.0.0": 1 }, manifest())).toThrow(/later than current/);
-	});
-
-	it("rejects invalid versions and protocol values", () => {
-		expect(() => validateVersions({ latest: 1 }, manifest())).toThrow(/invalid SemVer/);
-		expect(() => validateVersions({ "1.2.0": 0 }, manifest())).toThrow(/positive protocol integer/);
 	});
 });
