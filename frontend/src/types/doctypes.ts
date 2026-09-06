@@ -13,7 +13,7 @@ interface DocType {
     idx?: number;
   }
   
-// Last updated: 2026-06-05 16:00:00.000000
+// Last updated: 2026-09-07 00:05:17.903363
 export interface BuilderSettings extends DocType {
   /** Script: Code */
   script?: string;
@@ -43,6 +43,12 @@ export interface BuilderSettings extends DocType {
   restrict_click_handlers: 0 | 1;
   /** AI API Key: Password */
   ai_api_key?: string;
+  /** Persona Survey Done: Check */
+  persona_survey_done: 0 | 1;
+  /** Hub URL: Data */
+  hub_url?: string;
+  /** Disable Extensions: Check */
+  disable_extensions: 0 | 1;
 }
 
 // Last updated: 2024-11-13 20:08:24.187664

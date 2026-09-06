@@ -143,6 +143,14 @@ const panes: SettingsPane[] = [
 		load: () => import("@/components/Settings/GlobalDeveloper.vue"),
 	},
 	{
+		name: "global_extension",
+		label: __("Extensions"),
+		title: __("Extensions Settings"),
+		icon: "lucide-plug",
+		group: "Global",
+		load: () => import("@/components/Settings/GlobalExtensions.vue"),
+	},
+	{
 		name: "global_ai",
 		label: __("AI"),
 		title: __("AI Settings"),

@@ -106,6 +106,7 @@ declare module 'vue' {
     GlobalCode: typeof import('./src/components/Settings/GlobalCode.vue')['default']
     GlobalDeveloper: typeof import('./src/components/Settings/GlobalDeveloper.vue')['default']
     GlobalDomains: typeof import('./src/components/Settings/GlobalDomains.vue')['default']
+    GlobalExtensions: typeof import('./src/components/Settings/GlobalExtensions.vue')['default']
     GlobalGeneral: typeof import('./src/components/Settings/GlobalGeneral.vue')['default']
     GlobalRedirects: typeof import('./src/components/Settings/GlobalRedirects.vue')['default']
     GlobalUsers: typeof import('./src/components/Settings/GlobalUsers.vue')['default']
