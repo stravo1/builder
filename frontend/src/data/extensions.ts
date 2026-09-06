@@ -2,8 +2,28 @@ import { devExtension, setDevCapabilities } from "@/extensions/devExtension";
 import type { Capability, InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { call, createResource } from "frappe-ui";
 import { computed } from "vue";
+import { builderSettings } from "@/data/builderSettings";
 
 const METHOD = "builder.extensions.installations";
+
+const HUB_API = "api/method/builder_hub.extensions.api";
+
+/** The Builder Hub this site reads its catalog from. */
+const hubUrl = () => ensureProtocol(builderSettings.doc?.hub_url ?? "") || "preview.frappe.cloud";
+
+function ensureProtocol(url: string, defaultProtocol = "http") {
+	if (!url) return url;
+
+	// Normalize the default protocol (strip any trailing "://" or ":")
+	const protocol = defaultProtocol.replace(/:\/\/$|:$/, "");
+	// Matches things like "http://", "https://", "ftp://", "mailto:", "//" (protocol-relative)
+	const hasProtocol = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(url) || /^\/\//.test(url);
+
+	let result = hasProtocol ? url : `${protocol}://${url}`;
+	result = result.replace(/\/+$/, "");
+
+	return result;
+}
 
 const extensionsResource = createResource({
 	url: "builder.extensions.registry.get_enabled_extensions",
@@ -203,4 +223,68 @@ export const uninstallSummary = (extension: string) =>
 export const uninstallExtension = async (extension: string) => {
 	await call(`${METHOD}.uninstall_extension`, { extension });
 	await reloadExtensions();
+};
+
+export type CatalogExtension = Pick<UserInstallation, "name" | "label" | "description" | "icon">;
+
+/** One row the Extensions panel opened, and whether this user has it installed. */
+export type SelectedExtension = {
+	name: string;
+	isInstalled: boolean;
+};
+
+export const getExtensionsCatalog = (page: number = 1) =>
+	createResource({
+		url: `${hubUrl()}/${HUB_API}.get_catalog`,
+		params: { page },
+		auto: true,
+		initialData: { extensions: [] as CatalogExtension[] },
+		onError: (error: Error) => console.error("Could not load extensions list", error),
+	});
+
+/** A not-installed extension as its hub page describes it. No grants, no install date. */
+export type HubExtension = CatalogExtension & {
+	version: string;
+	readme?: string;
+	source_url?: string;
+};
+
+/** What `get_extension` sends: the manifest entry beside every release of it. */
+type HubExtensionResponse = {
+	extension: CatalogExtension & { readme?: string; repository_url?: string };
+	releases: { version: string; status: string; published_on: string }[];
+};
+
+/** The newest published release, which names the version a fresh install gets. */
+const latestVersion = (releases: HubExtensionResponse["releases"]) =>
+	releases
+		.filter((release) => release.status === "Published")
+		.sort((a, b) => b.published_on.localeCompare(a.published_on))[0]?.version ?? "";
+
+/**
+ * One extension read from the hub, for the page a user opens before installing.
+ *
+ * Goes to the hub, not the site, because the site has no record of it yet.
+ */
+export const getHubExtension = async (name: string): Promise<HubExtension> => {
+	const { extension, releases }: HubExtensionResponse = await createResource({
+		url: `${hubUrl()}/${HUB_API}.get_extension`,
+		params: { name },
+		onError: (error: Error) => console.error("Could not load extension", error),
+	}).fetch();
+
+	return {
+		name: extension.name,
+		label: extension.label,
+		description: extension.description,
+		icon: extension.icon,
+		readme: extension.readme,
+		source_url: extension.repository_url,
+		version: latestVersion(releases),
+	};
+};
+
+/** Dummy until the hub can hand an installation back. */
+export const installFromHub = async (name: string) => {
+	console.warn("installFromHub is not wired yet", name);
 };

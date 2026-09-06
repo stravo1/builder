@@ -23,8 +23,8 @@
 						role="button"
 						tabindex="0"
 						size="md"
-						@click="emit('select', extension.name)"
-						@keydown.enter.self="emit('select', extension.name)">
+						@click="open(extension.name, true)"
+						@keydown.enter.self="open(extension.name, true)">
 						<template #prefix>
 							<!-- one box whatever the file measures, so a stray icon cannot set the row height -->
 							<img
@@ -68,8 +68,36 @@
 				It is here so the panel says that out loud: an empty list a user can see
 				reads as "none yet", where a missing list reads as "this cannot be done".
 			-->
-			<CollapsibleSection section-name="Marketplace" :section-collapsed="Boolean(filter)">
-				<p class="text-p-sm text-ink-gray-5">Coming soon...</p>
+			<CollapsibleSection section-name="Marketplace">
+				<p v-if="!notInstalled.length" class="text-p-sm text-ink-gray-5">Coming soon...</p>
+				<ItemListRow
+					v-for="extension in notInstalled"
+					:key="extension.name"
+					class="cursor-pointer transition-none hover:bg-surface-gray-2"
+					role="button"
+					tabindex="0"
+					size="md"
+					@click="open(extension.name, false)"
+					@keydown.enter.self="open(extension.name, false)">
+					<template #prefix>
+						<img
+							v-if="extension.icon"
+							:src="extension.icon"
+							class="size-4 shrink-0 object-contain"
+							alt=""
+							aria-hidden="true" />
+						<span v-else class="lucide-plug size-4 shrink-0 text-ink-gray-6" aria-hidden="true" />
+					</template>
+					<div class="flex min-w-0 flex-col gap-1">
+						<span class="truncate">{{ extension.label }}</span>
+						<span v-if="extension.description" class="truncate text-xs text-ink-gray-5">
+							{{ extension.description }}
+						</span>
+					</div>
+					<template #suffix>
+						<span class="lucide-chevron-right size-4 text-ink-gray-5" aria-hidden="true" />
+					</template>
+				</ItemListRow>
 			</CollapsibleSection>
 		</div>
 
@@ -85,25 +113,40 @@
 
 <script setup lang="ts">
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
-import { userInstallations } from "@/data/extensions";
+import {
+	userInstallations,
+	getExtensionsCatalog,
+	CatalogExtension,
+	SelectedExtension,
+} from "@/data/extensions";
 import { isDevExtension, showDevExtensionDialog, stopDevExtension } from "@/extensions/devExtension";
 import { Badge, Button, ItemListRow, Tooltip } from "frappe-ui";
 import { computed, ref } from "vue";
 
-const emit = defineEmits<{ select: [extension: string] }>();
+const emit = defineEmits<{ select: [selection: SelectedExtension] }>();
+
+const open = (name: string, isInstalled: boolean) => emit("select", { name, isInstalled });
 
 // loading one runs code the editor never installed, so only a developer sees the button
 const isDeveloperMode = Boolean(window.is_developer_mode);
 
 const filter = ref("");
 
-/** Search visible details and the package name, which remains a useful lookup key. */
-const installed = computed(() => {
+/** Empty search matches everything; otherwise the label, description, and package name are searched. */
+function matchesFilter(extension: CatalogExtension) {
 	const wanted = filter.value.trim().toLowerCase();
-	if (!wanted) return userInstallations.value;
+	if (!wanted) return true;
+	return `${extension.label} ${extension.description ?? ""} ${extension.name}`.toLowerCase().includes(wanted);
+}
 
-	return userInstallations.value.filter((extension) =>
-		`${extension.label} ${extension.description ?? ""} ${extension.name}`.toLowerCase().includes(wanted),
-	);
+const installed = computed(() => userInstallations.value.filter(matchesFilter));
+
+const extensionsCatalog = getExtensionsCatalog();
+
+/** Catalog entries this user has not installed yet. */
+const notInstalled = computed<CatalogExtension[]>(() => {
+	const installedNames = new Set(userInstallations.value.map((extension) => extension.name));
+	const catalog: CatalogExtension[] = extensionsCatalog.data?.extensions ?? [];
+	return catalog.filter((extension) => !installedNames.has(extension.name) && matchesFilter(extension));
 });
 </script>

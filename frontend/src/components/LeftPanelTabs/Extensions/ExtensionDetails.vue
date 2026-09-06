@@ -29,7 +29,16 @@
 
 				<p v-if="details.description" class="text-p-sm text-ink-gray-7">{{ details.description }}</p>
 
-				<div v-if="details.is_development" class="flex gap-2">
+				<Button
+					v-if="!isInstalled"
+					variant="solid"
+					size="sm"
+					icon-left="lucide-download"
+					label="Install"
+					:loading="working"
+					@click="install" />
+
+				<div v-else-if="details.is_development" class="flex gap-2">
 					<Button
 						v-if="mounted && canOpen(mounted)"
 						variant="solid"
@@ -55,7 +64,7 @@
 					class="extension-readme markdown-body prose prose-sm max-w-none break-words border-t border-outline-gray-1 pt-4 text-p-sm text-ink-gray-7"
 					v-html="readme" />
 
-				<section class="border-t border-outline-gray-1 py-4">
+				<section v-if="isInstalled" class="border-t border-outline-gray-1 py-4">
 					<div class="pb-3">
 						<h2 class="text-sm font-medium text-ink-gray-8">Capabilities</h2>
 						<p class="pt-2 text-xs text-ink-gray-5">
@@ -76,7 +85,8 @@
 				</section>
 
 				<div class="flex flex-col gap-1 border-t border-outline-gray-1 pt-4 text-xs text-ink-gray-5">
-					<p v-if="details.is_development">Served by {{ details.development_server }}</p>
+					<p v-if="!isInstalled">{{ details.source_url || "From the Builder Hub" }}</p>
+					<p v-else-if="details.is_development">Served by {{ details.development_server }}</p>
 					<template v-else>
 						<p>{{ details.source_url || "Installed from a directory" }}</p>
 						<p>Installed on {{ installedOn }}</p>
@@ -94,6 +104,8 @@ import { renderMarkdown } from "@/components/ai/markdown";
 import {
 	installedExtensions,
 	installationDetails,
+	getHubExtension,
+	installFromHub,
 	setExtensionEnabled,
 	uninstallExtension,
 	uninstallSummary,
@@ -105,7 +117,7 @@ import { confirm } from "@/utils/helpers";
 import { Badge, Button, LoadingIndicator, toast } from "frappe-ui";
 import { computed, ref, watch } from "vue";
 
-const props = defineProps<{ extension: string }>();
+const props = defineProps<{ extension: string, isInstalled: boolean }>();
 const emit = defineEmits<{ back: [] }>();
 
 const details = ref<InstallationDetails | null>(null);
@@ -132,9 +144,32 @@ const load = async () => {
 	details.value = null;
 	error.value = "";
 	try {
-		details.value = await installationDetails(props.extension);
+		details.value = props.isInstalled
+			? await installationDetails(props.extension)
+			: fromHub(await getHubExtension(props.extension));
 	} catch (thrown) {
 		error.value = (thrown as Error).message;
+	}
+};
+
+/** A hub entry seen through the same shape, minus what only an installation holds. */
+const fromHub = (hub: Awaited<ReturnType<typeof getHubExtension>>): InstallationDetails => ({
+	...hub,
+	source_url: hub.source_url ?? "",
+	enabled: false,
+	installed_on: "",
+	requested_capabilities: [],
+	granted_capabilities: [],
+	grants: [],
+});
+
+const install = async () => {
+	working.value = true;
+	try {
+		await installFromHub(props.extension);
+		toast.success("Install is not available yet");
+	} finally {
+		working.value = false;
 	}
 };
 

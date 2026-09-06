@@ -1,12 +1,16 @@
 <template>
-	<ExtensionDetails v-if="selected" :extension="selected" @back="selected = null" />
-	<ExtensionList v-else @select="(extension) => (selected = extension)" />
+	<ExtensionDetails
+		v-if="selectedExtension"
+		:extension="selectedExtension.name"
+		:is-installed="selectedExtension.isInstalled"
+		@back="selectedExtension = null" />
+	<ExtensionList v-else @select="(selection) => (selectedExtension = selection)" />
 </template>
 
 <script setup lang="ts">
 import ExtensionDetails from "@/components/LeftPanelTabs/Extensions/ExtensionDetails.vue";
 import ExtensionList from "@/components/LeftPanelTabs/Extensions/ExtensionList.vue";
-import { loadUserInstallations } from "@/data/extensions";
+import { loadUserInstallations, type SelectedExtension } from "@/data/extensions";
 import { onMounted, ref } from "vue";
 
 /**
@@ -14,7 +18,7 @@ import { onMounted, ref } from "vue";
  * VS Code opens an extension page from its list. The tab owns which one is open
  * and nothing else.
  */
-const selected = ref<string | null>(null);
+const selectedExtension = ref<SelectedExtension | null>(null);
 
 onMounted(loadUserInstallations);
 </script>
