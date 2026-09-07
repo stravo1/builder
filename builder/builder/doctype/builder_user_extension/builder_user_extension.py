@@ -160,6 +160,20 @@ class BuilderUserExtension(Document):
 		if self.readme and len(self.readme.encode()) > MAX_README_BYTES:
 			frappe.throw(_("A README may hold {0} bytes at most.").format(MAX_README_BYTES))
 
+	def write_extension_files(self, files: dict[str, bytes]):
+		"""Replace this user's copy with the files a frame loads.
+
+		Keyed by path under the install root, so `main.js` lands where `source`
+		reads it. Replaces the whole directory, so a rebuild leaves nothing of the
+		last one behind.
+		"""
+		root = Path(self.install_path)
+		shutil.rmtree(root, ignore_errors=True)
+		for relative_path, content in files.items():
+			target = root / relative_path
+			target.parent.mkdir(parents=True, exist_ok=True)
+			target.write_bytes(content)
+
 	def delete_extension_files(self):
 		"""This user's copy alone. Another user's copy is another directory."""
 		shutil.rmtree(self.install_path, ignore_errors=True)

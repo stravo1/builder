@@ -66,11 +66,10 @@ def find_installation(extension, user=None):
 
 def write_source(installation, source: str):
 	"""The one file an install holds, plus an icon when the record names one."""
-	install = pathlib.Path(installation.install_path)
-	install.mkdir(parents=True, exist_ok=True)
-	(install / ENTRY_FILE).write_text(source)
+	files = {ENTRY_FILE: source.encode()}
 	if installation.icon:
-		(install / installation.icon).write_text("<svg />")
+		files[installation.icon] = b"<svg />"
+	installation.write_extension_files(files)
 
 
 def drop_installations(extension: str):

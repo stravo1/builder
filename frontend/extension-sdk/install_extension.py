@@ -20,7 +20,6 @@ one remounts the extension and a reload picks the change up.
 import argparse
 import hashlib
 import pathlib
-import shutil
 
 import frappe
 
@@ -75,6 +74,12 @@ class ExtensionPackage:
 			for path in self.source_directory.rglob("*")
 			if path.is_file() and path.suffix not in NOT_SHIPPED_SUFFIXES
 		)
+
+	def read_files(self) -> dict[str, bytes]:
+		"""The shipped files, keyed by path under the install root."""
+		return {
+			path.relative_to(self.source_directory).as_posix(): path.read_bytes() for path in self.files
+		}
 
 	@property
 	def checksum(self) -> str:
@@ -145,7 +150,7 @@ class ExtensionInstaller:
 		self.package.validate()
 		self.assert_user()
 		installation = self.upsert_installation()
-		self.copy_files(installation.install_path)
+		installation.write_extension_files(self.package.read_files())
 		frappe.db.commit()
 		self.report(installation)
 
@@ -190,18 +195,6 @@ class ExtensionInstaller:
 				**values,
 			}
 		).insert()
-
-	def copy_files(self, install_path: str):
-		"""The whole directory, into the copy this one user runs.
-
-		The source directory flattens onto the install root, so `main.js` sits where
-		the editor reads it from.
-		"""
-		shutil.rmtree(install_path, ignore_errors=True)
-		for path in self.package.files:
-			target = pathlib.Path(install_path) / path.relative_to(self.package.source_directory)
-			target.parent.mkdir(parents=True, exist_ok=True)
-			shutil.copy2(path, target)
 
 	def uninstall(self):
 		"""Removes one user's installation, and nothing the extension made.

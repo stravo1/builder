@@ -106,6 +106,16 @@ class TestBuilderUserExtension(FrappeTestCase):
 
 		self.assertEqual(installation.source, "export const ok = true;")
 
+	def test_writing_files_replaces_the_previous_copy(self):
+		installation = make_installation(EXTENSION, source="old")
+		stale = Path(installation.install_path) / "chunk.js"
+		stale.write_text("gone")
+
+		installation.write_extension_files({"main.js": b"new"})
+
+		self.assertEqual(installation.source, "new")
+		self.assertFalse(stale.exists())
+
 	def test_uninstall_takes_this_users_files(self):
 		installation = make_installation(EXTENSION, source="export default {};")
 		install_path = Path(installation.install_path)
