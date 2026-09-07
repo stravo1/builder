@@ -52,3 +52,22 @@ MAX_README_BYTES = 100_000
 # Room for settings and a cached list. Small enough that no extension fills a
 # site with what it remembers.
 MAX_STATE_BYTES = 100_000
+
+# The Builder Hub a site reads its catalog from when no other URL is set. It must
+# match the default on `Builder Settings.hub_url`.
+DEFAULT_HUB_URL = "https://preview.frappe.cloud"
+
+# The extension protocol this Builder speaks. A release that needs a newer one is
+# refused, and the Hub is asked for a release at or below this.
+PROTOCOL_VERSION = 1
+
+# A `.builderext` package is one small ZIP: a manifest, one built file and an
+# icon. These bound what Builder will download and unpack from it.
+MAX_PACKAGE_BYTES = 10 * 1024 * 1024
+MAX_EXTRACTED_BYTES = 30 * 1024 * 1024
+MAX_PACKAGE_FILES = 200
+MAX_MANIFEST_BYTES = 128 * 1024
+MAX_ICON_BYTES = 64 * 1024
+
+# The only kinds of file a package may hold.
+PACKAGE_SUFFIXES = frozenset({".js", ".json", ".svg"})
