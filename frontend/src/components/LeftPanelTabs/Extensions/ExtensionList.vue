@@ -42,14 +42,25 @@
 								<span v-if="extension.description" class="truncate text-xs text-ink-gray-5">
 									{{ extension.description }}
 								</span>
-								<Tooltip v-if="isDevExtension(extension)" text="Served by a dev server. A reload drops it.">
+								<Badge v-if="extension.install_state === 'Failed'" size="sm" theme="red" label="Failed" />
+								<Badge
+									v-else-if="extension.install_state === 'Installing'"
+									size="sm"
+									theme="blue"
+									label="Installing" />
+								<Tooltip
+									v-else-if="isDevExtension(extension)"
+									text="Served by a dev server. A reload drops it.">
 									<Badge size="sm" theme="orange" label="Dev" />
 								</Tooltip>
 								<Badge v-else-if="!extension.enabled" size="sm" theme="gray" label="Disabled" />
 							</div>
 						</div>
 						<template #suffix>
-							<Tooltip v-if="isDevExtension(extension)" text="Stop this dev extension">
+							<LoadingIndicator
+								v-if="extension.install_state === 'Installing'"
+								class="size-4 text-ink-gray-5" />
+							<Tooltip v-else-if="isDevExtension(extension)" text="Stop this dev extension">
 								<Button
 									variant="ghost"
 									size="sm"
@@ -57,7 +68,7 @@
 									class="mr-2"
 									@click.stop="stopDevExtension()" />
 							</Tooltip>
-							<span class="lucide-chevron-right size-4 text-ink-gray-5" aria-hidden="true" />
+							<span v-else class="lucide-chevron-right size-4 text-ink-gray-5" aria-hidden="true" />
 						</template>
 					</ItemListRow>
 				</div>
@@ -120,7 +131,7 @@ import {
 	SelectedExtension,
 } from "@/data/extensions";
 import { isDevExtension, showDevExtensionDialog, stopDevExtension } from "@/extensions/devExtension";
-import { Badge, Button, ItemListRow, Tooltip } from "frappe-ui";
+import { Badge, Button, ItemListRow, LoadingIndicator, Tooltip } from "frappe-ui";
 import { computed, ref } from "vue";
 
 const emit = defineEmits<{ select: [selection: SelectedExtension] }>();

@@ -49,6 +49,32 @@
 					<Button variant="subtle" size="sm" icon-left="lucide-unplug" label="Stop" @click="stop" />
 				</div>
 
+				<div v-else-if="isPending" class="flex items-center gap-2 text-p-sm text-ink-gray-6">
+					<LoadingIndicator class="size-4" />
+					Installing this extension…
+				</div>
+
+				<div v-else-if="isFailed" class="flex flex-col gap-2">
+					<p class="text-p-sm text-ink-red-6">{{ details.install_error || "The install did not finish." }}</p>
+					<div class="flex gap-2">
+						<Button
+							variant="solid"
+							size="sm"
+							icon-left="lucide-refresh-cw"
+							label="Retry"
+							:loading="working"
+							@click="install" />
+						<Button
+							variant="subtle"
+							theme="red"
+							size="sm"
+							icon-left="lucide-trash-2"
+							label="Remove"
+							:loading="working"
+							@click="removeFailed" />
+					</div>
+				</div>
+
 				<ExtensionActions
 					v-else
 					:can-open="Boolean(mounted && canOpen(mounted))"
@@ -64,7 +90,7 @@
 					class="extension-readme markdown-body prose prose-sm max-w-none break-words border-t border-outline-gray-1 pt-4 text-p-sm text-ink-gray-7"
 					v-html="readme" />
 
-				<section v-if="isInstalled" class="border-t border-outline-gray-1 py-4">
+				<section v-if="isInstalled && isReady" class="border-t border-outline-gray-1 py-4">
 					<div class="pb-3">
 						<h2 class="text-sm font-medium text-ink-gray-8">Capabilities</h2>
 						<p class="pt-2 text-xs text-ink-gray-5">
@@ -87,7 +113,7 @@
 				<div class="flex flex-col gap-1 border-t border-outline-gray-1 pt-4 text-xs text-ink-gray-5">
 					<p v-if="!isInstalled">{{ details.source_url || "From the Builder Hub" }}</p>
 					<p v-else-if="details.is_development">Served by {{ details.development_server }}</p>
-					<template v-else>
+					<template v-else-if="isReady">
 						<p>{{ details.source_url || "Installed from a directory" }}</p>
 						<p>Installed on {{ installedOn }}</p>
 					</template>
@@ -113,16 +139,25 @@ import {
 } from "@/data/extensions";
 import { stopDevExtension } from "@/extensions/devExtension";
 import { canOpen, openExtension } from "@/extensions/surfaces/openMethods";
+import useBuilderStore from "@/stores/builderStore";
 import { confirm } from "@/utils/helpers";
 import { Badge, Button, LoadingIndicator, toast } from "frappe-ui";
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 
-const props = defineProps<{ extension: string, isInstalled: boolean }>();
+const props = defineProps<{ extension: string; isInstalled: boolean }>();
 const emit = defineEmits<{ back: [] }>();
+
+const builderStore = useBuilderStore();
 
 const details = ref<InstallationDetails | null>(null);
 const error = ref("");
 const working = ref(false);
+
+/** A Hub install is "Installing" until its job lands, then "Ready" or "Failed". An
+ * install from any other path, and an older row, has no state and reads as ready. */
+const isPending = computed(() => details.value?.install_state === "Installing");
+const isFailed = computed(() => details.value?.install_state === "Failed");
+const isReady = computed(() => !isPending.value && !isFailed.value);
 
 /** The running record, which a disabled extension does not have. Its open target needs a frame. */
 const mounted = computed(() => installedExtensions.value.find((row) => row.name === props.extension));
@@ -163,11 +198,28 @@ const fromHub = (hub: Awaited<ReturnType<typeof getHubExtension>>): Installation
 	grants: [],
 });
 
+/** Serves the Marketplace "Install" and the "Retry" on a failed row. Retry stays
+ * on the page to show progress; a fresh install goes back to the list. */
 const install = async () => {
 	working.value = true;
 	try {
 		await installFromHub(props.extension);
 		toast.success("Installing…");
+		if (props.isInstalled) await load();
+		else emit("back");
+	} catch (thrown) {
+		toast.error((thrown as Error).message);
+	} finally {
+		working.value = false;
+	}
+};
+
+/** A failed install made nothing, so removing it needs no summary or confirmation. */
+const removeFailed = async () => {
+	working.value = true;
+	try {
+		await uninstallExtension(props.extension);
+		toast.success("Removed");
 		emit("back");
 	} catch (thrown) {
 		toast.error((thrown as Error).message);
@@ -177,6 +229,14 @@ const install = async () => {
 };
 
 watch(() => props.extension, load, { immediate: true });
+
+/** The install job finishes elsewhere. Reload this page when it touches this extension. */
+const onInstallDone = (event: { extension: string }) => {
+	if (event.extension === props.extension) load();
+};
+
+onMounted(() => builderStore.realtime.on("builder_extension_install", onInstallDone));
+onUnmounted(() => builderStore.realtime.off("builder_extension_install", onInstallDone));
 
 /** Disabling unmounts every frame, so the panel has to say what it did. */
 const setEnabled = async (enabled: boolean) => {
