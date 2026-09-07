@@ -10,8 +10,10 @@
 <script setup lang="ts">
 import ExtensionDetails from "@/components/LeftPanelTabs/Extensions/ExtensionDetails.vue";
 import ExtensionList from "@/components/LeftPanelTabs/Extensions/ExtensionList.vue";
-import { loadUserInstallations, type SelectedExtension } from "@/data/extensions";
-import { onMounted, ref } from "vue";
+import { loadUserInstallations, reloadExtensions, type SelectedExtension } from "@/data/extensions";
+import useBuilderStore from "@/stores/builderStore";
+import { toast } from "frappe-ui";
+import { onMounted, onUnmounted, ref } from "vue";
 
 /**
  * The list and one extension's details are the same panel, one at a time, the way
@@ -20,5 +22,21 @@ import { onMounted, ref } from "vue";
  */
 const selectedExtension = ref<SelectedExtension | null>(null);
 
-onMounted(loadUserInstallations);
+const builderStore = useBuilderStore();
+
+/** A Hub install finishes in a background job. Reload both lists when it lands. */
+const onInstallDone = (event: { extension: string; state: "Ready" | "Failed" }) => {
+	reloadExtensions();
+	if (event.state === "Failed") toast.error(`Could not install ${event.extension}`);
+	else toast.success(`Installed ${event.extension}`);
+};
+
+onMounted(() => {
+	loadUserInstallations();
+	builderStore.realtime.on("builder_extension_install", onInstallDone);
+});
+
+onUnmounted(() => {
+	builderStore.realtime.off("builder_extension_install", onInstallDone);
+});
 </script>

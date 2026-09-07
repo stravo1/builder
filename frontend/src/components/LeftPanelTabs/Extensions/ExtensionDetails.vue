@@ -167,7 +167,10 @@ const install = async () => {
 	working.value = true;
 	try {
 		await installFromHub(props.extension);
-		toast.success("Install is not available yet");
+		toast.success("Installing…");
+		emit("back");
+	} catch (thrown) {
+		toast.error((thrown as Error).message);
 	} finally {
 		working.value = false;
 	}

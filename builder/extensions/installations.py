@@ -22,8 +22,8 @@ from builder.extensions.access import (
 	INSTALLATION_DOCTYPE,
 	find_own_installation,
 )
-from builder.extensions.data import ACCESS_FIELDS, forget_grant, read_access, upsert_grant
 from builder.extensions.constants import DEV_EXTENSION_VERSION
+from builder.extensions.data import ACCESS_FIELDS, forget_grant, read_access, upsert_grant
 from builder.utils import has_page_read
 
 RESOURCE_DOCTYPE = "Builder Extension Resource"
@@ -170,6 +170,8 @@ def describe_installation(installation: str) -> dict:
 		"version": row.version,
 		"source_url": row.source_url,
 		"enabled": bool(row.enabled),
+		"install_state": row.install_state,
+		"install_error": row.install_error,
 	}
 
 

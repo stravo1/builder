@@ -91,6 +91,10 @@ export type UserInstallation = {
 	/** The Builder Hub it came from. Empty for an extension installed from a directory. */
 	source_url: string;
 	enabled: boolean;
+	/** A Hub install is "Installing" until its background job lands, then "Ready" or "Failed". */
+	install_state?: "Installing" | "Ready" | "Failed";
+	/** Why the last Hub install failed, shown with a Retry. */
+	install_error?: string;
 };
 
 /** One doctype this user answered for, as `Builder Extension Grant` holds it. */
@@ -284,7 +288,12 @@ export const getHubExtension = async (name: string): Promise<HubExtension> => {
 	};
 };
 
-/** Dummy until the hub can hand an installation back. */
+/**
+ * Start a Hub install. The server answers with an "Installing" row and runs the
+ * download in a background job, so this resolves fast. The row flips to "Ready"
+ * or "Failed" on the `builder_extension_install` realtime event.
+ */
 export const installFromHub = async (name: string) => {
-	console.warn("installFromHub is not wired yet", name);
+	await call("builder.extensions.hub.install_from_hub", { name });
+	await reloadExtensions();
 };

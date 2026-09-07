@@ -7,11 +7,12 @@ The browser browses a Hub's catalog directly, but it never downloads extension
 code. That crosses the trust boundary, so it happens here, on the server, under
 the session user.
 
-`install_from_hub` runs one pipeline: resolve the Hub URL, read the exact
-release, download the GitHub package, prove it against the release
-`package_sha256`, re-check its contents, and only then write the user's copy and
-record the installation. Every step can refuse, and a refusal leaves any
-existing installation untouched.
+`install_from_hub` does only the fast part: the checks, an `Installing` row, and
+a background job. `run_hub_install` is the slow part: read the exact release,
+download the GitHub package, prove it against the release `package_sha256`,
+re-check its contents, then fill the row and write the user's copy. The two
+Hub round-trips and a 10 MB download would starve the web workers if they ran
+in the request.
 
 Builder re-validates what the Hub already validated. The Hub is trusted to point
 at a release, not to have vetted it, and the sha256 is the one fact Builder
@@ -219,25 +220,65 @@ def read_capped(response: requests.Response, limit: int) -> bytes:
 @frappe.whitelist(methods=["POST"])
 @has_page_read(NOT_INSTALLABLE)
 def install_from_hub(name: str, version: str | None = None) -> dict:
-	"""Install one Hub extension for the session user, and answer with its panel row.
+	"""Start a Hub install for the session user, and answer with its panel row.
 
-	The installation starts with nothing granted. The manifest's ask goes on
-	`requested_capabilities`, and the user grants from it afterwards through
-	`set_granted_capabilities`, the same path a dev installation uses.
+	The row comes back `Installing`. A background job downloads and checks the
+	package, then flips the row to `Ready` or `Failed` and sends a
+	`builder_extension_install` realtime event. Nothing slow runs in this request.
 	"""
 	assert_installable(name)
 
 	hub_url = resolve_hub_url()
-	release = get_release(hub_url, name, version)
-	package_bytes = download_package(release)
-	package = validate_package(package_bytes, name, release.version)
+	version = version or latest_version(hub_url, name)
+	installation = create_pending_installation(name, version)
 
-	return describe_installation(record_installation(name, hub_url, release, package))
+	frappe.enqueue(
+		run_hub_install,
+		queue="default",
+		timeout=300,
+		enqueue_after_commit=True,
+		job_id=f"hub-install::{frappe.session.user}::{name}",
+		deduplicate=True,
+		installation=installation,
+		name=name,
+		version=version,
+		hub_url=hub_url,
+		user=frappe.session.user,
+	)
+	return describe_installation(installation)
+
+
+def run_hub_install(installation: str, name: str, version: str, hub_url: str, user: str) -> None:
+	"""Download, check and finish one pending installation, then send the result.
+
+	A failure rolls back the job's writes and marks the row `Failed` with the
+	reason, so the panel can show it with a Retry.
+	"""
+	try:
+		release = get_release(hub_url, name, version)
+		package = validate_package(download_package(release), name, release.version)
+		apply_release(frappe.get_doc(INSTALLATION_DOCTYPE, installation), hub_url, release, package)
+		state = "Ready"
+	except Exception as error:
+		frappe.db.rollback()
+		frappe.log_error(title="Hub extension install failed")
+		state = "Failed"
+		frappe.db.set_value(
+			INSTALLATION_DOCTYPE,
+			installation,
+			{"install_state": state, "install_error": str(error) or _("The install failed.")},
+		)
+
+	frappe.db.commit()
+	frappe.publish_realtime(
+		"builder_extension_install", {"extension": name, "state": state}, user=user, after_commit=True
+	)
 
 
 def assert_installable(name: str) -> None:
-	"""Refuse before any network call: a guest, a site with extensions off, a bad
-	name, or a name this user already installed from any source."""
+	"""Refuse before the job is queued: a guest, a site with extensions off, a bad
+	name, or a name this user already has installed or installing. A `Failed` row
+	is not a block, so the panel's Retry starts a fresh job on it."""
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Sign in to install extensions."), frappe.PermissionError)
 	if frappe.db.get_single_value("Builder Settings", "disable_extensions"):
@@ -245,27 +286,56 @@ def assert_installable(name: str) -> None:
 	if not EXTENSION_NAME_PATTERN.match(name or ""):
 		frappe.throw(_("An extension name reads as publisher/name, in lowercase."))
 
-	installed = find_own_installation(name)
-	if installed:
-		source = frappe.db.get_value(INSTALLATION_DOCTYPE, installed, "source_url") or _("a directory")
-		frappe.throw(_('"{0}" is already installed from {1}.').format(name, source))
+	existing = find_own_installation(name)
+	if not existing:
+		return
+	state, source = frappe.db.get_value(INSTALLATION_DOCTYPE, existing, ["install_state", "source_url"])
+	if state == "Installing":
+		frappe.throw(_('"{0}" is already installing.').format(name))
+	if state != "Failed":
+		frappe.throw(_('"{0}" is already installed from {1}.').format(name, source or _("a directory")))
 
 
-def record_installation(
-	name: str, source_url: str, release: Release, package: ValidatedPackage
-) -> str:
-	"""Write the user's copy and insert `Builder User Extension`. Answers with its name.
+def create_pending_installation(name: str, version: str) -> str:
+	"""An `Installing` row for the job to finish. Reuses a `Failed` row so Retry works.
 
-	The last step, so a failure earlier leaves the user with what they had.
+	`label` stands in as the name until the manifest arrives.
+	"""
+	existing = find_own_installation(name)
+	if existing:
+		frappe.db.set_value(
+			INSTALLATION_DOCTYPE,
+			existing,
+			{"install_state": "Installing", "install_error": None, "version": version},
+		)
+		return existing
+
+	return (
+		frappe.get_doc(
+			{
+				"doctype": INSTALLATION_DOCTYPE,
+				"user": frappe.session.user,
+				"extension": name,
+				"label": name,
+				"version": version,
+				"install_state": "Installing",
+				"enabled": 0,
+			}
+		)
+		.insert()
+		.name
+	)
+
+
+def apply_release(doc, source_url: str, release: Release, package: ValidatedPackage) -> None:
+	"""Fill the pending row from the release and write the user's copy.
+
 	`requested_capabilities` holds the manifest's ask; `granted_capabilities`
 	starts empty, and the user grants from the panel.
 	"""
 	manifest = package.manifest
-	installation = frappe.get_doc(
+	doc.update(
 		{
-			"doctype": INSTALLATION_DOCTYPE,
-			"user": frappe.session.user,
-			"extension": name,
 			"source_url": source_url,
 			"label": manifest["label"],
 			"description": manifest["description"],
@@ -274,13 +344,10 @@ def record_installation(
 			"checksum": release.package_sha256[:12],
 			"requested_capabilities": frappe.as_json(manifest["capabilities"]),
 			"granted_capabilities": frappe.as_json([]),
+			"install_state": "Ready",
+			"install_error": None,
 			"enabled": 1,
 		}
-	).insert()
-
-	try:
-		installation.write_extension_files(package.files)
-	except Exception:
-		installation.delete()
-		raise
-	return installation.name
+	)
+	doc.save()
+	doc.write_extension_files(package.files)

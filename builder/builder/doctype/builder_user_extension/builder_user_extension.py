@@ -41,6 +41,8 @@ class BuilderUserExtension(Document):
 		extension: DF.Data
 		granted_capabilities: DF.SmallText | None
 		icon: DF.Data | None
+		install_error: DF.SmallText | None
+		install_state: DF.Literal["Installing", "Ready", "Failed"]
 		installed_on: DF.Datetime | None
 		label: DF.Data | None
 		readme: DF.LongText | None
