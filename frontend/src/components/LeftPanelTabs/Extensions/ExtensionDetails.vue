@@ -4,9 +4,11 @@
 			<Button variant="ghost" size="sm" icon-left="lucide-arrow-left" label="Back" @click="emit('back')" />
 		</div>
 
-		<div class="no-scrollbar min-h-0 flex-1 overflow-y-auto">
+		<div class="no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto">
 			<p v-if="error" class="px-3 pb-3 text-p-sm text-ink-red-6">{{ error }}</p>
-			<LoadingIndicator v-else-if="!details" class="mx-auto mt-6 size-4 text-ink-gray-5" />
+			<div v-else-if="!details" class="flex flex-1 items-center justify-center">
+				<LoadingIndicator class="size-5 text-ink-gray-5" />
+			</div>
 
 			<div v-else class="flex flex-col gap-5 px-3 pb-5">
 				<div class="flex items-start gap-3">
@@ -182,9 +184,18 @@ const load = async () => {
 	details.value = null;
 	error.value = "";
 	try {
-		details.value = props.isInstalled
-			? await installationDetails(props.extension)
-			: fromHub(await getHubExtension(props.extension));
+		if (!props.isInstalled) {
+			details.value = fromHub(await getHubExtension(props.extension));
+			return;
+		}
+		const local = await installationDetails(props.extension);
+		const pending = local.install_state === "Installing" || local.install_state === "Failed";
+		// A pending or failed row has no manifest yet, so borrow the label,
+		// description, icon and README from the Hub to show while it installs.
+		const hub = pending ? await getHubExtension(props.extension).catch(() => null) : null;
+		details.value = hub
+			? { ...local, label: hub.label, description: hub.description, icon: hub.icon, readme: hub.readme }
+			: local;
 	} catch (thrown) {
 		error.value = (thrown as Error).message;
 	}
