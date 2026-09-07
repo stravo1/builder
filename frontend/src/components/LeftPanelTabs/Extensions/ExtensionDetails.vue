@@ -184,18 +184,9 @@ const load = async () => {
 	details.value = null;
 	error.value = "";
 	try {
-		if (!props.isInstalled) {
-			details.value = fromHub(await getHubExtension(props.extension));
-			return;
-		}
-		const local = await installationDetails(props.extension);
-		const pending = local.install_state === "Installing" || local.install_state === "Failed";
-		// A pending or failed row has no manifest yet, so borrow the label,
-		// description, icon and README from the Hub to show while it installs.
-		const hub = pending ? await getHubExtension(props.extension).catch(() => null) : null;
-		details.value = hub
-			? { ...local, label: hub.label, description: hub.description, icon: hub.icon, readme: hub.readme }
-			: local;
+		details.value = props.isInstalled
+			? await installationDetails(props.extension)
+			: fromHub(await getHubExtension(props.extension));
 	} catch (thrown) {
 		error.value = (thrown as Error).message;
 	}

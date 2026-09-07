@@ -109,7 +109,8 @@ def get_release(hub_url: str, name: str, version: str | None) -> Release:
 	checks it again from the downloaded bytes, so this reads the response as it
 	comes and only refuses on status, protocol and size.
 	"""
-	version = version or latest_version(hub_url, name)
+	if not version:
+		version = latest_version(hub_extension(hub_url, name), name)
 	payload = hub_get(hub_url, "get_extension_release", {"extension_name": name, "version": version})
 
 	release = payload.get("release")
@@ -118,13 +119,17 @@ def get_release(hub_url: str, name: str, version: str | None) -> Release:
 	return read_release(name, release)
 
 
-def latest_version(hub_url: str, name: str) -> str:
-	"""The newest published version of `name`, from the Hub's release list."""
-	payload = hub_get(hub_url, "get_extension", {"name": name, "protocol_version": PROTOCOL_VERSION})
-	releases = payload.get("releases") or []
+def hub_extension(hub_url: str, name: str) -> dict:
+	"""The Hub's listing for one extension: its details and its releases."""
+	return hub_get(hub_url, "get_extension", {"name": name, "protocol_version": PROTOCOL_VERSION})
+
+
+def latest_version(listing: dict, name: str) -> str:
+	"""The newest published version in a listing. The Hub sorts them newest first."""
+	releases = listing.get("releases") or []
 	if not releases:
 		frappe.throw(_('"{0}" has no published release on this Hub.').format(name))
-	return releases[0]["version"]  # the Hub sends them newest first
+	return releases[0]["version"]
 
 
 def read_release(name: str, release: dict) -> Release:
@@ -243,8 +248,9 @@ def install_from_hub(name: str, version: str | None = None) -> dict:
 	assert_installable(name)
 
 	hub_url = resolve_hub_url()
-	version = version or latest_version(hub_url, name)
-	installation = create_pending_installation(name, version)
+	listing = hub_extension(hub_url, name)
+	version = version or latest_version(listing, name)
+	installation = create_pending_installation(name, version, listing.get("extension") or {})
 
 	# No deduplicate: `assert_installable` already refuses a fresh install while one
 	# runs, and a crashed job can linger in the RQ registry long enough to block a
@@ -317,18 +323,24 @@ def assert_installable(name: str) -> None:
 		frappe.throw(_('"{0}" is already installed from {1}.').format(name, source or _("a directory")))
 
 
-def create_pending_installation(name: str, version: str) -> str:
+def create_pending_installation(name: str, version: str, listing: dict) -> str:
 	"""An `Installing` row for the job to finish. Reuses a `Failed` row so Retry works.
 
-	`label` stands in as the name until the manifest arrives.
+	The label, description and README come from the Hub listing, so the panel
+	reads well before the package lands. `apply_release` replaces the first two
+	from the manifest.
 	"""
+	shown = {
+		"label": listing.get("label") or name,
+		"description": listing.get("description"),
+		"readme": listing.get("readme"),
+		"version": version,
+		"install_state": "Installing",
+		"install_error": None,
+	}
 	existing = find_own_installation(name)
 	if existing:
-		frappe.db.set_value(
-			INSTALLATION_DOCTYPE,
-			existing,
-			{"install_state": "Installing", "install_error": None, "version": version},
-		)
+		frappe.db.set_value(INSTALLATION_DOCTYPE, existing, shown)
 		return existing
 
 	return (
@@ -337,10 +349,8 @@ def create_pending_installation(name: str, version: str) -> str:
 				"doctype": INSTALLATION_DOCTYPE,
 				"user": frappe.session.user,
 				"extension": name,
-				"label": name,
-				"version": version,
-				"install_state": "Installing",
 				"enabled": 0,
+				**shown,
 			}
 		)
 		.insert()
