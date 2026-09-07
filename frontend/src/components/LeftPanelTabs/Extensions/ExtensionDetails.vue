@@ -49,9 +49,12 @@
 					<Button variant="subtle" size="sm" icon-left="lucide-unplug" label="Stop" @click="stop" />
 				</div>
 
-				<div v-else-if="isPending" class="flex items-center gap-2 text-p-sm text-ink-gray-6">
-					<LoadingIndicator class="size-4" />
-					Installing this extension…
+				<div v-else-if="isPending" class="flex flex-col gap-2">
+					<div class="flex items-center gap-2 text-p-sm text-ink-gray-6">
+						<LoadingIndicator class="size-4" />
+						Installing this extension…
+					</div>
+					<Button variant="ghost" size="sm" label="Cancel" :loading="working" @click="discardInstall" />
 				</div>
 
 				<div v-else-if="isFailed" class="flex flex-col gap-2">
@@ -71,7 +74,7 @@
 							icon-left="lucide-trash-2"
 							label="Remove"
 							:loading="working"
-							@click="removeFailed" />
+							@click="discardInstall" />
 					</div>
 				</div>
 
@@ -214,8 +217,9 @@ const install = async () => {
 	}
 };
 
-/** A failed install made nothing, so removing it needs no summary or confirmation. */
-const removeFailed = async () => {
+/** Cancel a stuck install or clear a failed one. Neither made anything, so this
+ * needs no uninstall summary or confirmation. */
+const discardInstall = async () => {
 	working.value = true;
 	try {
 		await uninstallExtension(props.extension);

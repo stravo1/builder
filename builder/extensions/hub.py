@@ -32,6 +32,7 @@ from dataclasses import dataclass
 import frappe
 import requests
 from frappe import _
+from frappe.utils import now_datetime, time_diff_in_seconds
 
 from builder.extensions.access import INSTALLATION_DOCTYPE, find_own_installation
 from builder.extensions.constants import (
@@ -51,6 +52,11 @@ HUB_API = "api/method/builder_hub.extensions.api"
 HUB_TIMEOUT = 20
 PACKAGE_TIMEOUT = 30
 PACKAGE_CHUNK_BYTES = 64 * 1024
+# An `Installing` row older than this has a job that died without marking it. Past
+# the job timeout of 300s with room for the queue wait.
+STALE_INSTALL_SECONDS = 600
+# The job's own RQ timeout. A hang past this is killed by RQ, not by the job.
+INSTALL_JOB_TIMEOUT = 300
 # A catalog or release response is small JSON. This is room for a long README
 # and no room for a Hub to stream at the worker.
 MAX_METADATA_BYTES = 1024 * 1024
@@ -147,15 +153,26 @@ def read_release(name: str, release: dict) -> Release:
 	return built
 
 
+def http() -> requests.Session:
+	"""A client that ignores the environment.
+
+	`trust_env=False` skips proxy autodetection, which on macOS reads the system
+	config through Objective-C and aborts a forked RQ worker. It also drops
+	`.netrc` and CA-bundle overrides, none of which a Hub call should use.
+	"""
+	session = requests.Session()
+	session.trust_env = False
+	session.headers["User-Agent"] = "FrappeBuilder/1.0"
+	return session
+
+
 def hub_get(hub_url: str, method: str, params: dict) -> dict:
 	"""One GET to a Builder Hub API method. Answers with its `message` payload."""
 	try:
-		response = requests.get(
-			f"{hub_url}/{HUB_API}.{method}",
-			params=params,
-			timeout=HUB_TIMEOUT,
-			headers={"User-Agent": "FrappeBuilder/1.0"},
-		)
+		with http() as client:
+			response = client.get(
+				f"{hub_url}/{HUB_API}.{method}", params=params, timeout=HUB_TIMEOUT
+			)
 	except requests.RequestException:
 		frappe.throw(_("Could not reach the Builder Hub at {0}.").format(hub_url))
 
@@ -190,11 +207,8 @@ def download_package(release: Release) -> bytes:
 	address-checked yet, for the same reason `resolve_hub_url` is not.
 	"""
 	try:
-		with requests.get(
-			release.package_url,
-			timeout=PACKAGE_TIMEOUT,
-			stream=True,
-			headers={"User-Agent": "FrappeBuilder/1.0"},
+		with http() as client, client.get(
+			release.package_url, timeout=PACKAGE_TIMEOUT, stream=True
 		) as response:
 			if not response.ok:
 				frappe.throw(_("The package download failed ({0}).").format(response.status_code))
@@ -232,13 +246,14 @@ def install_from_hub(name: str, version: str | None = None) -> dict:
 	version = version or latest_version(hub_url, name)
 	installation = create_pending_installation(name, version)
 
+	# No deduplicate: `assert_installable` already refuses a fresh install while one
+	# runs, and a crashed job can linger in the RQ registry long enough to block a
+	# legitimate retry.
 	frappe.enqueue(
 		run_hub_install,
 		queue="default",
-		timeout=300,
+		timeout=INSTALL_JOB_TIMEOUT,
 		enqueue_after_commit=True,
-		job_id=f"hub-install::{frappe.session.user}::{name}",
-		deduplicate=True,
 		installation=installation,
 		name=name,
 		version=version,
@@ -277,8 +292,12 @@ def run_hub_install(installation: str, name: str, version: str, hub_url: str, us
 
 def assert_installable(name: str) -> None:
 	"""Refuse before the job is queued: a guest, a site with extensions off, a bad
-	name, or a name this user already has installed or installing. A `Failed` row
-	is not a block, so the panel's Retry starts a fresh job on it."""
+	name, or a name this user already has installed or installing.
+
+	A `Failed` row is not a block, so the panel's Retry starts a fresh job on it.
+	Nor is an `Installing` row whose job stopped touching it: a crashed worker
+	cannot mark the row itself, so a stale one has to be retryable too.
+	"""
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Sign in to install extensions."), frappe.PermissionError)
 	if frappe.db.get_single_value("Builder Settings", "disable_extensions"):
@@ -289,10 +308,12 @@ def assert_installable(name: str) -> None:
 	existing = find_own_installation(name)
 	if not existing:
 		return
-	state, source = frappe.db.get_value(INSTALLATION_DOCTYPE, existing, ["install_state", "source_url"])
-	if state == "Installing":
+	state, source, touched = frappe.db.get_value(
+		INSTALLATION_DOCTYPE, existing, ["install_state", "source_url", "modified"]
+	)
+	if state == "Installing" and time_diff_in_seconds(now_datetime(), touched) < STALE_INSTALL_SECONDS:
 		frappe.throw(_('"{0}" is already installing.').format(name))
-	if state != "Failed":
+	if state not in ("Failed", "Installing"):
 		frappe.throw(_('"{0}" is already installed from {1}.').format(name, source or _("a directory")))
 
 
