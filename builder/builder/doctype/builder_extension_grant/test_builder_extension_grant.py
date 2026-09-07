@@ -45,12 +45,3 @@ class TestBuilderExtensionGrant(FrappeTestCase):
 
 		self.assertNotEqual(mine.name, other.name)
 		self.assertEqual(mine.installation, self.installation.name)
-
-	def test_two_copies_of_one_extension_answer_separately(self):
-		"""The old key named the user and the extension, so two sources shared one answer."""
-		hub_copy = make_installation("acme/grants", source_url="https://hub.example/acme/grants")
-
-		mine = self.grant(can_read=1).insert()
-		other = self.grant(installation=hub_copy.name, can_read=0).insert()
-
-		self.assertNotEqual(mine.name, other.name)

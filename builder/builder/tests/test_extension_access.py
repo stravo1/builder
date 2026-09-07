@@ -67,17 +67,6 @@ class TestAssertExtensionAccess(FrappeTestCase):
 		with self.assertRaises(frappe.PermissionError):
 			assert_extension_access(EXTENSION)
 
-	def test_refuses_a_name_installed_from_two_sources(self):
-		"""A call carries no source, so guessing between them would be worse.
-
-		The bridge learns to name a source when Hub installs arrive.
-		"""
-		make_installation(EXTENSION, source_url="https://hub.example")
-		make_installation(EXTENSION, source_url="https://other.example")
-
-		with self.assertRaises(frappe.ValidationError):
-			assert_extension_access(EXTENSION)
-
 	def test_refuses_a_capability_the_user_did_not_grant(self):
 		make_installation(EXTENSION, capabilities=["page.read"])
 

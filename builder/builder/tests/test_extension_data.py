@@ -15,7 +15,6 @@ from builder.extensions.data import (
 	ExtensionGrantRequired,
 	assert_grant,
 	delete_doc,
-	describe_grant,
 	get_count,
 	get_doc,
 	get_extension_grant,
@@ -60,14 +59,6 @@ class TestExtensionGrants(FrappeTestCase):
 			),
 			self.extension.name,
 		)
-
-	def test_two_copies_of_one_extension_answer_separately(self):
-		"""The old key named the user and the extension, so two sources shared one answer."""
-		hub_copy = make_extension(source_url="https://hub.example/acme/data")
-		upsert_grant(self.extension.name, "Contact", {"can_read": 1})
-
-		self.assertTrue(describe_grant(self.extension.name, "Contact")["read"])
-		self.assertFalse(describe_grant(hub_copy.name, "Contact")["read"])
 
 	def test_another_user_is_asked_again(self):
 		"""One person's answer is not everybody's."""
@@ -172,15 +163,6 @@ class TestExtensionGrants(FrappeTestCase):
 			pluck="installation",
 		)
 		self.assertEqual(kept, [theirs.name])
-
-	def test_uninstalling_one_copy_leaves_the_other_copys_grant(self):
-		"""The old cascade deleted by user and extension, so it took both copies."""
-		hub_copy = make_extension(source_url="https://hub.example/acme/data")
-		upsert_grant(hub_copy.name, "Contact", {"can_read": 1})
-
-		frappe.delete_doc(INSTALLATION_DOCTYPE, self.extension.name)
-
-		self.assertTrue(describe_grant(hub_copy.name, "Contact")["read"])
 
 
 def make_contact(first_name="Ada"):
