@@ -37,7 +37,19 @@
 						</template>
 						<!-- The badge sits on the second line, so a label keeps the width of the first. -->
 						<div class="flex min-w-0 flex-col gap-1">
-							<span class="truncate">{{ extension.label }}</span>
+							<div class="flex items-center gap-2">
+								<span class="truncate">{{ extension.label }}</span>
+								<!-- the dot the page list uses for Live, Staging and Draft, in a colour none of them take -->
+								<Tooltip
+									v-if="availableUpdate(extension, catalog)"
+									:text="`Update available: ${availableUpdate(extension, catalog)}`"
+									:hoverDelay="500">
+									<span
+										class="size-1.5 shrink-0 rounded-full bg-current text-ink-blue-8"
+										role="img"
+										aria-label="Update available" />
+								</Tooltip>
+							</div>
 							<div class="flex min-w-0 items-center gap-1.5">
 								<span v-if="extension.description" class="truncate text-xs text-ink-gray-5">
 									{{ extension.description }}
@@ -131,7 +143,12 @@
 
 <script setup lang="ts">
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
-import { userInstallations, getExtensionsCatalog, CatalogExtension } from "@/data/extensions";
+import {
+	availableUpdate,
+	userInstallations,
+	getExtensionsCatalog,
+	CatalogExtension,
+} from "@/data/extensions";
 import { isDevExtension, showDevExtensionDialog, stopDevExtension } from "@/extensions/devExtension";
 import { Badge, Button, ItemListRow, LoadingIndicator, Tooltip } from "frappe-ui";
 import { computed, ref } from "vue";

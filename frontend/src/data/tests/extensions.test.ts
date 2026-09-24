@@ -361,3 +361,26 @@ describe("useInstallationDetails", () => {
 		});
 	});
 });
+
+describe("availableUpdate", () => {
+	const hubInstall = { name: "acme/icons", version: "1.2.0", source_url: "https://hub.example.com" };
+	const listed = (version: string) => [{ name: "acme/icons", latest_release: { version } }];
+
+	const check = async (installation: object, catalogRows: object[]) => {
+		const { data } = await loadModule();
+		return data.availableUpdate(installation as never, catalogRows as never);
+	};
+
+	it("names a later Hub version, compared by number and not as text", async () => {
+		expect(await check(hubInstall, listed("1.10.0"))).toBe("1.10.0");
+	});
+
+	it("offers nothing for the same or an earlier version", async () => {
+		expect(await check(hubInstall, listed("1.2.0"))).toBeUndefined();
+		expect(await check(hubInstall, listed("1.1.9"))).toBeUndefined();
+	});
+
+	it("offers nothing to a directory install, which has no Hub", async () => {
+		expect(await check({ ...hubInstall, source_url: "" }, listed("2.0.0"))).toBeUndefined();
+	});
+});

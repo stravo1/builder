@@ -400,7 +400,24 @@ const uninstallExtension = async (extension: string) => {
 	await loadExtensions();
 };
 
-type CatalogExtension = Pick<UserInstallation, "name" | "label" | "description" | "icon">;
+type CatalogExtension = Pick<UserInstallation, "name" | "label" | "description" | "icon"> & {
+	latest_release?: { version: string };
+};
+
+/** Whether `candidate` is a later version than `current`. Hub versions are plain SemVer. */
+const isLaterVersion = (candidate: string, current: string) => {
+	const [next, now] = [candidate, current].map((version) => version.split(".").map(Number));
+	const index = next.findIndex((part, position) => part !== (now[position] ?? 0));
+	return index !== -1 && next[index] > (now[index] ?? 0);
+};
+
+/** The newer Hub version of a working Hub install, or nothing. A directory install has no Hub. */
+const availableUpdate = (installation: UserInstallation, catalog: CatalogExtension[]) => {
+	const isWorking = !installation.install_state || installation.install_state === "Ready";
+	if (!installation.source_url || !isWorking) return undefined;
+	const latest = catalog.find((extension) => extension.name === installation.name)?.latest_release?.version;
+	return latest && isLaterVersion(latest, installation.version) ? latest : undefined;
+};
 
 const getExtensionsCatalog = (page: number = 1) =>
 	createResource({
@@ -475,7 +492,19 @@ const installFromHub = async (name: string, version: string, capabilities: Capab
 	await loadExtensions();
 };
 
+/**
+ * Start an update to the newest Hub release. The row stays "Ready" and the old
+ * version keeps running until the job lands, on the `builder_extension_update`
+ * realtime event.
+ *
+ * `capabilities` answers only for what the new release adds. Earlier answers stay.
+ */
+const updateFromHub = async (name: string, capabilities: Capability[]) => {
+	await call("builder.extensions.hub.update_from_hub", { name, capabilities });
+};
+
 export {
+	availableUpdate,
 	getExtensionSource,
 	getExtensionsCatalog,
 	getHubExtension,
@@ -488,6 +517,7 @@ export {
 	setExtensionGrant,
 	setGrantedCapabilities,
 	uninstallExtension,
+	updateFromHub,
 	uninstallSummary,
 	useInstallationDetails,
 	userInstallations,

@@ -16,6 +16,15 @@
 			label="Enable"
 			:loading="working"
 			@click="emit('setEnabled', true)" />
+		<Button
+			v-if="canUpdate"
+			variant="subtle"
+			size="sm"
+			icon-left="lucide-download"
+			label="Update"
+			:loading="updating"
+			:disabled="working"
+			@click="emit('update')" />
 
 		<div class="ml-auto">
 			<Dropdown :options="moreActions" placement="right">
@@ -41,12 +50,15 @@ const props = defineProps<{
 	canOpen: boolean;
 	enabled: boolean;
 	working: boolean;
+	canUpdate: boolean;
+	updating: boolean;
 }>();
 
 const emit = defineEmits<{
 	open: [];
 	setEnabled: [enabled: boolean];
 	uninstall: [];
+	update: [];
 }>();
 
 const moreActions = computed<DropdownOptions>(() => [

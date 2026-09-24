@@ -89,7 +89,10 @@
 					:can-open="Boolean(mounted && canOpen(mounted))"
 					:enabled="details.enabled"
 					:working="working"
+					:can-update="Boolean(updateVersion)"
+					:updating="isUpdating"
 					@open="open"
+					@update="askUpdate"
 					@set-enabled="setEnabled"
 					@uninstall="uninstall" />
 
@@ -133,7 +136,10 @@
 			:extension="details.name"
 			:label="details.label ?? details.name"
 			:requested="releaseCapabilities"
-			@install="install" />
+			:action="dialogAction"
+			@install="
+				(capabilities) => (dialogAction === 'Update' ? update(capabilities) : install(capabilities))
+			" />
 	</div>
 </template>
 
@@ -143,6 +149,8 @@ import ExtensionCapabilities from "@/components/LeftPanelTabs/Extensions/Extensi
 import ExtensionInstallDialog from "@/components/LeftPanelTabs/Extensions/ExtensionInstallDialog.vue";
 import { renderMarkdown } from "@/components/ai/markdown";
 import {
+	availableUpdate,
+	getExtensionsCatalog,
 	installedExtensions,
 	useInstallationDetails,
 	getHubExtension,
@@ -152,6 +160,7 @@ import {
 	setGrantedCapabilities,
 	uninstallExtension,
 	uninstallSummary,
+	updateFromHub,
 	userInstallations,
 	type InstallationDetails,
 } from "@/data/extensions";
@@ -234,6 +243,8 @@ const fromHub = (hub: Awaited<ReturnType<typeof getHubExtension>>): Installation
 });
 
 const isInstallDialogOpen = ref(false);
+/** The install dialog also asks about what an update adds. */
+const dialogAction = ref<"Install" | "Update">("Install");
 const releaseCapabilities = ref<Capability[]>([]);
 
 /** Install and Retry stay loading until the dialog closes, whichever way it closes. */
@@ -245,6 +256,7 @@ const askInstall = async () => {
 	working.value = true;
 	try {
 		releaseCapabilities.value = await getHubReleaseCapabilities(props.extension, details.value!.version);
+		dialogAction.value = "Install";
 		isInstallDialogOpen.value = true;
 	} catch (thrown) {
 		toast.error((thrown as Error).message);
@@ -309,8 +321,59 @@ const onInstallDone = (event: { extension: string }) => {
 	if (event.extension === props.extension) load();
 };
 
-onMounted(() => builderStore.realtime.on("builder_extension_install", onInstallDone));
-onUnmounted(() => builderStore.realtime.off("builder_extension_install", onInstallDone));
+const extensionsCatalog = getExtensionsCatalog();
+
+/** The newer Hub version of this install. The catalog already carries each latest version. */
+const updateVersion = computed(() => {
+	const installation = userInstallations.value.find((row) => row.name === props.extension);
+	return installation && availableUpdate(installation, extensionsCatalog.data?.extensions ?? []);
+});
+
+/** The old version keeps running while the job works, so only the button shows it. */
+const isUpdating = ref(false);
+
+/** A new release can ask for more. Ask about just that part, and keep every earlier answer. */
+const askUpdate = async () => {
+	working.value = true;
+	try {
+		const asked = await getHubReleaseCapabilities(props.extension, updateVersion.value!);
+		const added = asked.filter((capability) => !details.value!.requested_capabilities.includes(capability));
+		if (!added.length) return await update([]);
+		releaseCapabilities.value = added;
+		dialogAction.value = "Update";
+		isInstallDialogOpen.value = true;
+	} catch (thrown) {
+		toast.error((thrown as Error).message);
+	} finally {
+		working.value = false;
+	}
+};
+
+const update = async (capabilities: Capability[]) => {
+	isInstallDialogOpen.value = false;
+	isUpdating.value = true;
+	try {
+		await updateFromHub(props.extension, capabilities);
+	} catch (thrown) {
+		isUpdating.value = false;
+		toast.error((thrown as Error).message);
+	}
+};
+
+const onUpdateDone = (event: { extension: string }) => {
+	if (event.extension !== props.extension) return;
+	isUpdating.value = false;
+	load();
+};
+
+onMounted(() => {
+	builderStore.realtime.on("builder_extension_install", onInstallDone);
+	builderStore.realtime.on("builder_extension_update", onUpdateDone);
+});
+onUnmounted(() => {
+	builderStore.realtime.off("builder_extension_install", onInstallDone);
+	builderStore.realtime.off("builder_extension_update", onUpdateDone);
+});
 
 /** Disabling unmounts every frame, so the panel has to say what it did. */
 const setEnabled = async (enabled: boolean) => {

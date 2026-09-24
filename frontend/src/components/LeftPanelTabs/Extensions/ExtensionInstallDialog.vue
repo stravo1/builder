@@ -7,7 +7,9 @@
 		@update:modelValue="(value: boolean) => emit('update:open', value)">
 		<template #default>
 			<div class="bg-surface-modal p-5">
-				<DialogTitle as="h3" class="text-md-semibold text-ink-gray-9">Install {{ label }}?</DialogTitle>
+				<DialogTitle as="h3" class="text-md-semibold text-ink-gray-9">
+					{{ action ?? "Install" }} {{ label }}?
+				</DialogTitle>
 				<DialogDescription as="p" class="pt-2 text-p-sm text-ink-gray-6">
 					<template v-if="requested.length">
 						It is asking for the following permissions. You can change this later.
@@ -26,7 +28,7 @@
 
 				<div class="flex justify-end gap-2 pt-4">
 					<Button variant="subtle" label="Cancel" @click="emit('update:open', false)" />
-					<Button variant="solid" label="Install" @click="emit('install', granted)" />
+					<Button variant="solid" :label="action ?? 'Install'" @click="emit('install', granted)" />
 				</div>
 			</div>
 		</template>
@@ -46,6 +48,8 @@ const props = defineProps<{
 	extension: string;
 	label: string;
 	requested: Capability[];
+	/** An update asks only about what the new release adds. */
+	action?: "Install" | "Update";
 }>();
 
 const emit = defineEmits<{
