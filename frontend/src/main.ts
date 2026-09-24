@@ -11,6 +11,7 @@ import translationPlugin, { ensureTranslations } from "./translation";
 
 import App from "@/App.vue";
 import Input from "@/components/Controls/Input.vue";
+import useBuilderStore from "@/stores/builderStore";
 import { editorDemo } from "@/utils/editorDemo";
 
 const app = createApp(App);
@@ -31,6 +32,9 @@ ensureTranslations().then(() => {
 	app.use(translationPlugin);
 
 	app.config.globalProperties.window = window;
+	// frappe-ui's realtime resources read $socket. Share the editor's one connection
+	// rather than open a second. It is null in the demo, which means no realtime.
+	app.config.globalProperties.$socket = useBuilderStore().realtime.socket;
 
 	app.component("Button", Button);
 	app.component("FormControl", FormControl);
