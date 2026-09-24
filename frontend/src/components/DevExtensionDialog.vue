@@ -3,9 +3,9 @@
 	<Dialog v-model="showDevExtensionDialog" size="sm">
 		<template #body>
 			<div class="bg-surface-modal p-5">
-				<h3 class="text-lg-semibold text-ink-gray-9">Load Dev Extension</h3>
+				<h3 class="text-lg-semibold text-ink-gray-9">Load dev extension</h3>
 				<p class="pt-4 text-p-sm text-ink-gray-6">
-					The address of the dev server running the extension. It runs until you reload the editor.
+					Enter the URL of your dev server. The extension stays until you reload the page.
 				</p>
 
 				<FormControl
@@ -55,8 +55,8 @@ const load = async () => {
 		showDevExtensionDialog.value = false;
 		toast.success(`Loaded ${extension.label}`, {
 			description: extension.capabilities.length
-				? `Granted ${extension.capabilities.join(", ")}`
-				: "It asked for no capabilities",
+				? `Permissions: ${extension.capabilities.join(", ")}`
+				: "It needs no permissions",
 		});
 	} catch (thrown) {
 		error.value = (thrown as Error).message;

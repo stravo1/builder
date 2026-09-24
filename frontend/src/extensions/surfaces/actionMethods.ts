@@ -47,7 +47,7 @@ export const invokeAction = async (
 ) => {
 	const channel = actions.has(keyOf(extension, action)) && bridge.getEntryChannel(extension.name);
 	if (!channel) {
-		toast.error(`${extension.label} could not run "${action}".`);
+		toast.error(`${extension.label} could not do this.`);
 		console.error(`Extension "${extension.name}" has no live action named "${action}"`);
 		return;
 	}
@@ -55,7 +55,7 @@ export const invokeAction = async (
 	try {
 		return await channel.call("action.invoke", { action, context });
 	} catch (error) {
-		toast.error(`${extension.label} failed to run "${action}".`);
+		toast.error(`Something went wrong in ${extension.label}.`);
 		console.error(`Extension "${extension.name}" failed while running "${action}"`, error);
 	}
 };

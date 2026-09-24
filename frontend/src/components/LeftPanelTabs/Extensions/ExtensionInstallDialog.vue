@@ -6,9 +6,9 @@
 				<h3 class="text-lg-semibold text-ink-gray-9">Install {{ label }}?</h3>
 				<p class="pt-2 text-p-sm text-ink-gray-6">
 					<template v-if="requested.length">
-						Turn off what you do not want it to do. You can change this later in its details.
+						Turn off anything you do not want to allow. You can change this later.
 					</template>
-					<template v-else>It asks for no capabilities.</template>
+					<template v-else>It needs no permissions.</template>
 				</p>
 
 				<div v-if="requested.length" class="pt-4">
@@ -22,7 +22,7 @@
 
 				<div class="flex justify-end gap-2 pt-4">
 					<Button variant="subtle" label="Cancel" @click="emit('update:open', false)" />
-					<Button variant="solid" label="Confirm" @click="emit('install', granted)" />
+					<Button variant="solid" label="Install" @click="emit('install', granted)" />
 				</div>
 			</div>
 		</template>

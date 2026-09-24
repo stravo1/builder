@@ -58,13 +58,13 @@
 				<div v-else-if="isPending" class="flex flex-col gap-2">
 					<div class="flex items-center gap-2 text-p-sm text-ink-gray-6">
 						<LoadingIndicator class="size-4" />
-						Installing this extension…
+						Installing…
 					</div>
 					<Button variant="ghost" size="sm" label="Cancel" :loading="working" @click="discardInstall" />
 				</div>
 
 				<div v-else-if="isFailed" class="flex flex-col gap-2">
-					<p class="text-p-sm text-ink-red-6">{{ details.install_error || "The install did not finish." }}</p>
+					<p class="text-p-sm text-ink-red-6">{{ details.install_error || "Could not install." }}</p>
 					<div class="flex gap-2">
 						<Button
 							variant="solid"
@@ -101,12 +101,10 @@
 
 				<section v-if="isInstalled && isReady" class="border-t border-outline-gray-1 py-4">
 					<div class="pb-3">
-						<h2 class="text-sm font-medium text-ink-gray-8">Capabilities</h2>
+						<h2 class="text-sm font-medium text-ink-gray-8">Permissions</h2>
 						<p class="pt-2 text-xs text-ink-gray-5">
-							Control what {{ details.label }} may do in Builder and on this site.
-							<template v-if="details.is_development">
-								Loading it again restores what its manifest asks for.
-							</template>
+							Choose what {{ details.label }} can do.
+							<template v-if="details.is_development">Reloading it turns them all back on.</template>
 						</p>
 					</div>
 					<ExtensionCapabilities
@@ -121,9 +119,9 @@
 
 				<div class="flex flex-col gap-1 border-t border-outline-gray-1 pt-4 text-xs text-ink-gray-5">
 					<p v-if="!isInstalled">{{ details.source_url || "From the Builder Hub" }}</p>
-					<p v-else-if="details.is_development">Served by {{ details.development_server }}</p>
+					<p v-else-if="details.is_development">Running from {{ details.development_server }}</p>
 					<template v-else-if="isReady">
-						<p>{{ details.source_url || "Installed from a directory" }}</p>
+						<p>{{ details.source_url || "Installed from a folder" }}</p>
 						<p>Installed on {{ installedOn }}</p>
 					</template>
 				</div>
@@ -355,9 +353,9 @@ const uninstallMessage = (summary: Awaited<ReturnType<typeof uninstallSummary>>)
 	const kept = summary.resources.map((made) => `${made.count} ${made.resource_type}`);
 	if (summary.tokens) kept.push(`${summary.tokens} design token(s)`);
 
-	const lines = ["This removes your copy, your grants and what the extension remembered."];
-	if (kept.length) lines.push(`The site keeps ${kept.join(", ")}, because published pages use them.`);
-	if (summary.other_users) lines.push(`${summary.other_users} other user(s) still have it installed.`);
+	const lines = ["This removes the extension, its permissions and its saved data."];
+	if (kept.length) lines.push(`Your site keeps ${kept.join(", ")}, because your published pages use them.`);
+	if (summary.other_users) lines.push(`${summary.other_users} other user(s) still use it.`);
 	return lines.join(" ");
 };
 </script>

@@ -15,7 +15,7 @@ import type { Capability } from "frappe-builder-extension-sdk/types";
 /** The class whose answers are per doctype, so the panel lists the grants under it. */
 export const SITE_DATA_CLASS = "Site data";
 
-export const SHARED_STATE_CLASS = "Shared site state";
+export const SHARED_STATE_CLASS = "Live site";
 
 const SENSITIVE_CLASSES = [SITE_DATA_CLASS, SHARED_STATE_CLASS];
 
@@ -28,40 +28,40 @@ type CapabilityDetail = {
 };
 
 export const capabilityDetails: Record<Capability, CapabilityDetail> = {
-	"context.read": { capabilityClass: "Editor read", label: "See what you have selected" },
-	"block.read": { capabilityClass: "Editor read", label: "Read a block on the canvas" },
-	"page.read": { capabilityClass: "Editor read", label: "Read the whole page" },
-	"block.update": { capabilityClass: "Editor write", label: "Change a block you have selected" },
-	"block.insert": { capabilityClass: "Editor write", label: "Add blocks to the page" },
-	"page.write": { capabilityClass: "Editor write", label: "Change the page and its client scripts" },
-	"ui.dialog": { capabilityClass: "Editor chrome", label: "Open a dialog over the editor" },
-	"ui.popover": { capabilityClass: "Editor chrome", label: "Open a popover beside the editor" },
+	"context.read": { capabilityClass: "View", label: "See what you selected" },
+	"block.read": { capabilityClass: "View", label: "See blocks on the page" },
+	"page.read": { capabilityClass: "View", label: "See the whole page" },
+	"block.update": { capabilityClass: "Edit", label: "Edit the selected block" },
+	"block.insert": { capabilityClass: "Edit", label: "Add blocks to the page" },
+	"page.write": { capabilityClass: "Edit", label: "Edit the page and its scripts" },
+	"ui.dialog": { capabilityClass: "Windows", label: "Open dialogs" },
+	"ui.popover": { capabilityClass: "Windows", label: "Open popups" },
 	"data.access": {
 		capabilityClass: SITE_DATA_CLASS,
-		label: "Read and write documents on this site",
-		warning: "It asks again, by doctype, and it never gets more than your own permissions.",
+		label: "See and change site data",
+		warning: "It asks you before it uses each type of record. It cannot see more than you can.",
 	},
 	"token.write": {
 		capabilityClass: SHARED_STATE_CLASS,
-		label: "Define design tokens",
-		warning: "A token it writes styles every page you already published.",
+		label: "Add and edit design tokens",
+		warning: "Tokens change how your published pages look.",
 	},
 	"schema.write": {
 		capabilityClass: SHARED_STATE_CLASS,
-		label: "Create and drop doctypes",
-		warning: "Dropping a doctype drops its table and every record in it. Nothing undoes that.",
+		label: "Create and delete DocTypes",
+		warning: "Deleting a DocType deletes all its records. You cannot undo this.",
 	},
 };
 
 /** The reading order of the classes, widest reach last. */
-const CLASS_ORDER = ["Editor read", "Editor write", "Editor chrome", SITE_DATA_CLASS, SHARED_STATE_CLASS];
+const CLASS_ORDER = ["View", "Edit", "Windows", SITE_DATA_CLASS, SHARED_STATE_CLASS];
 
 const CLASS_SUMMARIES: Record<string, string> = {
-	"Editor read": "What it sees while you edit.",
-	"Editor write": "What it changes on the page you have open.",
-	"Editor chrome": "The windows it opens inside Builder.",
-	[SITE_DATA_CLASS]: "Documents on this site, one doctype at a time.",
-	[SHARED_STATE_CLASS]: "Changes that outlive this session and reach every visitor.",
+	View: "What it can see while you edit.",
+	Edit: "What it can change on this page.",
+	Windows: "What it can open inside Builder.",
+	[SITE_DATA_CLASS]: "Records on your site.",
+	[SHARED_STATE_CLASS]: "Changes that visitors see.",
 };
 
 export type CapabilityGroup = {

@@ -107,7 +107,7 @@ describe("invokeAction", () => {
 
 		await invokeAction(icons, "icons.pick");
 
-		expect(toastError).toHaveBeenCalledWith(expect.stringContaining("icons.pick"));
+		expect(toastError).toHaveBeenCalledWith("Icons could not do this.");
 	});
 
 	it("tells the user when no frame is connected", async () => {
@@ -127,7 +127,7 @@ describe("invokeAction", () => {
 
 		await invokeAction(icons, "icons.pick");
 
-		expect(toastError).toHaveBeenCalledWith(expect.stringContaining("failed"));
+		expect(toastError).toHaveBeenCalledWith("Something went wrong in Icons.");
 		expect(logged).toHaveBeenCalledWith(expect.stringContaining("acme/icons"), expect.any(Error));
 	});
 });

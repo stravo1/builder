@@ -11,7 +11,7 @@
 		<div class="flex flex-col px-3 pb-3">
 			<CollapsibleSection section-name="Installed">
 				<p v-if="!installed.length" class="text-p-sm italic text-ink-gray-5">
-					{{ filter ? "Nothing here matches that." : "No extensions installed." }}
+					{{ filter ? "No matches." : "No extensions installed." }}
 				</p>
 
 				<div v-else class="flex flex-col">
@@ -50,7 +50,7 @@
 									label="Installing" />
 								<Tooltip
 									v-else-if="isDevExtension(extension)"
-									text="Served by a dev server. A reload drops it.">
+									text="Running from a dev server. It goes away when you reload.">
 									<Badge size="sm" theme="orange" label="Dev" />
 								</Tooltip>
 								<!-- <Badge v-else-if="!extension.enabled" size="sm" theme="gray" label="Disabled" /> -->
@@ -60,7 +60,7 @@
 							<LoadingIndicator
 								v-if="extension.install_state === 'Installing'"
 								class="size-4 text-ink-gray-5" />
-							<Tooltip v-else-if="isDevExtension(extension)" text="Stop this dev extension">
+							<Tooltip v-else-if="isDevExtension(extension)" text="Stop">
 								<Button
 									variant="ghost"
 									size="sm"
@@ -82,7 +82,7 @@
 					Loading extensions…
 				</div>
 				<div v-else-if="extensionsCatalog.error" class="flex flex-col items-start gap-2">
-					<p class="text-p-sm italic text-ink-gray-5">Could not reach the Builder Hub.</p>
+					<p class="text-p-sm italic text-ink-gray-5">Could not load extensions.</p>
 					<Button variant="subtle" size="sm" label="Try again" @click="extensionsCatalog.reload()" />
 				</div>
 				<p v-else-if="!notInstalled.length" class="text-p-sm italic text-ink-gray-5">
@@ -165,8 +165,8 @@ const notInstalled = computed<CatalogExtension[]>(() => {
 
 /** The Hub answered, so an empty section means a search, a full install, or an empty Hub. */
 const emptyMarketplaceText = computed(() => {
-	if (filter.value) return "Nothing here matches that.";
-	if (catalog.value.length) return "You have installed every extension on the Hub.";
-	return "The Hub has no extensions yet.";
+	if (filter.value) return "No matches.";
+	if (catalog.value.length) return "You have installed them all.";
+	return "No extensions yet.";
 });
 </script>

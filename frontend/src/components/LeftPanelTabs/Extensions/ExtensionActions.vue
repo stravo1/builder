@@ -47,7 +47,7 @@
 						icon="lucide-more-horizontal"
 						:active="open"
 						:disabled="working"
-						aria-label="More extension actions" />
+						aria-label="More actions" />
 				</template>
 			</Dropdown>
 		</span>

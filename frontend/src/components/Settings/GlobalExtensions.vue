@@ -4,7 +4,7 @@
 			size="sm"
 			:label="__('Disable Extensions')"
 			:description="
-				__('Turns off all installed extensions and removes the Extensions tab.')
+				__('Turns off all extensions and hides the Extensions tab.')
 			"
 			:modelValue="Boolean(builderSettings.doc?.disable_extensions)"
 			@update:modelValue="
@@ -20,7 +20,7 @@
 			class="[&>p]:text-p-xs"
 			:disabled="builderSettings.doc?.disable_extensions"
 			:label="__('Hub URL')"
-			:description="__('Fetch the extensions catalog from this URL')"
+			:description="__('Get extensions from this URL.')"
 			placeholder="preview.frappe.cloud"
 			:modelValue="builderSettings.doc?.hub_url"
 			:hideClearButton="true"

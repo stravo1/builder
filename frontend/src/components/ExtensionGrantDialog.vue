@@ -16,31 +16,28 @@
 					the sentence reads "Contact ." Prettier reflows the markup, so the
 					punctuation cannot live in the whitespace -->
 				<p class="pt-4 text-p-sm text-ink-gray-6">
-					It is asking to
+					It wants to
 					<span class="font-semibold text-ink-gray-8">{{ verbs }}</span>
 					{{ object }}
 					<span class="font-semibold text-ink-gray-8">{{ subject }}</span>
 				</p>
 
-				<p class="pt-2 text-p-sm text-ink-gray-5">
-					{{ floor }}
-				</p>
+				<p class="pt-2 text-p-sm text-ink-gray-5">It cannot do more than you can.</p>
 
 				<div v-if="prompt.sensitive" class="mt-4 rounded bg-surface-red-1 p-3">
 					<p v-if="prompt.kind === 'schema'" class="text-p-sm text-ink-red-6">
-						Dropping a doctype drops its table and every record in it. Nothing here can undo that.
+						Deleting a DocType deletes all its records. You cannot undo this.
 					</p>
 					<p v-else-if="prompt.kind === 'script'" class="text-p-sm text-ink-red-6">
-						The script runs on the published page, for every visitor, and it can do anything this site's own
-						pages can do. You can read it and remove it in the Code tab.
+						The script runs for everyone who visits this page. You can see or remove it in the Code tab.
 					</p>
 					<p v-else class="text-p-sm text-ink-red-6">
-						{{ prompt.subject }} controls how this site works. Access to it can change what other extensions
-						and other people are allowed to do.
+						{{ prompt.subject }} controls how your site works. Changes to it can affect other people and
+						extensions.
 					</p>
 					<label class="flex cursor-pointer items-start gap-2 pt-3 text-p-sm text-ink-red-6">
 						<input v-model="understood" type="checkbox" class="mt-0.5" />
-						<span>I understand, and I trust {{ prompt.extension.label }} with this.</span>
+						<span>I trust {{ prompt.extension.label }} with this.</span>
 					</label>
 				</div>
 
@@ -83,20 +80,10 @@ const verbs = computed(() => {
 	return `${asked.slice(0, -1).join(", ")} and ${asked[asked.length - 1]}`;
 });
 
-/** The one sentence that is true of every prompt: the user is still the ceiling. */
-const floor = computed(
-	() =>
-		({
-			schema: "It can only do what you can do. Changing a doctype needs your own System Manager role.",
-			script: "It can only do what you can do. You can already add a script to this page by hand.",
-			access: "It can only do what you can do. Your own permissions still apply to every record.",
-		})[prompt.value?.kind ?? "access"],
-);
-
 /** What the verbs act on: records of a doctype, the doctype itself, or a page. */
 const object = computed(
 	() =>
-		({ schema: "the doctype", script: "on the page", access: "records of" })[prompt.value?.kind ?? "access"],
+		({ schema: "the DocType", script: "on the page", access: "records of" })[prompt.value?.kind ?? "access"],
 );
 
 const allow = () => answerPrompt(true);

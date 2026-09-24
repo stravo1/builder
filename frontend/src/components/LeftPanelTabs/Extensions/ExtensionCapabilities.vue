@@ -45,7 +45,7 @@
 										size="sm"
 										icon="lucide-more-horizontal"
 										:active="open"
-										:aria-label="`Answer every access to ${grant.document_type}`" />
+										:aria-label="`Set all for ${grant.document_type}`" />
 								</template>
 							</Dropdown>
 						</div>
@@ -105,9 +105,9 @@ const doctypeGrantsUnder = (group: CapabilityGroup) =>
 
 /** Icon only: the label names each segment for a screen reader and a tooltip. */
 const ANSWER_BUTTONS = [
-	{ label: "Allowed", value: "allowed", icon: "lucide-check" },
-	{ label: "Denied", value: "denied", icon: "lucide-x" },
-	{ label: "Not asked", value: "not asked", icon: "lucide-minus" },
+	{ label: "Allow", value: "allowed", icon: "lucide-check" },
+	{ label: "Deny", value: "denied", icon: "lucide-x" },
+	{ label: "Ask first", value: "not asked", icon: "lucide-minus" },
 ];
 
 const answersOf = (grant: ExtensionGrant): Record<Access, AccessAnswer> => ({
@@ -120,7 +120,7 @@ const answerAllOptions = (grant: ExtensionGrant) => [
 	{ label: "Allow all", icon: "lucide-check", onClick: () => setAnswers(grant, ACCESS, "allowed") },
 	{ label: "Deny all", icon: "lucide-x", onClick: () => setAnswers(grant, ACCESS, "denied") },
 	{
-		label: "Set all to not asked",
+		label: "Ask first for all",
 		icon: "lucide-minus",
 		onClick: () => setAnswers(grant, ACCESS, "not asked"),
 	},
@@ -154,11 +154,9 @@ const answer = async (capability: Capability, allow: boolean) => {
 	);
 };
 
-const confirmSensitive = (capability: Capability) =>
-	confirm(
-		`${capabilityDetails[capability].warning} Allow ${props.label} to ${capabilityDetails[
-			capability
-		].label.toLowerCase()}?`,
-		"This reaches the whole site",
-	);
+const confirmSensitive = (capability: Capability) => {
+	const { label, warning } = capabilityDetails[capability];
+	const action = label.charAt(0).toLowerCase() + label.slice(1);
+	return confirm(`${warning} Allow ${props.label} to ${action}?`, "This affects your whole site");
+};
 </script>

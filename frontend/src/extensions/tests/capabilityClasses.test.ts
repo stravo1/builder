@@ -26,7 +26,7 @@ describe("groupCapabilities", () => {
 	it("leaves out a class the extension never asked for", () => {
 		const groups = groupCapabilities(["context.read", "block.read"]);
 
-		expect(groups.map((group) => group.name)).toEqual(["Editor read"]);
+		expect(groups.map((group) => group.name)).toEqual(["View"]);
 		expect(groups[0].capabilities).toEqual(["context.read", "block.read"]);
 	});
 
@@ -34,8 +34,8 @@ describe("groupCapabilities", () => {
 		const asked: Capability[] = ["schema.write", "block.update", "context.read"];
 
 		expect(groupCapabilities(asked).map((group) => group.name)).toEqual([
-			"Editor read",
-			"Editor write",
+			"View",
+			"Edit",
 			SHARED_STATE_CLASS,
 		]);
 	});
