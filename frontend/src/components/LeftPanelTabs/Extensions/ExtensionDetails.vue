@@ -102,9 +102,8 @@
 				<section v-if="isInstalled && isReady" class="border-t border-outline-gray-1 py-4">
 					<div class="pb-3">
 						<h2 class="text-sm font-medium text-ink-gray-8">Permissions</h2>
-						<p class="pt-2 text-xs text-ink-gray-5">
-							Choose what {{ details.label }} can do.
-							<template v-if="details.is_development">Reloading it turns them all back on.</template>
+						<p v-if="details.is_development" class="pt-2 text-xs text-ink-gray-5">
+							Reloading it turns them all back on.
 						</p>
 					</div>
 					<ExtensionCapabilities

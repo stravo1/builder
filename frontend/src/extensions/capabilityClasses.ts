@@ -15,7 +15,7 @@ import type { Capability } from "frappe-builder-extension-sdk/types";
 /** The class whose answers are per doctype, so the panel lists the grants under it. */
 export const SITE_DATA_CLASS = "Site data";
 
-export const SHARED_STATE_CLASS = "Live site";
+export const SHARED_STATE_CLASS = "Site Data";
 
 const SENSITIVE_CLASSES = [SITE_DATA_CLASS, SHARED_STATE_CLASS];
 
@@ -56,38 +56,11 @@ export const capabilityDetails: Record<Capability, CapabilityDetail> = {
 /** The reading order of the classes, widest reach last. */
 const CLASS_ORDER = ["View", "Edit", "Windows", SITE_DATA_CLASS, SHARED_STATE_CLASS];
 
-const CLASS_SUMMARIES: Record<string, string> = {
-	View: "What it can see while you edit.",
-	Edit: "What it can change on this page.",
-	Windows: "What it can open inside Builder.",
-	[SITE_DATA_CLASS]: "Records on your site.",
-	[SHARED_STATE_CLASS]: "Changes that visitors see.",
-};
-
-export type CapabilityGroup = {
-	name: string;
-	summary: string;
-	sensitive: boolean;
-	capabilities: Capability[];
-};
-
 export const isSensitive = (capability: Capability) =>
 	SENSITIVE_CLASSES.includes(capabilityDetails[capability]?.capabilityClass);
 
-/**
- * The classes an extension actually asked for, each holding what it asked for.
- *
- * `keep` names a class to list even when it holds no capability. Creating a
- * doctype grants the extension that doctype outright, so an extension with
- * `schema.write` alone can hold grants the panel would otherwise have nowhere
- * to show.
- */
-export const groupCapabilities = (capabilities: Capability[], keep: string[] = []): CapabilityGroup[] =>
-	CLASS_ORDER.map((name) => ({
-		name,
-		summary: CLASS_SUMMARIES[name],
-		sensitive: SENSITIVE_CLASSES.includes(name),
-		capabilities: capabilities.filter(
-			(capability) => capabilityDetails[capability]?.capabilityClass === name,
-		),
-	})).filter((group) => group.capabilities.length || keep.includes(group.name));
+/** What an extension asked for, in reading order: the widest reach last. */
+export const sortCapabilities = (capabilities: Capability[]): Capability[] =>
+	CLASS_ORDER.flatMap((name) =>
+		capabilities.filter((capability) => capabilityDetails[capability]?.capabilityClass === name),
+	);

@@ -1,12 +1,6 @@
 import { CAPABILITIES, type Capability } from "frappe-builder-extension-sdk/types";
 import { describe, expect, it } from "vitest";
-import {
-	capabilityDetails,
-	groupCapabilities,
-	isSensitive,
-	SHARED_STATE_CLASS,
-	SITE_DATA_CLASS,
-} from "../capabilityClasses";
+import { capabilityDetails, isSensitive, sortCapabilities } from "../capabilityClasses";
 
 describe("capabilityDetails", () => {
 	it("names every capability the bridge gates by", () => {
@@ -22,34 +16,14 @@ describe("capabilityDetails", () => {
 	});
 });
 
-describe("groupCapabilities", () => {
-	it("leaves out a class the extension never asked for", () => {
-		const groups = groupCapabilities(["context.read", "block.read"]);
-
-		expect(groups.map((group) => group.name)).toEqual(["View"]);
-		expect(groups[0].capabilities).toEqual(["context.read", "block.read"]);
-	});
-
+describe("sortCapabilities", () => {
 	it("puts the widest reach last, whatever order the manifest used", () => {
 		const asked: Capability[] = ["schema.write", "block.update", "context.read"];
 
-		expect(groupCapabilities(asked).map((group) => group.name)).toEqual([
-			"View",
-			"Edit",
-			SHARED_STATE_CLASS,
-		]);
-	});
-
-	it("marks the classes that reach past this session sensitive", () => {
-		const groups = groupCapabilities([...CAPABILITIES]);
-
-		expect(groups.filter((group) => group.sensitive).map((group) => group.name)).toEqual([
-			SITE_DATA_CLASS,
-			SHARED_STATE_CLASS,
-		]);
+		expect(sortCapabilities(asked)).toEqual(["context.read", "block.update", "schema.write"]);
 	});
 
 	it("answers with nothing when an extension asked for nothing", () => {
-		expect(groupCapabilities([])).toEqual([]);
+		expect(sortCapabilities([])).toEqual([]);
 	});
 });

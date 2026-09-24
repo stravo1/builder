@@ -10,7 +10,7 @@
 				<DialogTitle as="h3" class="text-md-semibold text-ink-gray-9">Install {{ label }}?</DialogTitle>
 				<DialogDescription as="p" class="pt-2 text-p-sm text-ink-gray-6">
 					<template v-if="requested.length">
-						Turn off anything you do not want to allow. You can change this later.
+						It is asking for the following permissions. You can change this later.
 					</template>
 					<template v-else>It needs no permissions.</template>
 				</DialogDescription>
