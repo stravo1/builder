@@ -8,7 +8,7 @@ from frappe.tests.utils import FrappeTestCase
 
 from builder.builder.tests.extension_fixtures import drop_installations, make_installation
 from builder.extensions.constants import ENTRY_FILE
-from builder.extensions.hub import Release, apply_release, run_hub_install
+from builder.extensions.hub import Release, apply_release, run_hub_install, run_hub_update, update_from_hub
 from builder.extensions.package import ValidatedPackage
 
 EXTENSION = "acme/hub-install"
@@ -92,6 +92,10 @@ class TestRunHubInstall(FrappeTestCase):
 		publish.assert_not_called()
 		log_error.assert_not_called()
 
+	def test_a_finished_install_turns_the_extension_on(self):
+		self.run_job(Mock(return_value=RELEASE))
+		self.assertEqual(frappe.db.get_value("Builder User Extension", self.installation, "enabled"), 1)
+
 	def test_a_failed_install_marks_the_row_and_says_so(self):
 		publish, log_error = self.run_job(Mock(side_effect=Exception("The Hub is down.")))
 		state = frappe.db.get_value(
@@ -105,3 +109,96 @@ class TestRunHubInstall(FrappeTestCase):
 			user=frappe.session.user,
 			after_commit=True,
 		)
+
+
+class TestRunHubUpdate(FrappeTestCase):
+	"""What the update job keeps, adds and leaves alone.
+
+	The installed version asked for context.read, block.read and page.read, and the
+	user allowed context.read only. The new release asks for context.read,
+	block.read and block.update, so block.update is the one new ask.
+	"""
+
+	def setUp(self):
+		drop_installations(EXTENSION)
+		self.installation = make_installation(
+			EXTENSION,
+			capabilities=["context.read", "block.read", "page.read"],
+			granted=["context.read"],
+			source_url=HUB_URL,
+			install_state="Ready",
+			enabled=0,
+		).name
+		frappe.db.commit()
+		self.addCleanup(self.drop_committed)
+
+	def drop_committed(self):
+		drop_installations(EXTENSION)
+		frappe.db.commit()
+
+	def run_job(self, get_release: Mock, allowed: list[str]):
+		with (
+			patch("builder.extensions.hub.get_release", get_release),
+			patch("builder.extensions.hub.download_package"),
+			patch("builder.extensions.hub.validate_package", return_value=PACKAGE),
+			patch("frappe.publish_realtime") as publish,
+			patch("frappe.log_error"),
+		):
+			run_hub_update(
+				self.installation, EXTENSION, "1.2.0", HUB_URL, {"readme": "# New"}, frappe.session.user, allowed
+			)
+		return publish, frappe.get_doc("Builder User Extension", self.installation)
+
+	def test_keeps_old_answers_and_adds_only_what_the_user_allowed(self):
+		_, updated = self.run_job(Mock(return_value=RELEASE), ["block.read", "block.update"])
+		self.assertEqual(updated.requested, ASKED)
+		# block.read was refused before, so the update does not grant it again
+		self.assertEqual(updated.capabilities, ["context.read", "block.update"])
+		self.assertEqual((updated.version, updated.readme), ("1.2.0", "# New"))
+
+	def test_leaves_a_disabled_extension_disabled(self):
+		_, updated = self.run_job(Mock(return_value=RELEASE), [])
+		self.assertEqual(updated.enabled, 0)
+
+	def test_a_failed_update_keeps_the_old_version_and_says_why(self):
+		publish, kept = self.run_job(Mock(side_effect=Exception("The Hub is down.")), ["block.update"])
+		self.assertEqual((kept.version, kept.install_state), ("1.0.0", "Ready"))
+		self.assertEqual(kept.capabilities, ["context.read"])
+		publish.assert_called_once_with(
+			"builder_extension_update",
+			{"extension": EXTENSION, "error": "The Hub is down."},
+			user=frappe.session.user,
+			after_commit=True,
+		)
+
+
+class TestUpdateFromHub(FrappeTestCase):
+	"""What the request refuses before any job is queued."""
+
+	def setUp(self):
+		drop_installations(EXTENSION)
+		self.addCleanup(drop_installations, EXTENSION)
+
+	def request(self, latest: str):
+		listing = {"extension": {}, "releases": [{"version": latest}]}
+		with (
+			patch("builder.extensions.hub.resolve_hub_url", return_value=HUB_URL),
+			patch("builder.extensions.hub.hub_extension", return_value=listing),
+			patch("frappe.enqueue") as enqueue,
+		):
+			update_from_hub(EXTENSION, [])
+		return enqueue
+
+	def test_queues_an_update_to_a_newer_release(self):
+		make_installation(EXTENSION, source_url=HUB_URL, install_state="Ready")
+		self.assertEqual(self.request("1.2.0").call_args.kwargs["version"], "1.2.0")
+
+	def test_refuses_an_install_that_is_already_the_latest(self):
+		make_installation(EXTENSION, source_url=HUB_URL, install_state="Ready")
+		with self.assertRaisesRegex(frappe.ValidationError, "already"):
+			self.request("1.0.0")
+
+	def test_refuses_a_directory_install(self):
+		make_installation(EXTENSION, install_state="Ready")
+		with self.assertRaisesRegex(frappe.ValidationError, "Builder Hub"):
+			self.request("1.2.0")

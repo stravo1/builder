@@ -269,9 +269,9 @@ def run_hub_install(
 	try:
 		release = get_release(hub_url, name, version)
 		package = validate_package(download_package(release), name, release.version)
-		apply_release(
-			frappe.get_doc(INSTALLATION_DOCTYPE, installation), hub_url, release, package, capabilities
-		)
+		doc = frappe.get_doc(INSTALLATION_DOCTYPE, installation)
+		doc.enabled = 1
+		apply_release(doc, hub_url, release, package, capabilities)
 		state = "Ready"
 	except Exception as error:
 		frappe.db.rollback()
@@ -288,6 +288,79 @@ def run_hub_install(
 	frappe.db.commit()
 	frappe.publish_realtime(
 		"builder_extension_install", {"extension": name, "state": state}, user=user, after_commit=True
+	)
+
+
+@frappe.whitelist(methods=["POST"])
+def update_from_hub(name: str, capabilities: list[str]) -> dict:
+	"""Start an update to the newest Hub release, and answer with the panel row.
+
+	`capabilities` is what the user allowed of the permissions the new release adds.
+	The job keeps every earlier answer, so an update never widens a grant by itself.
+	The row stays `Ready` while the job runs, so the extension keeps working.
+	"""
+	installation = assert_updatable(name)
+	hub_url = resolve_hub_url()
+	listing = hub_extension(hub_url, name)
+	version = latest_version(listing, name)
+	if version == frappe.db.get_value(INSTALLATION_DOCTYPE, installation, "version"):
+		frappe.throw(_('"{0}" is already the latest version.').format(name))
+
+	frappe.enqueue(
+		run_hub_update,
+		queue="default",
+		timeout=INSTALL_JOB_TIMEOUT,
+		enqueue_after_commit=True,
+		installation=installation,
+		name=name,
+		version=version,
+		hub_url=hub_url,
+		listing=listing.get("extension") or {},
+		user=frappe.session.user,
+		capabilities=capabilities,
+	)
+	return describe_installation(installation)
+
+
+def assert_updatable(name: str) -> str:
+	"""This user's working Hub install of `name`. A directory install has no Hub to update from."""
+	installation = find_installation(name)
+	state, source = (
+		frappe.db.get_value(INSTALLATION_DOCTYPE, installation, ["install_state", "source_url"])
+		if installation
+		else (None, None)
+	)
+	if state != "Ready" or not source:
+		frappe.throw(_('"{0}" is not installed from Builder Hub.').format(name))
+	return installation
+
+
+def run_hub_update(
+	installation: str, name: str, version: str, hub_url: str, listing: dict, user: str, capabilities: list[str]
+) -> None:
+	"""Replace a working install with a newer release, once its package passes every check.
+
+	A failure changes nothing, so the old version keeps running, and the event says why.
+	"""
+	error = None
+	try:
+		release = get_release(hub_url, name, version)
+		package = validate_package(download_package(release), name, release.version)
+		doc = frappe.get_doc(INSTALLATION_DOCTYPE, installation)
+		added = [capability for capability in capabilities if capability not in doc.requested]
+		doc.readme = listing.get("readme")
+		apply_release(doc, hub_url, release, package, doc.capabilities + added)
+	except Exception as thrown:
+		frappe.db.rollback()
+		frappe.log_error(title="Hub extension update failed")
+		error = str(thrown) or _("The update failed.")
+
+	frappe.db.commit()
+	frappe.publish_realtime(
+		"builder_extension_update",
+		{"extension": name, **({"error": error} if error else {})},
+		user=user,
+		after_commit=True,
 	)
 
 
@@ -376,7 +449,6 @@ def apply_release(
 			),
 			"install_state": "Ready",
 			"install_error": None,
-			"enabled": 1,
 		}
 	)
 	doc.save()
