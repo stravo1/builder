@@ -354,6 +354,17 @@ describe("the descriptor", () => {
 		expect(read(root).body.readme).toBe("# Icons\n\nDevelopment documentation.\n");
 	});
 
+	it("prefers DESCRIPTION.md, which is written for users", () => {
+		const root = project({
+			"src/main.js": "",
+			"manifest.json": manifest(),
+			"README.md": "# Icons\n\nDevelopment documentation.\n",
+			"DESCRIPTION.md": "# Icons\n\nPick an icon.\n",
+		});
+
+		expect(read(root).body.readme).toBe("# Icons\n\nPick an icon.\n");
+	});
+
 	it("names the icon where the dev server serves it, not where a build puts it", () => {
 		const root = project({
 			"src/main.js": "",

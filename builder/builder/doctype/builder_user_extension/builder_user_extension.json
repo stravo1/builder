@@ -79,7 +79,7 @@
    "label": "Icon"
   },
   {
-   "description": "The extension's README, in Markdown. Builder Hub sends it, or the installer reads it from the author's folder.",
+   "description": "The page the Extensions panel shows, in Markdown. Builder Hub sends it, or the installer reads DESCRIPTION.md, then README.md, from the author's folder.",
    "fieldname": "readme",
    "fieldtype": "Long Text",
    "ignore_xss_filter": 1,

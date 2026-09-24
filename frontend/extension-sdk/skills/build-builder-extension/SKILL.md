@@ -31,7 +31,8 @@ development configuration.
 When you build the structure manually:
 
 1. Make `manifest.json`, `README.md`, `LICENSE`, `package.json`, `vite.config.ts`,
-   and `src/main.ts`.
+   and `src/main.ts`. Add `DESCRIPTION.md` when the README is for developers. Builder
+   shows `DESCRIPTION.md` to users in place of the README.
 2. Install the SDK from its release tag:
    `npm install --save-dev github:stravo1/frappe-builder-extension-sdk#v0.1.3`.
 3. Add `builderExtension({ builderUrl })` to the Vite plugin list.

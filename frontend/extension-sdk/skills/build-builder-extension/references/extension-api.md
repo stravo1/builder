@@ -52,6 +52,7 @@ Use this minimum structure:
 my-extension/
 ├── manifest.json
 ├── README.md
+├── DESCRIPTION.md      optional, shown to users in place of README.md
 ├── LICENSE
 ├── package.json
 ├── vite.config.js

@@ -32,6 +32,9 @@ INSTALLATION_DOCTYPE = "Builder User Extension"
 # What a single-file build leaves behind, beside the icon the manifest names.
 INSTALLABLE_FILES = {"main.js", "manifest.json"}
 
+# A repository README is often written for developers, so DESCRIPTION.md comes first.
+README_FILES = ("DESCRIPTION.md", "README.md")
+
 
 class ExtensionPackage:
 	"""What an author builds: a manifest, and the files a frame loads."""
@@ -48,13 +51,16 @@ class ExtensionPackage:
 
 	@property
 	def readme(self) -> str | None:
-		"""The author's README, which the package never ships.
+		"""The page the Extensions panel shows, which the package never ships.
 
 		A package holds three files, so this file stays in the author's folder. A
 		Builder Hub install reads the same text from the Hub instead.
 		"""
-		path = self.directory / "README.md"
-		return path.read_text() if path.is_file() else None
+		for name in README_FILES:
+			path = self.directory / name
+			if path.is_file():
+				return path.read_text()
+		return None
 
 	@property
 	def source_directory(self) -> pathlib.Path:

@@ -68,9 +68,10 @@ Use the version 1 manifest shape. The build rejects missing and unknown fields.
 A manifest can name an icon, such as `"icon": "icon.svg"`. Put a square SVG of that name beside the
 entry. Builder draws it beside the extension in the Extensions panel.
 
-Put a `README.md` in the extension directory. The installer stores it on the installation, and the
-Extensions panel shows it. The package never carries it: a built extension is `main.js`,
-`manifest.json` and one icon.
+Put a `README.md` in the extension directory. The Extensions panel shows it on the details page.
+If your README is written for developers, add a `DESCRIPTION.md` for users. The panel then shows
+`DESCRIPTION.md` and ignores `README.md`. The package never carries either file: a built extension
+is `main.js`, `manifest.json` and one icon.
 
 The panel also lists every capability the manifest asks for, and the user can turn one off. A
 capability the user turned off is refused the way one you never asked for is.
@@ -101,7 +102,8 @@ builder.popover.register({ component: () => import("./Popover.vue") });
 
 ## Package a release
 
-Builder Hub reads `manifest.json`, `README.md`, and `LICENSE` from the repository root.
+Builder Hub reads `manifest.json`, `README.md`, and `LICENSE` from the repository root. It also
+reads `DESCRIPTION.md` when there is one, and shows it in place of `README.md`.
 Each release manifest declares its required Builder extension protocol in `v`.
 
 Build, then create the release package:
