@@ -115,7 +115,7 @@ def get_release(hub_url: str, name: str, version: str | None) -> Release:
 
 	release = payload.get("release")
 	if not isinstance(release, dict):
-		frappe.throw(_('The Hub returned no release for "{0}".').format(name))
+		frappe.throw(_('No release found for "{0}".').format(name))
 	return read_release(name, release)
 
 
@@ -128,7 +128,7 @@ def latest_version(listing: dict, name: str) -> str:
 	"""The newest published version in a listing. The Hub sorts them newest first."""
 	releases = listing.get("releases") or []
 	if not releases:
-		frappe.throw(_('"{0}" has no published release on this Hub.').format(name))
+		frappe.throw(_('"{0}" has no published release.').format(name))
 	return releases[0]["version"]
 
 
@@ -150,11 +150,11 @@ def read_release(name: str, release: dict) -> Release:
 	)
 
 	if release.status != "Published":
-		frappe.throw(_("This release is {0}, so it cannot be installed.").format(release.status))
+		frappe.throw(_("This release is {0}. You cannot install it.").format(release.status))
 	if release.protocol_version > PROTOCOL_VERSION:
-		frappe.throw(_('"{0}" needs a newer Builder to run.').format(name))
+		frappe.throw(_('"{0}" needs a newer version of Builder.').format(name))
 	if release.package_size > MAX_PACKAGE_BYTES:
-		frappe.throw(_("This release is larger than Builder installs."))
+		frappe.throw(_("This release is too large to install."))
 	return release
 
 
@@ -168,11 +168,11 @@ def hub_get(hub_url: str, method: str, params: dict) -> dict:
 	if not response.ok:
 		frappe.throw(hub_error(response))
 	if len(response.content) > MAX_METADATA_BYTES:
-		frappe.throw(_("The Hub sent more than a release listing should need."))
+		frappe.throw(_("The Hub sent too much data."))
 
 	body = response.json()
 	if not isinstance(body, dict) or not isinstance(body.get("message"), dict):
-		frappe.throw(_("The Hub response was not in the form Builder expects."))
+		frappe.throw(_("Builder could not read the Hub response."))
 	return body["message"]
 
 
@@ -204,7 +204,7 @@ def download_package(release: Release) -> bytes:
 		frappe.throw(_("Could not download the extension package."))
 
 	if hashlib.sha256(package_bytes).hexdigest() != release.package_sha256:
-		frappe.throw(_("The downloaded package does not match the release checksum."))
+		frappe.throw(_("The download is damaged. Try again."))
 	return package_bytes
 
 
@@ -214,7 +214,7 @@ def read_capped(response: requests.Response, limit: int) -> bytes:
 	for chunk in response.iter_content(PACKAGE_CHUNK_BYTES):
 		package_bytes.extend(chunk)
 		if len(package_bytes) > limit:
-			frappe.throw(_("The extension package is larger than its release says."))
+			frappe.throw(_("The download is larger than expected."))
 	return bytes(package_bytes)
 
 
@@ -304,7 +304,7 @@ def assert_installable(name: str) -> None:
 	if frappe.db.get_single_value("Builder Settings", "disable_extensions"):
 		frappe.throw(_("Extensions are turned off for this site."))
 	if not EXTENSION_NAME_PATTERN.match(name or ""):
-		frappe.throw(_("An extension name reads as publisher/name, in lowercase."))
+		frappe.throw(_('Use an extension name like "publisher/name", in lowercase.'))
 
 	existing = find_installation(name)
 	if not existing:
