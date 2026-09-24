@@ -6,25 +6,27 @@
 		One instance for the whole editor: `grants.ts` queues requests so only one
 		question stands at a time.
 	-->
-	<Dialog v-if="prompt" :modelValue="true" size="sm" @update:modelValue="deny">
-		<template #body>
+	<Dialog v-if="prompt" :modelValue="true" size="sm" bare @update:modelValue="deny">
+		<template #default>
 			<div class="bg-surface-modal p-5">
-				<h3 class="text-lg-semibold text-ink-gray-9">{{ prompt.extension.label }} wants access</h3>
+				<DialogTitle as="h3" class="text-md-semibold text-ink-gray-9">
+					{{ prompt.extension.label }} wants access
+				</DialogTitle>
 
 				<!-- the period is part of the interpolation, not a node beside it: a
 					newline between a closing tag and a bare "." becomes a text node, and
 					the sentence reads "Contact ." Prettier reflows the markup, so the
 					punctuation cannot live in the whitespace -->
-				<p class="pt-4 text-p-sm text-ink-gray-6">
+				<DialogDescription as="p" class="pt-4 text-p-sm text-ink-gray-6">
 					It wants to
 					<span class="font-semibold text-ink-gray-8">{{ verbs }}</span>
 					{{ object }}
 					<span class="font-semibold text-ink-gray-8">{{ subject }}</span>
-				</p>
+				</DialogDescription>
 
 				<p class="pt-2 text-p-sm text-ink-gray-5">It cannot do more than you can.</p>
 
-				<div v-if="prompt.sensitive" class="mt-4 rounded bg-surface-red-1 p-3">
+				<div v-if="prompt.sensitive" class="mt-4 rounded-4 bg-surface-red-1 p-3">
 					<p v-if="prompt.kind === 'schema'" class="text-p-sm text-ink-red-6">
 						Deleting a DocType deletes all its records. You cannot undo this.
 					</p>
@@ -55,6 +57,7 @@ import Dialog from "@/components/Controls/Dialog.vue";
 import { answerPrompt, pendingPrompt } from "@/extensions/data/grants";
 import { Button } from "frappe-ui";
 import { computed, ref, watch } from "vue";
+import { DialogDescription, DialogTitle } from "reka-ui";
 
 const prompt = computed(() => pendingPrompt.value);
 const understood = ref(false);

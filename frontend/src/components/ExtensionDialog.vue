@@ -5,11 +5,12 @@
 		is what Builder's own settings dialog uses, so the backdrop, Escape and the
 		click outside all come from there.
 	-->
-	<Dialog v-if="dialog" :modelValue="true" size="lg" @update:modelValue="dismiss">
-		<template #body>
+	<Dialog v-if="dialog" :modelValue="true" size="lg" bare @update:modelValue="dismiss">
+		<template #default>
 			<div class="bg-surface-modal p-5">
 				<div class="flex items-center justify-between pb-4">
-					<h3 class="text-lg-semibold text-ink-gray-9">{{ dialog.title }}</h3>
+					<DialogTitle as="h3" class="text-md-semibold text-ink-gray-9">{{ dialog.title }}</DialogTitle>
+					<DialogDescription class="sr-only">{{ extension.label }}</DialogDescription>
 					<Button icon="lucide-x" variant="ghost" @click="dismiss" />
 				</div>
 				<ExtensionFrame
@@ -32,6 +33,7 @@ import { connectExtension, disconnectExtension, dispatcherFor } from "@/extensio
 import { dismissDialog, openDialogs } from "@/extensions/editor/uiMethods";
 import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { computed } from "vue";
+import { DialogDescription, DialogTitle } from "reka-ui";
 
 /** A compact host-owned canvas. Dialog content scrolls within this frame. */
 const FRAME_HEIGHT = 192;

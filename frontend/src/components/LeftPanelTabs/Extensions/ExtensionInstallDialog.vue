@@ -1,15 +1,19 @@
 <template>
 	<!-- Collects the capabilities granted at install, and nothing else. -->
-	<Dialog :modelValue="open" size="sm" @update:modelValue="(value: boolean) => emit('update:open', value)">
-		<template #body>
+	<Dialog
+		:modelValue="open"
+		size="sm"
+		bare
+		@update:modelValue="(value: boolean) => emit('update:open', value)">
+		<template #default>
 			<div class="bg-surface-modal p-5">
-				<h3 class="text-lg-semibold text-ink-gray-9">Install {{ label }}?</h3>
-				<p class="pt-2 text-p-sm text-ink-gray-6">
+				<DialogTitle as="h3" class="text-md-semibold text-ink-gray-9">Install {{ label }}?</DialogTitle>
+				<DialogDescription as="p" class="pt-2 text-p-sm text-ink-gray-6">
 					<template v-if="requested.length">
 						Turn off anything you do not want to allow. You can change this later.
 					</template>
 					<template v-else>It needs no permissions.</template>
-				</p>
+				</DialogDescription>
 
 				<div v-if="requested.length" class="pt-4">
 					<ExtensionCapabilities
@@ -35,6 +39,7 @@ import ExtensionCapabilities from "@/components/LeftPanelTabs/Extensions/Extensi
 import type { Capability } from "frappe-builder-extension-sdk/types";
 import { Button } from "frappe-ui";
 import { ref, watch } from "vue";
+import { DialogDescription, DialogTitle } from "reka-ui";
 
 const props = defineProps<{
 	open: boolean;

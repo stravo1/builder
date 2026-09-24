@@ -1,12 +1,12 @@
 <template>
 	<!-- one field and two buttons: the default "lg" is far wider than it needs -->
-	<Dialog v-model="showDevExtensionDialog" size="sm">
-		<template #body>
+	<Dialog v-model="showDevExtensionDialog" size="sm" bare>
+		<template #default>
 			<div class="bg-surface-modal p-5">
-				<h3 class="text-lg-semibold text-ink-gray-9">Load dev extension</h3>
-				<p class="pt-4 text-p-sm text-ink-gray-6">
+				<DialogTitle as="h3" class="text-md-semibold text-ink-gray-9">Load dev extension</DialogTitle>
+				<DialogDescription as="p" class="pt-4 text-p-sm text-ink-gray-6">
 					Enter the URL of your dev server. The extension stays until you reload the page.
-				</p>
+				</DialogDescription>
 
 				<FormControl
 					v-model="url"
@@ -33,6 +33,7 @@ import { loadExtensions } from "@/data/extensions";
 import { lastDevUrl, loadDevExtension, showDevExtensionDialog } from "@/extensions/devExtension";
 import { Button, FormControl, toast } from "frappe-ui";
 import { ref, watch } from "vue";
+import { DialogDescription, DialogTitle } from "reka-ui";
 
 const url = ref(lastDevUrl());
 const error = ref("");
