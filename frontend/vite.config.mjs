@@ -1,13 +1,21 @@
 import vue from "@vitejs/plugin-vue";
 import frameworkUI from "@framework/ui/vite";
 import frappeui from "frappe-ui/vite";
+import fs from "fs";
 import path from "path";
 import { defineConfig } from "vite";
+
+// the dev client dials socket.io itself, so it needs the port this bench runs it on
+const commonSiteConfig = path.resolve(__dirname, "../../../sites/common_site_config.json");
+const socketioPort = fs.existsSync(commonSiteConfig)
+	? JSON.parse(fs.readFileSync(commonSiteConfig, "utf8")).socketio_port
+	: undefined;
 
 // https://vitejs.dev/config/
 export default defineConfig({
 	define: {
 		__VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false,
+		"import.meta.env.VITE_SOCKETIO_PORT": JSON.stringify(socketioPort ?? 9000),
 	},
 	plugins: [
 		frappeui({
