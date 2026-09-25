@@ -20,19 +20,19 @@ vi.mock("frappe-ui", () => ({
 }));
 
 import { requestMethods } from "../requestMethods";
-import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
+import type { Capability, InstalledExtension } from "frappe-builder-extension-sdk/types";
 
-const record = (): InstalledExtension => ({
+const record = (capabilities: Capability[] = ["data.access", "method.call"]): InstalledExtension => ({
 	name: "acme/crm",
 	label: "CRM",
-	capabilities: ["data.access"],
+	capabilities,
 });
 
-const send = (method: string, url: string, body?: unknown) =>
+const send = (method: string, url: string, body?: unknown, extension = record()) =>
 	requestMethods["data.request"].run(
 		{ method, url, body: body === undefined ? undefined : JSON.stringify(body) },
-		record(),
-	) as Promise<{ data: unknown; hasNextPage?: boolean }>;
+		extension,
+	) as Promise<{ data: unknown; hasNextPage?: boolean; docs?: unknown[] }>;
 
 const last = () => submitted[submitted.length - 1];
 
@@ -51,23 +51,34 @@ beforeEach(() => {
 });
 
 describe("the capability", () => {
-	it("is data.access, the same gate every data method has", () => {
-		expect(requestMethods["data.request"].needs).toBe("data.access");
+	it("is named by each route, not by the method", () => {
+		expect(requestMethods["data.request"].needs).toBeNull();
+	});
+
+	it("needs data.access for a document request", async () => {
+		const call = () => send("GET", "/api/v2/document/Contact", undefined, record(["method.call"]));
+
+		expect(await codeOf(call)).toBe("capability_required");
+		expect(submitted).toEqual([]);
+	});
+
+	it("needs method.call for a method, whatever else the extension holds", async () => {
+		const call = () => send("POST", "/api/method/myapp.api.export", {}, record(["data.access"]));
+
+		expect(await codeOf(call)).toBe("capability_required");
+		expect(submitted).toEqual([]);
 	});
 });
 
 describe("a request with no route", () => {
 	it.each([
-		["POST", "/api/method/myapp.api.export"],
-		["POST", "/api/method/run_doc_method"],
-		["GET", "/api/method/frappe.desk.search.search_link"],
-		["POST", "/api/v2/method/myapp.api.export"],
-		["GET", "/api/v2/document/Contact/CON-1/method/get_summary"],
 		["GET", "/api/v2/document/Contact/CON-1/copy"],
 		["POST", "/api/v2/document/Contact/bulk_delete"],
-		["POST", "/api/v2/method/logout"],
 		["GET", "/api/v2/doctype/Contact/discovery"],
 		["POST", "/api/v2/doctype/Contact/count"],
+		["GET", "/api/v2/method/a/b/c"],
+		["GET", "/api/method"],
+		["GET", "/files/report.pdf"],
 	])("refuses %s %s, never forwards it", async (method, url) => {
 		expect(await codeOf(() => send(method, url))).toBe("unsupported_request");
 		expect(submitted).toEqual([]);
@@ -243,6 +254,71 @@ describe("v2, documents", () => {
 		expect(last()).toEqual({
 			url: "builder.extensions.data.get_meta",
 			params: { extension: "acme/crm", doctype: "Contact" },
+		});
+	});
+});
+
+describe("methods", () => {
+	it("sends a v1 module method with its verb and arguments", async () => {
+		answer = "exported";
+
+		const sent = await send("POST", "/api/method/myapp.api.export", { format: "csv" });
+
+		expect(last()).toEqual({
+			url: "builder.extensions.methods.run_method",
+			params: { extension: "acme/crm", method: "myapp.api.export", verb: "POST", args: { format: "csv" } },
+		});
+		expect(sent).toEqual({ data: "exported" });
+	});
+
+	it("leaves the floor to the server, which owns it", async () => {
+		await send("GET", "/api/method/frappe.desk.search.search_link?txt=a");
+
+		expect(last().params).toMatchObject({ method: "frappe.desk.search.search_link", verb: "GET" });
+	});
+
+	it("names a v2 method by its dotted path, and a doctype method as <DocType>.<method>", async () => {
+		await send("POST", "/api/v2/method/myapp.api.export");
+		expect(last().params.method).toBe("myapp.api.export");
+
+		await send("GET", "/api/v2/method/Form/get_summary");
+		expect(last().params.method).toBe("Form.get_summary");
+	});
+
+	it("runs a v1 doc method and answers with the document beside the result", async () => {
+		answer = { message: 3, docs: [{ name: "F-1" }] };
+
+		const sent = await send("POST", "/api/method/run_doc_method", {
+			dt: "Form",
+			dn: "F-1",
+			method: "count_responses",
+			args: '{"since":"2026-01-01"}',
+		});
+
+		expect(last()).toEqual({
+			url: "builder.extensions.methods.run_doc_method",
+			params: {
+				extension: "acme/crm",
+				doctype: "Form",
+				name: "F-1",
+				method: "count_responses",
+				verb: "POST",
+				args: { since: "2026-01-01" },
+			},
+		});
+		expect(sent).toEqual({ data: 3, docs: [{ name: "F-1" }] });
+	});
+
+	it("reads a v2 doc method from the end of the path, so a name may hold a slash", async () => {
+		answer = { message: null, docs: [] };
+
+		await send("GET", "/api/v2/document/Web%20Page/about%2Fteam/method/get_summary");
+
+		expect(last().params).toMatchObject({
+			doctype: "Web Page",
+			name: "about/team",
+			method: "get_summary",
+			verb: "GET",
 		});
 	});
 });

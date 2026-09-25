@@ -11,7 +11,7 @@ describe("capabilityDetails", () => {
 	it("gives every sensitive capability a reason to read", () => {
 		const sensitive = CAPABILITIES.filter(isSensitive);
 
-		expect(sensitive).toEqual(["token.write", "data.access", "schema.write"]);
+		expect(sensitive).toEqual(["token.write", "data.access", "schema.write", "method.call"]);
 		sensitive.forEach((capability) => expect(capabilityDetails[capability].warning).toBeTruthy());
 	});
 });

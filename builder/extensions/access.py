@@ -22,6 +22,7 @@ from frappe import _
 
 INSTALLATION_DOCTYPE = "Builder User Extension"
 GRANT_DOCTYPE = "Builder Extension DocType Grant"
+METHOD_GRANT_DOCTYPE = "Builder Extension Method Grant"
 STATE_DOCTYPE = "Builder Extension State"
 
 
@@ -111,6 +112,10 @@ def installation_conditions(user: str | None = None) -> str:
 
 def grant_conditions(user: str | None = None) -> str:
 	return scoped_to_installation(GRANT_DOCTYPE, user)
+
+
+def method_grant_conditions(user: str | None = None) -> str:
+	return scoped_to_installation(METHOD_GRANT_DOCTYPE, user)
 
 
 def state_conditions(user: str | None = None) -> str:

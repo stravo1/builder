@@ -115,8 +115,10 @@
 						:requested="details.requested_capabilities"
 						:granted="details.granted_capabilities"
 						:doctype-grants="details.doctype_grants"
+						:method-grants="details.method_grants"
 						@update:granted="grant"
-						@doctype-grants="refreshDetails" />
+						@doctype-grants="refreshDetails"
+						@method-grants="refreshDetails" />
 				</section>
 
 				<div class="flex flex-col gap-1 border-t border-outline-gray-1 pt-4 text-xs text-ink-gray-5">
@@ -240,6 +242,7 @@ const fromHub = (hub: Awaited<ReturnType<typeof getHubExtension>>): Installation
 	requested_capabilities: [],
 	granted_capabilities: [],
 	doctype_grants: [],
+	method_grants: [],
 });
 
 const isInstallDialogOpen = ref(false);

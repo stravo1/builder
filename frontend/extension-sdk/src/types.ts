@@ -198,4 +198,6 @@ export type ApiAnswer = {
 	data: unknown;
 	/** Set on a v2 list, which pages by it. */
 	hasNextPage?: boolean;
+	/** Set by a doc method: the document after it ran, which a frappe-ui document resource reloads from. */
+	docs?: unknown[];
 };

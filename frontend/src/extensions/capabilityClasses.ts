@@ -51,6 +51,12 @@ export const capabilityDetails: Record<Capability, CapabilityDetail> = {
 		label: "Create and delete DocTypes",
 		warning: "Deleting a DocType deletes all its records. You cannot undo this.",
 	},
+	"method.call": {
+		capabilityClass: SITE_DATA_CLASS,
+		label: "Run server methods",
+		warning:
+			"It asks you before it runs each method. A method runs as you, so it can change anything you can.",
+	},
 };
 
 /** The reading order of the classes, widest reach last. */

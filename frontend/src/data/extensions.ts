@@ -16,6 +16,7 @@ import { builderSettings } from "@/data/builderSettings";
 const METHOD = "builder.extensions.installations";
 const INSTALLATION_DOCTYPE = "Builder User Extension";
 const GRANT_DOCTYPE = "Builder Extension DocType Grant";
+const METHOD_GRANT_DOCTYPE = "Builder Extension Method Grant";
 
 const HUB_API = "api/method/builder_hub.extensions.api";
 const CATALOG_CACHE = "extensions-catalog";
@@ -214,12 +215,21 @@ type ExtensionGrant = {
 	delete_access: AccessAnswer;
 };
 
+/** One method, or one app's methods, this user answered for. */
+type ExtensionMethodGrant = {
+	name: string;
+	scope: "method" | "app";
+	target: string;
+	answer: AccessAnswer;
+};
+
 type InstallationDetails = UserInstallation & {
 	installed_on: string;
 	readme?: string;
 	requested_capabilities: Capability[];
 	granted_capabilities: Capability[];
 	doctype_grants: ExtensionGrant[];
+	method_grants: ExtensionMethodGrant[];
 	development_server?: string;
 };
 
@@ -280,38 +290,61 @@ const findInstallation = (extension: string) =>
 	userInstallations.value.find((installation) => installation.name === extension);
 
 /**
- * Every installation this has already wired a doctype-grant subscription for.
+ * Every grant list this has already wired a subscription for, keyed by doctype
+ * and installation.
  *
  * A grant is inserted or deleted rather than only edited, so `createListResource`'s
  * own `realtime` option cannot keep it live: that option only refreshes a row
  * already in the fetched page, never a new one. `onDocUpdate` is the same
  * primitive `createDocumentResource` uses for its own realtime, applied here by
- * hand, once per installation, so a bare reload catches the row it would miss.
+ * hand, once per list, so a bare reload catches the row it would miss.
  */
-const doctypeGrantsSubscribed = new Set<string>();
+const grantsSubscribed = new Set<string>();
 
-const installationDoctypeGrants = (installationId: string) => {
-	const resource = createListResource<ExtensionGrant>(
+const installationGrants = <T>(
+	doctype: string,
+	installationId: string,
+	fields: string[],
+	orderBy: string,
+) => {
+	const resource = createListResource<T>(
 		{
-			doctype: GRANT_DOCTYPE,
+			doctype,
 			filters: [["installation", "=", installationId]],
-			fields: ["document_type", "read_access", "write_access", "delete_access"],
-			orderBy: "document_type asc",
+			fields,
+			orderBy,
 			auto: false,
-			cache: ["installation-doctype-grants", installationId],
+			cache: [doctype, installationId],
 			onError: (error: Error) => console.error("Could not load extension grants", error),
 		},
 		resourceVm,
 	);
 
 	const socket = (resourceVm as { $socket?: Parameters<typeof onDocUpdate>[0] } | undefined)?.$socket;
-	if (socket && !doctypeGrantsSubscribed.has(installationId)) {
-		doctypeGrantsSubscribed.add(installationId);
-		onDocUpdate(socket, GRANT_DOCTYPE, () => void resource.reload());
+	const key = `${doctype}:${installationId}`;
+	if (socket && !grantsSubscribed.has(key)) {
+		grantsSubscribed.add(key);
+		onDocUpdate(socket, doctype, () => void resource.reload());
 	}
 
 	return resource;
 };
+
+const installationDoctypeGrants = (installationId: string) =>
+	installationGrants<ExtensionGrant>(
+		GRANT_DOCTYPE,
+		installationId,
+		["document_type", "read_access", "write_access", "delete_access"],
+		"document_type asc",
+	);
+
+const installationMethodGrants = (installationId: string) =>
+	installationGrants<ExtensionMethodGrant>(
+		METHOD_GRANT_DOCTYPE,
+		installationId,
+		["name", "scope", "target", "answer"],
+		"target asc",
+	);
 
 /**
  * One installation, with the dev server standing in for what it owns.
@@ -328,6 +361,7 @@ const installationDoctypeGrants = (installationId: string) => {
 const useInstallationDetails = (extension: string) => {
 	const document = shallowRef<ReturnType<typeof installationDocument> | null>(null);
 	const doctypeGrants = shallowRef<ReturnType<typeof installationDoctypeGrants> | null>(null);
+	const methodGrants = shallowRef<ReturnType<typeof installationMethodGrants> | null>(null);
 
 	const reload = async () => {
 		const installationId = findInstallation(extension)?.installation_id;
@@ -335,7 +369,8 @@ const useInstallationDetails = (extension: string) => {
 
 		document.value = installationDocument(installationId);
 		doctypeGrants.value = installationDoctypeGrants(installationId);
-		await Promise.all([document.value.reload(), doctypeGrants.value.reload()]);
+		methodGrants.value = installationMethodGrants(installationId);
+		await Promise.all([document.value.reload(), doctypeGrants.value.reload(), methodGrants.value.reload()]);
 	};
 
 	const details = computed<InstallationDetails | null>(() => {
@@ -350,6 +385,7 @@ const useInstallationDetails = (extension: string) => {
 			requested_capabilities: grantedCapabilities(doc.requested_capabilities),
 			granted_capabilities: grantedCapabilities(doc.granted_capabilities),
 			doctype_grants: doctypeGrants.value?.data ?? [],
+			method_grants: methodGrants.value?.data ?? [],
 		});
 	});
 
@@ -364,6 +400,18 @@ const useInstallationDetails = (extension: string) => {
  */
 const setExtensionGrant = (extension: string, doctype: string, answers: Record<Access, AccessAnswer>) =>
 	call(`${METHOD}.set_extension_grant`, { extension, doctype, answers }) as Promise<ExtensionGrant[]>;
+
+/**
+ * One answer for one method grant. The row belongs to this user's installation,
+ * and its permission hook says so, so Frappe's own write answers for it.
+ */
+const setMethodGrantAnswer = (name: string, answer: AccessAnswer) =>
+	call("frappe.client.set_value", {
+		doctype: METHOD_GRANT_DOCTYPE,
+		name,
+		fieldname: "answer",
+		value: answer,
+	});
 
 /** What the site keeps when a user removes an extension. */
 type UninstallSummary = {
@@ -516,6 +564,7 @@ export {
 	setExtensionEnabled,
 	setExtensionGrant,
 	setGrantedCapabilities,
+	setMethodGrantAnswer,
 	uninstallExtension,
 	updateFromHub,
 	uninstallSummary,
@@ -526,6 +575,7 @@ export {
 export type {
 	CatalogExtension,
 	ExtensionGrant,
+	ExtensionMethodGrant,
 	HubExtension,
 	InstallationDetails,
 	UninstallSummary,

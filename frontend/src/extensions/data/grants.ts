@@ -91,7 +91,13 @@ const invoke = (url: string, params: Record<string, unknown>) => createResource(
  * page — and record nothing, because there is no standing permission to
  * remember: the next act asks again.
  */
-export type PromptKind = "access" | "schema" | "script";
+export type PromptKind = "access" | "schema" | "script" | "method";
+
+/** What a method grant covers: the one method, or every method of the app that owns it. */
+export type GrantScope = "method" | "app";
+
+/** What the user answered. Only a method prompt offers a scope, so every other prompt answers "method". */
+export type PromptReply = { granted: boolean; scope: GrantScope };
 
 export type GrantPrompt = {
 	kind: PromptKind;
@@ -103,23 +109,26 @@ export type GrantPrompt = {
 	sensitive: boolean;
 	/** For a schema prompt: the verb, in the words the dialog uses. */
 	act?: "create" | "delete";
+	/** For a method prompt: the app a grant for the whole app names, and what the method says it does. */
+	app?: string;
+	description?: string;
 };
 
 /** Read by `ExtensionGrantDialog.vue`. One prompt stands at a time, so this is a single ref. */
 export const pendingPrompt = ref<GrantPrompt | null>(null);
 
-let answer: ((granted: boolean) => void) | null = null;
+let answer: ((reply: PromptReply) => void) | null = null;
 
 /**
  * The user's answer, from the dialog. Dismissing it counts as no, which is what
  * every browser permission prompt does and the only honest reading of a
  * question nobody answered.
  */
-export const answerPrompt = (granted: boolean) => {
+export const answerPrompt = (granted: boolean, scope: GrantScope = "method") => {
 	const settle = answer;
 	answer = null;
 	pendingPrompt.value = null;
-	settle?.(granted);
+	settle?.({ granted, scope });
 };
 
 /** Which extensions already have a teardown hook, so asking twice adds one hook. */
@@ -193,7 +202,7 @@ const readGrant = (extension: InstalledExtension, doctype: string) =>
 	}).then((sent: unknown) => toGrant(sent, doctype));
 
 const ask = (request: GrantPrompt) =>
-	new Promise<boolean>((resolve) => {
+	new Promise<PromptReply>((resolve) => {
 		answer = resolve;
 		pendingPrompt.value = request;
 	});
@@ -211,7 +220,9 @@ const ask = (request: GrantPrompt) =>
 export const confirmSchema = (extension: InstalledExtension, doctype: string, act: "create" | "delete") => {
 	hookTeardown(extension);
 	return enqueue(() =>
-		ask({ kind: "schema", extension, subject: doctype, act, access: [], sensitive: act === "delete" }),
+		ask({ kind: "schema", extension, subject: doctype, act, access: [], sensitive: act === "delete" }).then(
+			(reply) => reply.granted,
+		),
 	);
 };
 
@@ -231,12 +242,41 @@ export const confirmSchema = (extension: InstalledExtension, doctype: string, ac
  */
 export const confirmPageScript = (extension: InstalledExtension, route: string) => {
 	hookTeardown(extension);
-	return enqueue(() => ask({ kind: "script", extension, subject: route, access: [], sensitive: true }));
+	return enqueue(() =>
+		ask({ kind: "script", extension, subject: route, access: [], sensitive: true }).then(
+			(reply) => reply.granted,
+		),
+	);
+};
+
+/**
+ * Asks the user to let this extension run one server method, or every method of
+ * the app that owns it, then records the answer in the same turn of the queue.
+ *
+ * Exported for `methodMethods.ts`, which owns the method grant.
+ */
+export const confirmMethod = <T>(
+	extension: InstalledExtension,
+	method: { method: string; app: string; description: string },
+	record: (reply: PromptReply) => Promise<T>,
+) => {
+	hookTeardown(extension);
+	return enqueue(() =>
+		ask({
+			kind: "method",
+			extension,
+			subject: method.method,
+			app: method.app,
+			description: method.description,
+			access: [],
+			sensitive: false,
+		}).then(record),
+	);
 };
 
 const prompt = async (extension: InstalledExtension, doctype: string, access: Access[]) => {
 	hookTeardown(extension);
-	const granted = await ask({
+	const { granted } = await ask({
 		kind: "access",
 		extension,
 		subject: doctype,

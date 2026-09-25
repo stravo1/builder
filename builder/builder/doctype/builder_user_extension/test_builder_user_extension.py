@@ -143,11 +143,25 @@ class TestBuilderUserExtension(FrappeTestCase):
 				"read_access": "allowed",
 			}
 		).insert()
+		frappe.get_doc(
+			{
+				"doctype": "Builder Extension Method Grant",
+				"installation": installation.name,
+				"scope": "app",
+				"target": "acme",
+				"answer": "allowed",
+			}
+		).insert()
 
 		installation.delete()
 
 		self.assertFalse(frappe.db.exists("Builder Extension State", {"installation": installation.name}))
-		self.assertFalse(frappe.db.exists("Builder Extension DocType Grant", {"installation": installation.name}))
+		self.assertFalse(
+			frappe.db.exists("Builder Extension DocType Grant", {"installation": installation.name})
+		)
+		self.assertFalse(
+			frappe.db.exists("Builder Extension Method Grant", {"installation": installation.name})
+		)
 
 	def test_uninstall_leaves_another_users_grants_alone(self):
 		installation = make_installation(EXTENSION)

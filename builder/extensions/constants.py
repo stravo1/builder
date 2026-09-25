@@ -35,6 +35,7 @@ CAPABILITIES = (
 	"ui.popover",
 	"data.access",
 	"schema.write",
+	"method.call",
 )
 
 # An installation loaded from a dev server this session. It has no files, and the

@@ -134,12 +134,13 @@ Request only the capabilities that the extension uses. Builder rejects a protect
 | `ui.popover` | `ui.openPopover`, `ui.closePopover` |
 | `data.access` | Every `data.*` method, including `requestAccess` |
 | `schema.write` | Every `schema.*` method |
+| `method.call` | `methods.requestAccess`, `methods.getAccess`, and every server method call |
 
 Surface registration, actions, extension state, `ui.toast`, and `host.info` need no capability.
 
 Builder rejects page writes in read-only mode. This rule covers `block.update`, `block.insert`, `page.write`, and token writes. It does not cover `data.*` or `schema.*`, which write to the site and not to the page.
 
-A capability grants the right to ask. For `data.*`, the user must also grant access to each doctype. Read [Site data](#site-data).
+A capability grants the right to ask. For `data.*`, the user must also grant access to each doctype. Read [Site data](#site-data). For a server method, the user must also allow that method. Read [Server methods](#server-methods).
 
 ## Package and build configuration
 
@@ -667,19 +668,30 @@ A call fails with `grant_required` when the access it needs is not allowed. Catc
 
 ### frappe-ui
 
-frappe-ui's data layer works in an extension with no setup. `call`, `createResource`,
-`createListResource`, `createDocumentResource`, `useList`, `useDoc`, and `useNewDoc` all reach
-the site through the same grants as `builder.data`.
+frappe-ui's data layer works in an extension. `call`, `createResource`, `createListResource`,
+`createDocumentResource`, `useList`, `useDoc`, and `useNewDoc` all reach the site through the
+same grants as `builder.data`.
+
+Set the resource fetcher once in the entry module, as any Frappe app does. Without it, a
+resource sends its URL without the `/api/method/` prefix, and the request fails. `call` and the
+`use*` composables do not need it.
+
+```ts
+import { frappeRequest, setConfig } from "frappe-ui";
+setConfig("resourceFetcher", frappeRequest);
+```
 
 The SDK sends each same-site request to `/api/method/*` or `/api/v2/*` to Builder. Builder maps
 it to one of these operations, or refuses it:
 
-| Request | Operation |
-|---|---|
-| `frappe.client.get_list`, `get_count`, `get`, `insert`, `set_value`, `delete` | the matching `data.*` method |
-| v2 `/document/<doctype>` and `/document/<doctype>/<name>` | list, insert, read, update, delete |
-| v2 `/doctype/<doctype>/count` and `/doctype/<doctype>/meta` | `data.getCount`, `data.getMeta` |
-| any other method, `run_doc_method`, bulk, copy, `upload_file` | refused with 404 |
+| Request | Operation | Needs |
+|---|---|---|
+| `frappe.client.get_list`, `get_count`, `get`, `insert`, `set_value`, `delete` | the matching `data.*` method | `data.access` and a doctype grant |
+| v2 `/document/<doctype>` and `/document/<doctype>/<name>` | list, insert, read, update, delete | `data.access` and a doctype grant |
+| v2 `/doctype/<doctype>/count` and `/doctype/<doctype>/meta` | `data.getCount`, `data.getMeta` | `data.access` and a read grant |
+| `run_doc_method`, v2 `/document/<doctype>/<name>/method/<method>` | a method of one document | `method.call` and a method grant |
+| any other `/api/method/<path>`, v2 `/method/<path>`, v2 `/method/<doctype>/<method>` | a server method | `method.call` and a method grant |
+| bulk, copy, discovery | refused with 404 | |
 
 A refusal arrives in Frappe's own shape. A missing grant has `exc_type` `ExtensionGrantRequired`
 on a v1 call, and `errors[0].type` `ExtensionGrantRequired` on a v2 call. Catch it in `onError`
@@ -688,6 +700,44 @@ and call `requestAccess`.
 A v2 list page holds at most 499 rows. Builder fetches one more row to answer `has_next_page`.
 
 A request to another origin goes to the network unchanged.
+
+## Server methods
+
+Use `builder.methods` to run whitelisted server methods, for example the API of a Frappe app that
+ships with the extension. Every method needs the `method.call` capability.
+
+The capability alone runs nothing. The user must also allow each method, or every method of the
+app that owns it. Ask behind a button, then call the method through frappe-ui:
+
+```ts
+const grant = await builder.methods.requestAccess("acme_forms.api.export_responses");
+if (grant.answer !== "allowed") return;
+
+const csv = await call("acme_forms.api.export_responses", { form: "F-0012" });
+```
+
+Name a method in one of two ways:
+
+| Name | Example | Covers |
+|---|---|---|
+| Its dotted path | `acme_forms.api.export_responses` | One module function |
+| `<DocType>.<method>` | `Form.get_summary` | That method on the doctype's class, and the function of that name in its controller module |
+
+The dialog shows the method, the app that owns it, and the first paragraph of its docstring. The
+user can allow this method only, or every method of its app. An answer for the method wins over an
+answer for the app.
+
+`requestAccess` returns without a dialog when the method, or its app, is already answered. The
+user can change an answer in the Extensions panel.
+
+A method runs as the user, so it can change anything the user can change. Frappe checks that the
+method is whitelisted and that it accepts the HTTP verb of the call.
+
+Builder refuses every method of the `frappe` and `builder` apps, whatever the user answers. Their
+data reaches an extension through `builder.data` and its doctype grants.
+
+A doc method answers with the document beside the result, so a `createDocumentResource` refreshes
+its `doc` after the call.
 
 ## Doctypes
 

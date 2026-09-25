@@ -496,6 +496,28 @@ export type Doctype = {
 /** How a new document is named. Fixed at creation: changing it later renames nothing. */
 export type Naming = "hash" | "autoincrement" | "prompt";
 
+/** What the user answered about one server method, and what the prompt showed them. */
+export type MethodGrant = { method: string; app: string; description: string; answer: AccessAnswer };
+
+export const methods = {
+	/**
+	 * Asks the user to let this extension run one server method, in a Builder dialog.
+	 *
+	 * Name a module method by its dotted path, `myapp.api.export`, and a doctype's
+	 * method as `<DocType>.<method>`, `Form.get_summary`. The user may allow this
+	 * method only, or every method of the app that owns it. The dialog is modal,
+	 * so call this behind a button. It returns without a dialog when the method,
+	 * or its app, is already answered. Methods of frappe and builder are always
+	 * refused.
+	 *
+	 * Then call the method through frappe-ui or `fetch`, as in any Frappe app.
+	 */
+	requestAccess: (method: string) => call("methods.requestAccess", { method }) as Promise<MethodGrant>,
+
+	/** What the user already answered for this method, without asking. */
+	getAccess: (method: string) => call("methods.getAccess", { method }) as Promise<MethodGrant>,
+};
+
 export const schema = {
 	/**
 	 * A new custom doctype, owned by this extension.

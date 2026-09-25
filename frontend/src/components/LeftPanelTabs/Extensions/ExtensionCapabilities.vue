@@ -60,12 +60,39 @@
 					</div>
 				</div>
 			</div>
+
+			<!-- the methods answered for, under the capability that lets the extension run any -->
+			<div
+				v-if="capability === 'method.call' && methodGrants.length"
+				class="!border-t-0 flex flex-col gap-3 px-3 pb-3">
+				<div v-for="grant in methodGrants" :key="grant.name" class="flex flex-col gap-1.5">
+					<hr />
+					<div class="flex items-center justify-between gap-2">
+						<p
+							class="min-w-0 truncate text-xs text-ink-gray-8"
+							:class="grant.scope === 'method' && 'font-mono'"
+							:title="grant.target">
+							{{ grant.scope === "app" ? `Every method of ${grant.target}` : grant.target }}
+						</p>
+						<TabButtons
+							:class="COMPACT_TABS"
+							:options="ANSWER_BUTTONS"
+							:model-value="grant.answer"
+							@update:model-value="(answer: unknown) => setMethodAnswer(grant, answer as AccessAnswer)" />
+					</div>
+				</div>
+			</div>
 		</template>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { setExtensionGrant, type ExtensionGrant } from "@/data/extensions";
+import {
+	setExtensionGrant,
+	setMethodGrantAnswer,
+	type ExtensionGrant,
+	type ExtensionMethodGrant,
+} from "@/data/extensions";
 import { ACCESS, type Access, type AccessAnswer } from "@/extensions/data/grants";
 import { capabilityDetails, isSensitive, sortCapabilities } from "@/extensions/capabilityClasses";
 import { confirm } from "@/utils/helpers";
@@ -80,11 +107,13 @@ const props = defineProps<{
 	requested: Capability[];
 	granted: Capability[];
 	doctypeGrants: ExtensionGrant[];
+	methodGrants: ExtensionMethodGrant[];
 }>();
 
 const emit = defineEmits<{
 	"update:granted": [capabilities: Capability[]];
 	doctypeGrants: [doctypeGrants: ExtensionGrant[]];
+	methodGrants: [];
 }>();
 
 /** Only what this extension asked for. A capability it never asked for is not a choice. */
@@ -124,6 +153,15 @@ const setAnswers = async (grant: ExtensionGrant, changed: readonly Access[], ans
 	changed.forEach((access) => (answers[access] = answer));
 	try {
 		emit("doctypeGrants", await setExtensionGrant(props.extension, grant.document_type, answers));
+	} catch (thrown) {
+		toast.error((thrown as Error).message);
+	}
+};
+
+const setMethodAnswer = async (grant: ExtensionMethodGrant, answer: AccessAnswer) => {
+	try {
+		await setMethodGrantAnswer(grant.name, answer);
+		emit("methodGrants");
 	} catch (thrown) {
 		toast.error((thrown as Error).message);
 	}

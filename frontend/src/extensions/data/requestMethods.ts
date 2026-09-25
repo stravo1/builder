@@ -3,19 +3,21 @@
  *
  * The SDK wraps the frame's `fetch` and sends every `/api/method/*` and
  * `/api/v2/*` request here unread. This file decides which operation a request
- * is and hands it to the `data.*` method that already gates that operation, so a
+ * is and hands it to the host method that already gates that operation, so a
  * request reaches exactly what the matching SDK call reaches.
  *
- * A request that matches no route is refused, never forwarded. Forwarding would
- * let a frame name any whitelisted method on the site, and the doctype grant
- * would stop meaning anything. `frappe.client.*` is read here as the CRUD it is,
- * never as a method, for the same reason.
+ * Each route names its own capability. A document request needs `data.access`
+ * and a doctype grant. Any other method needs `method.call` and a method grant,
+ * and the server refuses every method of `frappe` and `builder`. `frappe.client.*`
+ * is read here as the CRUD it is, never as a method, so a method grant can never
+ * reach past a doctype grant.
  */
 
-import type { ApiAnswer, InstalledExtension } from "frappe-builder-extension-sdk/types";
-import type { MethodTable } from "../host/capabilities";
+import type { ApiAnswer, Capability, InstalledExtension } from "frappe-builder-extension-sdk/types";
+import { assertGranted, type MethodTable } from "../host/capabilities";
 import { fields, refuse, text, wholeNumber } from "../params";
 import { getCount, getDoc, getList, getMeta, insert, remove, update } from "./documentMethods";
+import { runDocMethod, runMethod } from "./methodMethods";
 
 type Params = Record<string, unknown>;
 
@@ -23,6 +25,13 @@ type Params = Record<string, unknown>;
 type ApiCall = { verb: string; path: string[]; params: Params };
 
 type Route = (call: ApiCall, extension: InstalledExtension) => Promise<ApiAnswer>;
+
+/** A route and the capability it needs. */
+type GatedRoute = { needs: Capability; run: Route };
+
+const dataRoute = (run: Route): GatedRoute => ({ needs: "data.access", run });
+
+const methodRoute = (run: Route): GatedRoute => ({ needs: "method.call", run });
 
 /** Frappe's own page size when a v2 list names none. */
 const V2_PAGE_LENGTH = 20;
@@ -178,39 +187,67 @@ const V2_DOCTYPE_ROUTES: Record<string, Route> = {
 	meta: ({ path }, extension) => answer(getMeta({ doctype: path[3] }, extension)),
 };
 
-/** `copy`, `bulk_*` and `method/<name>` sit under a document's path, and none has a route yet. */
-const isSubresource = (rest: string[]) =>
-	rest.length > 1 && (rest[rest.length - 1] === "copy" || rest[rest.length - 2] === "method");
+/** A module method, or a doctype's controller function, by the name the grant uses. */
+const moduleMethod = (method: string) =>
+	methodRoute((call, extension) => answer(runMethod(extension, method, call.verb, call.params)));
 
-const findDocumentRoute = (call: ApiCall, rest: string[]) => {
-	if (isSubresource(rest)) return undefined;
-	return (rest.length ? V2_DOCUMENT_ROUTES : V2_LIST_ROUTES)[call.verb];
+const docMethod = (target: { doctype: unknown; name: unknown; method: unknown }, args: unknown) =>
+	methodRoute((call, extension) =>
+		runDocMethod(extension, target, call.verb, args ?? {}).then(({ message, docs }) => ({
+			data: message,
+			docs,
+		})),
+	);
+
+/** v1 sends `dt`, `dn` and `args`. The older form that sends the whole document is refused. */
+const version1DocMethod = ({ params }: ApiCall) =>
+	docMethod({ doctype: params.dt, name: params.dn, method: params.method }, decoded(params.args));
+
+const findVersion1Route = (call: ApiCall, method: string): GatedRoute => {
+	if (CLIENT_ROUTES[method]) return dataRoute(CLIENT_ROUTES[method]);
+	if (method === "run_doc_method") return version1DocMethod(call);
+	return moduleMethod(method);
 };
 
-const version2Route = (call: ApiCall, extension: InstalledExtension) => {
-	const [resource, doctype, ...rest] = call.path.slice(2);
-	if (resource === "document" && doctype) {
-		const route = findDocumentRoute(call, rest);
-		if (route) return route(call, doctype, rest.join("/"), extension);
+/** `/document/<doctype>/<name>/method/<method>`. A name may hold slashes, so the method is read from the end. */
+const findDocumentRoute = (call: ApiCall, doctype: string, rest: string[]): GatedRoute | undefined => {
+	const last = rest.length - 1;
+	if (last >= 2 && rest[last - 1] === "method") {
+		return docMethod({ doctype, name: rest.slice(0, -2).join("/"), method: rest[last] }, call.params);
 	}
-	const doctypeRoute = resource === "doctype" && rest.length === 1 && V2_DOCTYPE_ROUTES[rest[0]];
-	if (doctypeRoute && call.verb === "GET") return doctypeRoute(call, extension);
-	throw unsupported(call);
+	// `bulk_*` needs no case of its own: it is a POST, and one named document takes none
+	if (rest.length > 1 && rest[last] === "copy") return undefined;
+
+	const route = (rest.length ? V2_DOCUMENT_ROUTES : V2_LIST_ROUTES)[call.verb];
+	return route && dataRoute((sent, extension) => route(sent, doctype, rest.join("/"), extension));
 };
 
-const findRoute = (call: ApiCall): Route => {
+/** `/method/<dotted.path>`, or `/method/<doctype>/<method>`: both join to the name the grant uses. */
+const findVersion2Route = (call: ApiCall, [resource, ...rest]: string[]) => {
+	if (resource === "method" && (rest.length === 1 || rest.length === 2)) return moduleMethod(rest.join("."));
+	if (resource === "document" && rest.length) return findDocumentRoute(call, rest[0], rest.slice(1));
+
+	const doctypeRoute = resource === "doctype" && rest.length === 2 && V2_DOCTYPE_ROUTES[rest[1]];
+	return doctypeRoute && call.verb === "GET" ? dataRoute(doctypeRoute) : undefined;
+};
+
+const findRoute = (call: ApiCall): GatedRoute | undefined => {
 	const [api, family, ...rest] = call.path;
-	if (api === "api" && family === "v2") return version2Route;
-	const route = api === "api" && family === "method" && CLIENT_ROUTES[rest.join("/")];
-	if (route) return route;
-	throw unsupported(call);
+	if (api !== "api") return undefined;
+	if (family === "v2") return findVersion2Route(call, rest);
+	return family === "method" && rest.length ? findVersion1Route(call, rest.join("/")) : undefined;
 };
 
+/** Gated per route rather than per method, because one request method reaches both data and code. */
 const request = (params: unknown, extension: InstalledExtension) => {
 	const call = readCall(params);
-	return findRoute(call)(call, extension);
+	const route = findRoute(call);
+	if (!route) throw unsupported(call);
+
+	assertGranted(extension, "data.request", route.needs);
+	return route.run(call, extension);
 };
 
 export const requestMethods: MethodTable = {
-	"data.request": { needs: "data.access", run: request },
+	"data.request": { needs: null, run: request },
 };

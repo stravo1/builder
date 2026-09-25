@@ -44,8 +44,8 @@ const readBody = async (request: Request) => {
 const respond = (status: number, body: unknown) =>
 	new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-const answerBody = (url: URL, answer: ApiAnswer) =>
-	isVersion2(url) ? { data: answer.data, has_next_page: answer.hasNextPage } : { message: answer.data };
+const answerBody = (url: URL, { data, hasNextPage, docs }: ApiAnswer) =>
+	isVersion2(url) ? { data, has_next_page: hasNextPage, docs } : { message: data, docs };
 
 /** v1 carries `exc_type` beside the message. v2 carries a list of errors. */
 const refusalBody = (url: URL, type: string, message: string) =>

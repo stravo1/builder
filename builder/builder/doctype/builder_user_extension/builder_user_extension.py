@@ -23,6 +23,7 @@ from builder.extensions.constants import (
 )
 
 GRANT_DOCTYPE = "Builder Extension DocType Grant"
+METHOD_GRANT_DOCTYPE = "Builder Extension Method Grant"
 STATE_DOCTYPE = "Builder Extension State"
 
 
@@ -191,8 +192,9 @@ class BuilderUserExtension(Document):
 		Nothing the extension made goes with it. A doctype, a token and a client
 		script all serve the site, so all three outlive one user leaving.
 		"""
-		for grant in frappe.get_all(GRANT_DOCTYPE, filters={"installation": self.name}, pluck="name"):
-			frappe.delete_doc(GRANT_DOCTYPE, grant, ignore_permissions=True)
+		for doctype in (GRANT_DOCTYPE, METHOD_GRANT_DOCTYPE):
+			for grant in frappe.get_all(doctype, filters={"installation": self.name}, pluck="name"):
+				frappe.delete_doc(doctype, grant, ignore_permissions=True)
 
 
 TABLE = "tabBuilder User Extension"

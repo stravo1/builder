@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChannelCallError } from "frappe-builder-extension-sdk/transport";
 import call from "../../../../frappe-ui/src/utils/call";
 import { useList } from "../../../../frappe-ui/src/data-fetching/useList/useList";
+import { createDocumentResource } from "../../../../frappe-ui/src/resources/documentResource";
+import { setConfig } from "../../../../frappe-ui/src/utils/config";
+import { frappeRequest } from "../../../../frappe-ui/src/utils/frappeRequest";
 import { installFetchBridge } from "../../../extension-sdk/src/sdk/fetchBridge";
 
 /**
@@ -36,6 +39,10 @@ vi.stubGlobal("window", globalThis);
 // both sides read `fetch` and `location` at request time, so installing after the imports is enough
 installFetchBridge();
 
+// what an extension's entry does, as any Frappe app's does: resources default to a
+// plain fetcher that adds no /api/method prefix
+setConfig("resourceFetcher", frappeRequest);
+
 beforeEach(() => {
 	answer = null;
 	thrown = null;
@@ -67,5 +74,22 @@ describe("useList()", () => {
 
 		expect(list.data).toEqual([{ name: "A" }]);
 		expect(list.hasNextPage).toBe(true);
+	});
+});
+
+describe("createDocumentResource()", () => {
+	it("reads a doc method's result, and refreshes the document from the answer", async () => {
+		answer = { data: 3, docs: [{ doctype: "Form", name: "F-1", title: "After" }] };
+
+		const form = createDocumentResource({
+			doctype: "Form",
+			name: "F-1",
+			auto: false,
+			whitelistedMethods: { count: "count_responses" },
+		});
+		const result = await form.count.submit();
+
+		expect(result).toBe(3);
+		expect(form.doc).toMatchObject({ title: "After" });
 	});
 });

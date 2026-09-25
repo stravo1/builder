@@ -108,6 +108,24 @@ describe("the answer", () => {
 	});
 });
 
+describe("a doc method's answer", () => {
+	it("carries the document beside the message in v1, which frappe-ui reads whole", async () => {
+		answer = { data: 3, docs: [{ name: "F-1" }] };
+
+		const response = await fetch("/api/method/run_doc_method");
+
+		expect(await response.json()).toEqual({ message: 3, docs: [{ name: "F-1" }] });
+	});
+
+	it("carries it beside the data in v2", async () => {
+		answer = { data: 3, docs: [{ name: "F-1" }] };
+
+		const response = await fetch("/api/v2/document/Form/F-1/method/count");
+
+		expect(await response.json()).toEqual({ data: 3, docs: [{ name: "F-1" }] });
+	});
+});
+
 describe("a refusal", () => {
 	it("says ExtensionGrantRequired in v1's shape, so an onError can ask the user", async () => {
 		thrown = refusal("grant_required");

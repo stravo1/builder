@@ -115,9 +115,17 @@ export default defineConfig({
 Use the semantic classes from the preset, such as `bg-surface-base` and `text-ink-gray-9`.
 They follow the Builder theme. A raw color such as `bg-white` does not.
 
-frappe-ui's data layer needs no setup. `call`, the resources, and `useList` and `useDoc` reach
-the site through the same doctype grants as `builder.data`. A request that has no route gets a
-404. Read `references/extension-api.md` for the list of routes.
+frappe-ui's data layer reaches the site through the same grants as `builder.data`. Set the
+resource fetcher once in the entry module, as any Frappe app does:
+
+```js
+import { frappeRequest, setConfig } from "frappe-ui";
+setConfig("resourceFetcher", frappeRequest);
+```
+
+`call` and `useList` and `useDoc` need no setup. To run a server method, request `method.call`,
+and ask the user with `builder.methods.requestAccess` first. Read `references/extension-api.md`
+for the list of routes.
 
 ## Choose the surface
 

@@ -50,7 +50,7 @@ const asRefusal = (thrown: unknown) => {
 };
 
 /** One-shot, the way `tokenMethods.ts:27` calls a whitelisted method. */
-const invoke = (url: string, params: Record<string, unknown>) =>
+export const invoke = (url: string, params: Record<string, unknown>) =>
 	createResource({ url })
 		.submit(params)
 		.then(plain)

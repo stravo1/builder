@@ -2,7 +2,7 @@
 
 export const PROTOCOL_VERSION = 1;
 
-/** @type {readonly ("context.read" | "block.read" | "block.update" | "block.insert" | "page.read" | "page.write" | "token.write" | "ui.dialog" | "ui.popover" | "data.access" | "schema.write")[]} */
+/** @type {readonly ("context.read" | "block.read" | "block.update" | "block.insert" | "page.read" | "page.write" | "token.write" | "ui.dialog" | "ui.popover" | "data.access" | "schema.write" | "method.call")[]} */
 export const CAPABILITIES = [
 	"context.read",
 	"block.read",
@@ -15,6 +15,7 @@ export const CAPABILITIES = [
 	"ui.popover",
 	"data.access",
 	"schema.write",
+	"method.call",
 ];
 
 const MANIFEST_FIELDS = new Set([
