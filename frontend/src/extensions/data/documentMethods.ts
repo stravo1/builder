@@ -94,7 +94,7 @@ const readFields = (value: unknown) => {
 const optionalCount = (value: unknown, field: string) =>
 	value === undefined ? undefined : wholeNumber(value, field);
 
-const getList = (params: unknown, extension: InstalledExtension) => {
+export const getList = (params: unknown, extension: InstalledExtension) => {
 	const sent = fields(params);
 	return invoke("builder.extensions.data.get_list", {
 		extension: extension.name,
@@ -110,7 +110,7 @@ const getList = (params: unknown, extension: InstalledExtension) => {
 	});
 };
 
-const getCount = (params: unknown, extension: InstalledExtension) => {
+export const getCount = (params: unknown, extension: InstalledExtension) => {
 	const sent = fields(params);
 	return invoke("builder.extensions.data.get_count", {
 		extension: extension.name,
@@ -119,7 +119,7 @@ const getCount = (params: unknown, extension: InstalledExtension) => {
 	});
 };
 
-const getDoc = (params: unknown, extension: InstalledExtension) => {
+export const getDoc = (params: unknown, extension: InstalledExtension) => {
 	const sent = fields(params);
 	return invoke("builder.extensions.data.get_doc", {
 		extension: extension.name,
@@ -128,7 +128,13 @@ const getDoc = (params: unknown, extension: InstalledExtension) => {
 	});
 };
 
-const insert = (params: unknown, extension: InstalledExtension) => {
+export const getMeta = (params: unknown, extension: InstalledExtension) =>
+	invoke("builder.extensions.data.get_meta", {
+		extension: extension.name,
+		doctype: readDoctype(fields(params)),
+	});
+
+export const insert = (params: unknown, extension: InstalledExtension) => {
 	const sent = fields(params);
 	return invoke("builder.extensions.data.insert_doc", {
 		extension: extension.name,
@@ -137,7 +143,7 @@ const insert = (params: unknown, extension: InstalledExtension) => {
 	});
 };
 
-const update = (params: unknown, extension: InstalledExtension) => {
+export const update = (params: unknown, extension: InstalledExtension) => {
 	const sent = fields(params);
 	return invoke("builder.extensions.data.update_doc", {
 		extension: extension.name,
@@ -147,7 +153,7 @@ const update = (params: unknown, extension: InstalledExtension) => {
 	});
 };
 
-const remove = (params: unknown, extension: InstalledExtension) => {
+export const remove = (params: unknown, extension: InstalledExtension) => {
 	const sent = fields(params);
 	return invoke("builder.extensions.data.delete_doc", {
 		extension: extension.name,
@@ -160,6 +166,7 @@ export const documentMethods: MethodTable = {
 	"data.getList": { needs: "data.access", run: getList },
 	"data.getCount": { needs: "data.access", run: getCount },
 	"data.getDoc": { needs: "data.access", run: getDoc },
+	"data.getMeta": { needs: "data.access", run: getMeta },
 	"data.insert": { needs: "data.access", run: insert },
 	"data.update": { needs: "data.access", run: update },
 	"data.delete": { needs: "data.access", run: remove },

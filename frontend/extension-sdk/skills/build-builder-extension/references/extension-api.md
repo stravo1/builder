@@ -656,6 +656,7 @@ These methods read and write documents:
 | `data.getList(doctype, options)` | `read` | One page of documents |
 | `data.getCount(doctype, filters)` | `read` | How many documents match |
 | `data.getDoc(doctype, name)` | `read` | One whole document |
+| `data.getMeta(doctype)` | `read` | The doctype's fields and settings |
 | `data.insert(doctype, doc)` | `write` | The inserted document |
 | `data.update(doctype, name, doc)` | `write` | The saved document |
 | `data.delete(doctype, name)` | `delete` | Nothing |
@@ -664,14 +665,29 @@ These methods read and write documents:
 
 A call fails with `grant_required` when the access it needs is not allowed. Catch that code and call `requestAccess`. Then read the answer. If the user denied that access before, `requestAccess` returns `"denied"` without a dialog, so tell the user to change it in the Extensions panel. Any other refusal comes from the site, and asking again does not help.
 
-For frappe-ui resources, wire the SDK fetcher once in the entry module:
+### frappe-ui
 
-```ts
-import { setConfig } from "frappe-ui";
-setConfig("resourceFetcher", builder.data.fetcher);
-```
+frappe-ui's data layer works in an extension with no setup. `call`, `createResource`,
+`createListResource`, `createDocumentResource`, `useList`, `useDoc`, and `useNewDoc` all reach
+the site through the same grants as `builder.data`.
 
-`createListResource` and `createDocumentResource` then work as they do in any Frappe app. The grant rule does not change.
+The SDK sends each same-site request to `/api/method/*` or `/api/v2/*` to Builder. Builder maps
+it to one of these operations, or refuses it:
+
+| Request | Operation |
+|---|---|
+| `frappe.client.get_list`, `get_count`, `get`, `insert`, `set_value`, `delete` | the matching `data.*` method |
+| v2 `/document/<doctype>` and `/document/<doctype>/<name>` | list, insert, read, update, delete |
+| v2 `/doctype/<doctype>/count` and `/doctype/<doctype>/meta` | `data.getCount`, `data.getMeta` |
+| any other method, `run_doc_method`, bulk, copy, `upload_file` | refused with 404 |
+
+A refusal arrives in Frappe's own shape. A missing grant has `exc_type` `ExtensionGrantRequired`
+on a v1 call, and `errors[0].type` `ExtensionGrantRequired` on a v2 call. Catch it in `onError`
+and call `requestAccess`.
+
+A v2 list page holds at most 499 rows. Builder fetches one more row to answer `has_next_page`.
+
+A request to another origin goes to the network unchanged.
 
 ## Doctypes
 

@@ -115,15 +115,9 @@ export default defineConfig({
 Use the semantic classes from the preset, such as `bg-surface-base` and `text-ink-gray-9`.
 They follow the Builder theme. A raw color such as `bg-white` does not.
 
-For site data through frappe-ui resources, wire the fetcher once in the entry module:
-
-```js
-import { setConfig } from "frappe-ui";
-setConfig("resourceFetcher", builder.data.fetcher);
-```
-
-It must name this extension's own frappe-ui. Each extension bundles a copy, and the SDK
-cannot reach that copy's config.
+frappe-ui's data layer needs no setup. `call`, the resources, and `useList` and `useDoc` reach
+the site through the same doctype grants as `builder.data`. A request that has no route gets a
+404. Read `references/extension-api.md` for the list of routes.
 
 ## Choose the surface
 

@@ -250,6 +250,18 @@ def get_doc(extension: str, doctype: str, name: str) -> dict:
 	return frappe.client.get(doctype=doctype, name=name)
 
 
+@frappe.whitelist()
+def get_meta(extension: str, doctype: str) -> dict:
+	"""The doctype's fields and settings, as `/api/v2/doctype/<doctype>/meta` answers.
+
+	Frappe gives any signed-in user this, whatever they may read. The read grant
+	is the extra gate, so an extension learns a doctype's shape only when the
+	user let it read that doctype.
+	"""
+	assert_data_access(extension, doctype, "read")
+	return frappe.get_meta(doctype).as_dict()
+
+
 @frappe.whitelist(methods=["POST"])
 def insert_doc(extension: str, doctype: str, doc: dict | None = None) -> dict:
 	"""The doctype comes from the checked argument, never from the payload.

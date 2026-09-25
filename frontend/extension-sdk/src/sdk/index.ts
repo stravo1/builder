@@ -6,6 +6,7 @@
  */
 
 import { getChannel, listenForHandshake } from "./connect";
+import { installFetchBridge } from "./fetchBridge";
 import {
 	actions,
 	block,
@@ -22,7 +23,6 @@ import {
 	toolbar,
 	tokens,
 } from "./namespaces";
-import { resourceFetcher } from "./resourceFetcher";
 import { registerMain, registerSlot, use, type Mounter, type SlotEntry } from "./slots";
 import { ui } from "./ui";
 
@@ -100,19 +100,12 @@ const builder = {
 	/**
 	 * Site data. Ask the user for a doctype first: nothing here is granted at install.
 	 *
-	 * `fetcher` is added here rather than in `namespaces.ts` so that file never
-	 * imports the one that reads it back. Wire it once, in the entry:
-	 *
-	 * ```js
-	 * import { setConfig } from "frappe-ui";
-	 * setConfig("resourceFetcher", builder.data.fetcher);
-	 * ```
-	 *
-	 * Then `createListResource` and `createDocumentResource` work as they do in
-	 * any Frappe app. The grant still comes first: a resource errors with
-	 * `grant_required` until the user allows the access it needs.
+	 * frappe-ui works as it does in any Frappe app, with no setup: `call`,
+	 * `createListResource`, `useList` and `useDoc` all reach the site through the
+	 * same grants. A request errors with `exc_type` `ExtensionGrantRequired` until
+	 * the user allows the access it needs.
 	 */
-	data: { ...data, fetcher: resourceFetcher },
+	data,
 
 	/** Doctypes this extension creates. The user is asked before a table is made or dropped. */
 	schema,
@@ -126,6 +119,7 @@ const builder = {
 	},
 };
 
+installFetchBridge();
 listenForHandshake();
 
 export default builder;

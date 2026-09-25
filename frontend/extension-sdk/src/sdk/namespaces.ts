@@ -454,6 +454,9 @@ export const data = {
 	getCount: (doctype: string, filters?: ListOptions["filters"]) =>
 		call("data.getCount", { doctype, filters }) as Promise<number>,
 
+	/** The doctype's fields and settings, as `/api/v2/doctype/<doctype>/meta` answers. Needs `read`. */
+	getMeta: (doctype: string) => call("data.getMeta", { doctype }) as Promise<Doc>,
+
 	/** One whole document, child tables included. Needs `read`. */
 	getDoc: (doctype: string, name: string) => call("data.getDoc", { doctype, name }) as Promise<Doc>,
 

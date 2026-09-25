@@ -60,12 +60,13 @@ describe("the capability", () => {
 		}
 	});
 
-	it("covers the six verbs and nothing else", () => {
+	it("covers the six verbs and the meta, and nothing else", () => {
 		expect(Object.keys(documentMethods).sort()).toEqual([
 			"data.delete",
 			"data.getCount",
 			"data.getDoc",
 			"data.getList",
+			"data.getMeta",
 			"data.insert",
 			"data.update",
 		]);
@@ -166,6 +167,9 @@ describe("what travels to the server", () => {
 
 		await run("data.getDoc", { doctype: "Contact", name: "CT-1" });
 		expect(last().url).toBe("builder.extensions.data.get_doc");
+
+		await run("data.getMeta", { doctype: "Contact" });
+		expect(last().url).toBe("builder.extensions.data.get_meta");
 
 		await run("data.insert", { doctype: "Contact", doc: {} });
 		expect(last().url).toBe("builder.extensions.data.insert_doc");

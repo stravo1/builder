@@ -19,6 +19,7 @@ from builder.extensions.data import (
 	get_doc,
 	get_extension_grant,
 	get_list,
+	get_meta,
 	insert_doc,
 	record_extension_grant,
 	update_doc,
@@ -221,6 +222,15 @@ class TestExtensionDocuments(FrappeTestCase):
 		contact = make_contact("Ada")
 
 		self.assertEqual(get_doc("acme/data", "Contact", contact.name)["first_name"], "Ada")
+
+	def test_reads_a_doctypes_fields(self):
+		meta = get_meta("acme/data", "Contact")
+
+		self.assertEqual(meta["name"], "Contact")
+		self.assertIn("first_name", [field["fieldname"] for field in meta["fields"]])
+
+	def test_the_meta_needs_a_read_grant(self):
+		self.assertRaises(ExtensionGrantRequired, get_meta, "acme/data", "ToDo")
 
 	def test_inserts_a_document(self):
 		inserted = insert_doc("acme/data", "Contact", {"first_name": "Hedy"})

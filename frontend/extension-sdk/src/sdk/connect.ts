@@ -18,7 +18,7 @@ import { runSlot, setActiveSlot } from "./slots";
  * hostname Builder is actually being used on, which a value baked in at render
  * time can get wrong.
  */
-const HOST_ORIGIN = new URL(import.meta.url).origin;
+export const HOST_ORIGIN = new URL(import.meta.url).origin;
 
 let channel: PortChannel | null = null;
 let slotProps: Record<string, unknown> = {};
