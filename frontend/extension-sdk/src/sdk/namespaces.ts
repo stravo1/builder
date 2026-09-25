@@ -497,7 +497,14 @@ export type Doctype = {
 export type Naming = "hash" | "autoincrement" | "prompt";
 
 /** What the user answered about one server method, and what the prompt showed them. */
-export type MethodGrant = { method: string; app: string; description: string; answer: AccessAnswer };
+export type MethodGrant = {
+	method: string;
+	app: string;
+	/** What the app calls itself, from its hooks. */
+	app_title: string;
+	description: string;
+	answer: AccessAnswer;
+};
 
 export const methods = {
 	/**

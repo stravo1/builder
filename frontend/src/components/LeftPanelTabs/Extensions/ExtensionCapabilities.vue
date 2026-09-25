@@ -72,7 +72,7 @@
 							class="min-w-0 truncate text-xs text-ink-gray-8"
 							:class="grant.scope === 'method' && 'font-mono'"
 							:title="grant.target">
-							{{ grant.scope === "app" ? `Every method of ${grant.target}` : grant.target }}
+							{{ grant.scope === "app" ? `All actions from ${grant.target}` : grant.target }}
 						</p>
 						<TabButtons
 							:class="COMPACT_TABS"

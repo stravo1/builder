@@ -723,8 +723,8 @@ Name a method in one of two ways:
 | Its dotted path | `acme_forms.api.export_responses` | One module function |
 | `<DocType>.<method>` | `Form.get_summary` | That method on the doctype's class, and the function of that name in its controller module |
 
-The dialog shows the method, the app that owns it, and the first paragraph of its docstring. The
-user can allow this method only, or every method of its app. An answer for the method wins over an
+The dialog names the app that owns the method. The method and the first paragraph of its docstring
+stay behind a Details button. The user can allow this method only, or every method of its app. An answer for the method wins over an
 answer for the app.
 
 `requestAccess` returns without a dialog when the method, or its app, is already answered. The

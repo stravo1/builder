@@ -21,7 +21,14 @@ import { confirmMethod, type AccessAnswer, type PromptReply } from "./grants";
 const METHODS = "builder.extensions.methods";
 
 /** What the server says about one method, and what the consent prompt shows. */
-export type MethodGrant = { method: string; app: string; description: string; answer: AccessAnswer };
+export type MethodGrant = {
+	method: string;
+	app: string;
+	/** What the app calls itself, which the prompt shows in place of its package name. */
+	app_title: string;
+	description: string;
+	answer: AccessAnswer;
+};
 
 const readMethod = (params: unknown) => text(fields(params).method, "method");
 
@@ -45,7 +52,7 @@ const requestAccess = async (params: unknown, extension: InstalledExtension) => 
 	const current = await readGrant(extension, method);
 	if (current.answer !== "not asked") return current;
 
-	return confirmMethod(extension, current, recordAnswer(extension, method));
+	return confirmMethod(extension, { ...current, app: current.app_title }, recordAnswer(extension, method));
 };
 
 const getAccess = (params: unknown, extension: InstalledExtension) =>

@@ -67,6 +67,7 @@ class TestExtensionMethods(FrappeTestCase):
 			{
 				"method": ECHO,
 				"app": "builder",
+				"app_title": "Frappe Builder",
 				"description": "Answers with the word it was sent.",
 				"answer": "not asked",
 			},

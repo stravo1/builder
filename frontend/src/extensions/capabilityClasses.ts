@@ -39,7 +39,7 @@ export const capabilityDetails: Record<Capability, CapabilityDetail> = {
 	"data.access": {
 		capabilityClass: SITE_DATA_CLASS,
 		label: "See and change site data",
-		warning: "It asks you before it uses each type of record. It cannot see more than you can.",
+		warning: "It asks before it uses each type of record.",
 	},
 	"token.write": {
 		capabilityClass: SHARED_STATE_CLASS,
@@ -53,9 +53,8 @@ export const capabilityDetails: Record<Capability, CapabilityDetail> = {
 	},
 	"method.call": {
 		capabilityClass: SITE_DATA_CLASS,
-		label: "Run server methods",
-		warning:
-			"It asks you before it runs each method. A method runs as you, so it can change anything you can.",
+		label: "Run actions from installed apps",
+		warning: "It asks before it runs each action.",
 	},
 };
 

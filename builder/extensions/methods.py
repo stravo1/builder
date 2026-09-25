@@ -102,6 +102,7 @@ class ServerMethod:
 		return {
 			"method": self.key,
 			"app": self.app,
+			"app_title": app_title(self.app),
 			"description": self.description,
 			"answer": method_answer(installation, self),
 		}
@@ -113,6 +114,12 @@ def resolve_function(path: str):
 		return frappe.get_attr(path)
 	except Exception:
 		frappe.throw(_("There is no method {0}.").format(path), frappe.DoesNotExistError)
+
+
+def app_title(app: str) -> str:
+	"""The name an app gives itself in `hooks.py`, which the consent prompt shows."""
+	titles = frappe.get_hooks("app_title", app_name=app)
+	return titles[0] if titles else app
 
 
 def owning_app(function) -> str:

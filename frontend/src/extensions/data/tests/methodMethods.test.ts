@@ -16,7 +16,13 @@ vi.mock("frappe-ui", () => ({
 			submitted.push({ url, params });
 			if (url.endsWith("record_method_grant")) answer = params.denied ? "denied" : "allowed";
 			return Promise.resolve(
-				reactive({ method: params.method, app: "acme", description: "Exports responses.", answer }),
+				reactive({
+					method: params.method,
+					app: "acme",
+					app_title: "Acme",
+					description: "Exports responses.",
+					answer,
+				}),
 			);
 		},
 	}),
@@ -78,7 +84,7 @@ describe("requestAccess", () => {
 		expect(pendingPrompt.value).toMatchObject({
 			kind: "method",
 			subject: "acme.api.export",
-			app: "acme",
+			app: "Acme",
 			description: "Exports responses.",
 		});
 		answerPrompt(true);
