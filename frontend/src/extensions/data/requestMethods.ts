@@ -6,18 +6,16 @@
  * is and hands it to the host method that already gates that operation, so a
  * request reaches exactly what the matching SDK call reaches.
  *
- * Each route names its own capability. A document request needs `data.access`
- * and a doctype grant. Any other method needs `method.call` and a method grant,
- * and the server refuses every method of `frappe` and `builder`. `frappe.client.*`
- * is read here as the CRUD it is, never as a method, so a method grant can never
- * reach past a doctype grant.
+ * Each route names its own capability: a document request needs `data.access`,
+ * and any other method needs `method.call`. The server refuses every method of
+ * `frappe` and `builder`, and `frappe.client.*` is read here as the CRUD it is,
+ * never as a method, so `method.call` never stands in for `data.access`.
  */
 
 import type { ApiAnswer, Capability, InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { assertGranted, type MethodTable } from "../host/capabilities";
 import { fields, refuse, text, wholeNumber } from "../params";
-import { getCount, getDoc, getList, getMeta, insert, remove, update } from "./documentMethods";
-import { runDocMethod, runMethod } from "./methodMethods";
+import { getCount, getDoc, getList, getMeta, insert, invoke, remove, update } from "./documentMethods";
 
 type Params = Record<string, unknown>;
 
@@ -187,11 +185,23 @@ const V2_DOCTYPE_ROUTES: Record<string, Route> = {
 	meta: ({ path }, extension) => answer(getMeta({ doctype: path[3] }, extension)),
 };
 
-/** A module method, or a doctype's controller function, by the name the grant uses. */
+/** A module method, or a function in a doctype's controller module. */
+const runMethod = (extension: InstalledExtension, method: string, verb: string, args: unknown) =>
+	invoke("builder.extensions.methods.run_method", { extension: extension.name, method, verb, args });
+
+/** Answers `{ message, docs }`: frappe-ui's document resource reads the refreshed document from `docs`. */
+const runDocMethod = (extension: InstalledExtension, target: Params, verb: string, args: unknown) =>
+	invoke("builder.extensions.methods.run_doc_method", {
+		extension: extension.name,
+		...target,
+		verb,
+		args,
+	}) as Promise<{ message: unknown; docs: unknown[] }>;
+
 const moduleMethod = (method: string) =>
 	methodRoute((call, extension) => answer(runMethod(extension, method, call.verb, call.params)));
 
-const docMethod = (target: { doctype: unknown; name: unknown; method: unknown }, args: unknown) =>
+const docMethod = (target: Params, args: unknown) =>
 	methodRoute((call, extension) =>
 		runDocMethod(extension, target, call.verb, args ?? {}).then(({ message, docs }) => ({
 			data: message,
@@ -222,7 +232,7 @@ const findDocumentRoute = (call: ApiCall, doctype: string, rest: string[]): Gate
 	return route && dataRoute((sent, extension) => route(sent, doctype, rest.join("/"), extension));
 };
 
-/** `/method/<dotted.path>`, or `/method/<doctype>/<method>`: both join to the name the grant uses. */
+/** `/method/<dotted.path>`, or `/method/<doctype>/<method>`: both join to the name the server reads. */
 const findVersion2Route = (call: ApiCall, [resource, ...rest]: string[]) => {
 	if (resource === "method" && (rest.length === 1 || rest.length === 2)) return moduleMethod(rest.join("."));
 	if (resource === "document" && rest.length) return findDocumentRoute(call, rest[0], rest.slice(1));

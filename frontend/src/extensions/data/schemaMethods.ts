@@ -1,15 +1,14 @@
 /**
  * Doctypes an extension creates while the editor runs.
  *
- * Three gates, and the third is the one that bites. `schema.write` says an
- * admin allowed this extension to model tables at all. A confirmation names the
- * doctype at the moment it is created or dropped. And Frappe wants create
- * permission on `DocType`, which is System Manager — so an extension asking a
- * page editor to model a table fails, and that is the right answer.
+ * `schema.write` says the site allowed this extension to model tables at all.
+ * Frappe wants create permission on `DocType`, which is System Manager, so an
+ * extension asking a page editor to model a table fails, and that is the right
+ * answer. Dropping a table asks the user first, because it takes every record
+ * with it and cannot be undone.
  *
  * Ownership is a record, not a naming convention. Only the extension that made
- * a doctype may change or drop it, and a document grant is not enough: reading
- * a table is not the same as reshaping it.
+ * a doctype may change or drop it: reading a table is not reshaping it.
  *
  * Not a page write, so read-only mode does not refuse any of it — a table is
  * not the page being edited.
@@ -18,7 +17,7 @@
 import { createResource } from "frappe-ui";
 import type { MethodTable } from "../host/capabilities";
 import { fields, flag, oneOf, refuse, text } from "../params";
-import { confirmSchema } from "./grants";
+import { confirm } from "@/utils/helpers";
 import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 
 const NAMING = ["hash", "autoincrement", "prompt"] as const;
@@ -45,7 +44,7 @@ const invoke = (url: string, params: Record<string, unknown>) =>
  */
 const readFields = (value: unknown) => {
 	if (!Array.isArray(value) || !value.length) {
-		throw refuse("\"fields\" must be a non-empty list.", "invalid_params");
+		throw refuse('"fields" must be a non-empty list.', "invalid_params");
 	}
 	return value.map((field) => {
 		if (!field || typeof field !== "object" || Array.isArray(field)) {
@@ -55,19 +54,11 @@ const readFields = (value: unknown) => {
 	});
 };
 
-/**
- * Asks, then creates. The user answers before anything is written, so a refusal
- * leaves no half-made table behind.
- */
-const createDoctype = async (params: unknown, extension: InstalledExtension) => {
+const createDoctype = (params: unknown, extension: InstalledExtension) => {
 	const sent = fields(params);
 	const doctype = text(sent.doctype, "doctype");
 	const rows = readFields(sent.fields);
 	const naming = sent.naming === undefined ? "hash" : oneOf(sent.naming, NAMING, "naming");
-
-	if (!(await confirmSchema(extension, doctype, "create"))) {
-		throw refuse(`The user did not allow "${extension.name}" to create ${doctype}.`, "refused");
-	}
 
 	return invoke("builder.extensions.schema.create_doctype", {
 		extension: extension.name,
@@ -97,7 +88,8 @@ const updateDoctype = (params: unknown, extension: InstalledExtension) => {
 const deleteDoctype = async (params: unknown, extension: InstalledExtension) => {
 	const doctype = text(fields(params).doctype, "doctype");
 
-	if (!(await confirmSchema(extension, doctype, "delete"))) {
+	const message = `${extension.label} wants to delete ${doctype} and all its records.`;
+	if (!(await confirm(message, `Delete ${doctype}?`))) {
 		throw refuse(`The user did not allow "${extension.name}" to delete ${doctype}.`, "refused");
 	}
 

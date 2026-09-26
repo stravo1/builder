@@ -12,7 +12,7 @@ from builder.extensions.hub import Release, apply_release, run_hub_install, run_
 from builder.extensions.package import ValidatedPackage
 
 EXTENSION = "acme/hub-install"
-ASKED = ["context.read", "block.read", "block.update"]
+ASKED = ["page.write", "data.access", "page.edit"]
 HUB_URL = "https://hub.example.com"
 
 RELEASE = Release(
@@ -46,15 +46,26 @@ class TestApplyRelease(FrappeTestCase):
 		return frappe.get_doc("Builder User Extension", self.installation.name)
 
 	def test_grants_what_the_user_allowed_at_install(self):
-		installed = self.apply(["context.read", "block.update"])
+		installed = self.apply(["page.write", "page.edit"])
 		self.assertEqual(installed.requested, ASKED)
-		self.assertEqual(installed.capabilities, ["context.read", "block.update"])
+		self.assertEqual(installed.capabilities, ["page.write", "page.edit"])
 
 	def test_grants_nothing_when_the_user_allowed_nothing(self):
 		self.assertEqual(self.apply([]).capabilities, [])
 
+	def test_maps_a_legacy_manifest_to_todays_keys(self):
+		"""A release published before the keys changed still installs with what it meant."""
+		legacy = ValidatedPackage(
+			manifest={**PACKAGE.manifest, "capabilities": ["block.update", "context.read", "block.insert"]},
+			files=PACKAGE.files,
+		)
+		apply_release(self.installation, HUB_URL, RELEASE, legacy, ["page.edit"])
+
+		installed = frappe.get_doc("Builder User Extension", self.installation.name)
+		self.assertEqual((installed.requested, installed.capabilities), (["page.edit"], ["page.edit"]))
+
 	def test_drops_a_capability_the_manifest_never_asked_for(self):
-		self.assertEqual(self.apply(["context.read", "page.read"]).capabilities, ["context.read"])
+		self.assertEqual(self.apply(["page.write", "token.write"]).capabilities, ["page.write"])
 
 
 class TestRunHubInstall(FrappeTestCase):
@@ -114,17 +125,17 @@ class TestRunHubInstall(FrappeTestCase):
 class TestRunHubUpdate(FrappeTestCase):
 	"""What the update job keeps, adds and leaves alone.
 
-	The installed version asked for context.read, block.read and page.read, and the
-	user allowed context.read only. The new release asks for context.read,
-	block.read and block.update, so block.update is the one new ask.
+	The installed version asked for page.write, data.access and token.write, and the
+	user allowed page.write only. The new release asks for page.write,
+	data.access and page.edit, so page.edit is the one new ask.
 	"""
 
 	def setUp(self):
 		drop_installations(EXTENSION)
 		self.installation = make_installation(
 			EXTENSION,
-			capabilities=["context.read", "block.read", "page.read"],
-			granted=["context.read"],
+			capabilities=["page.write", "data.access", "token.write"],
+			granted=["page.write"],
 			source_url=HUB_URL,
 			install_state="Ready",
 			enabled=0,
@@ -145,15 +156,21 @@ class TestRunHubUpdate(FrappeTestCase):
 			patch("frappe.log_error"),
 		):
 			run_hub_update(
-				self.installation, EXTENSION, "1.2.0", HUB_URL, {"readme": "# New"}, frappe.session.user, allowed
+				self.installation,
+				EXTENSION,
+				"1.2.0",
+				HUB_URL,
+				{"readme": "# New"},
+				frappe.session.user,
+				allowed,
 			)
 		return publish, frappe.get_doc("Builder User Extension", self.installation)
 
 	def test_keeps_old_answers_and_adds_only_what_the_user_allowed(self):
-		_, updated = self.run_job(Mock(return_value=RELEASE), ["block.read", "block.update"])
+		_, updated = self.run_job(Mock(return_value=RELEASE), ["data.access", "page.edit"])
 		self.assertEqual(updated.requested, ASKED)
-		# block.read was refused before, so the update does not grant it again
-		self.assertEqual(updated.capabilities, ["context.read", "block.update"])
+		# data.access was refused before, so the update does not grant it again
+		self.assertEqual(updated.capabilities, ["page.write", "page.edit"])
 		self.assertEqual((updated.version, updated.readme), ("1.2.0", "# New"))
 
 	def test_leaves_a_disabled_extension_disabled(self):
@@ -161,9 +178,9 @@ class TestRunHubUpdate(FrappeTestCase):
 		self.assertEqual(updated.enabled, 0)
 
 	def test_a_failed_update_keeps_the_old_version_and_says_why(self):
-		publish, kept = self.run_job(Mock(side_effect=Exception("The Hub is down.")), ["block.update"])
+		publish, kept = self.run_job(Mock(side_effect=Exception("The Hub is down.")), ["page.edit"])
 		self.assertEqual((kept.version, kept.install_state), ("1.0.0", "Ready"))
-		self.assertEqual(kept.capabilities, ["context.read"])
+		self.assertEqual(kept.capabilities, ["page.write"])
 		publish.assert_called_once_with(
 			"builder_extension_update",
 			{"extension": EXTENSION, "error": "The Hub is down."},

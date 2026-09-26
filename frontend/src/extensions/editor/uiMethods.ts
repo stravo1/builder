@@ -51,9 +51,9 @@ export const uiMethods: MethodTable = {
 	// Toasts are rate limited by the bridge, but need no capability: they do not change editor state.
 	"ui.toast": { needs: null, run: showToast },
 	// a modal covers the editor, so it is the intrusive case (1.7)
-	"ui.openDialog": { needs: "ui.dialog", run: dialog.start },
-	"ui.closeDialog": { needs: "ui.dialog", run: dialog.finish },
+	"ui.openDialog": { needs: null, run: dialog.start },
+	"ui.closeDialog": { needs: null, run: dialog.finish },
 	// a popover leaves the editor usable, so it is not the same grant
-	"ui.openPopover": { needs: "ui.popover", run: popover.start },
-	"ui.closePopover": { needs: "ui.popover", run: popover.finish },
+	"ui.openPopover": { needs: null, run: popover.start },
+	"ui.closePopover": { needs: null, run: popover.finish },
 };

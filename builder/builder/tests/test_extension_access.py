@@ -13,7 +13,6 @@ from builder.builder.tests.extension_fixtures import (
 from builder.extensions.access import (
 	assert_extension_access,
 	find_installation,
-	grant_conditions,
 	installation_conditions,
 	owns_row,
 	owns_through_installation,
@@ -75,7 +74,7 @@ class TestAssertExtensionAccess(FrappeTestCase):
 		self.assertIsNone(find_installation(EXTENSION, enabled_only=True))
 
 	def test_refuses_a_capability_the_user_did_not_grant(self):
-		make_installation(EXTENSION, capabilities=["page.read"])
+		make_installation(EXTENSION, capabilities=["page.edit"])
 
 		with self.assertRaises(frappe.PermissionError):
 			assert_extension_access(EXTENSION, "data.access")
@@ -109,7 +108,7 @@ class TestExtensionRowScoping(FrappeTestCase):
 		self.addCleanup(frappe.set_user, "Administrator")
 
 	def test_a_system_manager_sees_every_row(self):
-		for conditions in (installation_conditions, grant_conditions, state_conditions):
+		for conditions in (installation_conditions, state_conditions):
 			self.assertEqual(conditions("Administrator"), "")
 
 	def test_another_user_sees_only_their_own(self):
@@ -117,14 +116,13 @@ class TestExtensionRowScoping(FrappeTestCase):
 
 		self.assertIn(frappe.db.escape(theirs), installation_conditions(theirs))
 
-	def test_a_grant_and_state_are_scoped_through_their_installation(self):
-		"""Neither names a user, so the condition goes through the record that does."""
+	def test_state_is_scoped_through_its_installation(self):
+		"""A state row names no user, so the condition goes through the record that does."""
 		theirs = make_user()
 
-		for conditions in (grant_conditions, state_conditions):
-			condition = conditions(theirs)
-			self.assertIn(INSTALLATION_DOCTYPE, condition)
-			self.assertIn(frappe.db.escape(theirs), condition)
+		condition = state_conditions(theirs)
+		self.assertIn(INSTALLATION_DOCTYPE, condition)
+		self.assertIn(frappe.db.escape(theirs), condition)
 
 	def test_a_user_may_read_their_own_row(self):
 		theirs = make_user()
@@ -134,28 +132,16 @@ class TestExtensionRowScoping(FrappeTestCase):
 		self.assertFalse(owns_row(installation, user="Guest"))
 
 	def test_a_user_may_read_what_hangs_off_their_own_installation(self):
-		"""One rule for both, because a grant and a state row belong the same way."""
 		theirs = make_user()
 		installation = make_installation("acme/scoped-state", user=theirs)
-		rows = [
-			frappe.get_doc(
-				{
-					"doctype": "Builder Extension State",
-					"installation": installation.name,
-					"key": "theme",
-					"value": '"dark"',
-				}
-			).insert(),
-			frappe.get_doc(
-				{
-					"doctype": "Builder Extension DocType Grant",
-					"installation": installation.name,
-					"document_type": "Contact",
-					"read_access": "allowed",
-				}
-			).insert(),
-		]
+		row = frappe.get_doc(
+			{
+				"doctype": "Builder Extension State",
+				"installation": installation.name,
+				"key": "theme",
+				"value": '"dark"',
+			}
+		).insert()
 
-		for row in rows:
-			self.assertTrue(owns_through_installation(row, user=theirs))
-			self.assertFalse(owns_through_installation(row, user="Guest"))
+		self.assertTrue(owns_through_installation(row, user=theirs))
+		self.assertFalse(owns_through_installation(row, user="Guest"))

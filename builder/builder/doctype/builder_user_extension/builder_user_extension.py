@@ -17,13 +17,13 @@ from builder.extensions.constants import (
 	EXTENSION_NAME_PATTERN,
 	EXTENSIONS_FOLDER,
 	ICON_PATTERN,
+	LEGACY_CAPABILITIES,
 	MAX_README_BYTES,
 	MAX_SOURCE_BYTES,
 	VERSION_PATTERN,
+	read_capabilities,
 )
 
-GRANT_DOCTYPE = "Builder Extension DocType Grant"
-METHOD_GRANT_DOCTYPE = "Builder Extension Method Grant"
 STATE_DOCTYPE = "Builder Extension State"
 
 
@@ -71,7 +71,6 @@ class BuilderUserExtension(Document):
 
 	def on_trash(self):
 		self.delete_extension_state()
-		self.delete_extension_grants()
 		self.delete_extension_files()
 
 	@property
@@ -133,6 +132,10 @@ class BuilderUserExtension(Document):
 			frappe.throw(_("Icon must name one SVG file in the install root, such as icon.svg."))
 
 	def validate_capabilities(self):
+		# every writer passes through here, so a legacy key is mapped once, for all of them
+		for field in ("requested_capabilities", "granted_capabilities"):
+			self.set(field, frappe.as_json(read_capabilities(self.capability_list(field))))
+
 		outside = sorted(set(self.capabilities) - set(self.requested))
 		if outside:
 			frappe.throw(
@@ -154,7 +157,7 @@ class BuilderUserExtension(Document):
 		if not isinstance(keys, list):
 			frappe.throw(_("{0} must be a JSON list.").format(label))
 
-		unknown = sorted(set(keys) - set(CAPABILITIES))
+		unknown = sorted(set(keys) - set(CAPABILITIES) - set(LEGACY_CAPABILITIES))
 		if unknown:
 			frappe.throw(_("Unknown capabilities in {0}: {1}").format(label, ", ".join(unknown)))
 		return keys
@@ -185,16 +188,6 @@ class BuilderUserExtension(Document):
 		"""A state row Links to this record, so Frappe refuses the delete while one stands."""
 		for state in frappe.get_all(STATE_DOCTYPE, filters={"installation": self.name}, pluck="name"):
 			frappe.delete_doc(STATE_DOCTYPE, state, ignore_permissions=True)
-
-	def delete_extension_grants(self):
-		"""What this user allowed this copy, and nobody else's answer.
-
-		Nothing the extension made goes with it. A doctype, a token and a client
-		script all serve the site, so all three outlive one user leaving.
-		"""
-		for doctype in (GRANT_DOCTYPE, METHOD_GRANT_DOCTYPE):
-			for grant in frappe.get_all(doctype, filters={"installation": self.name}, pluck="name"):
-				frappe.delete_doc(doctype, grant, ignore_permissions=True)
 
 
 TABLE = "tabBuilder User Extension"

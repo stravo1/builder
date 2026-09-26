@@ -25,7 +25,7 @@ const DESCRIPTOR = {
 	name: "acme/icons",
 	label: "Icons",
 	version: "1.0.0",
-	capabilities: ["block.update"],
+	capabilities: ["page.edit"],
 	entry: "/src/main.js",
 	readme: "# Icons\n\nDevelopment documentation.",
 };
@@ -93,7 +93,7 @@ describe("loadDevExtension", () => {
 
 		expect(calls).toContainEqual({
 			method: "builder.extensions.registry.install_dev_extension",
-			params: { extension: "acme/icons", capabilities: ["block.update"] },
+			params: { extension: "acme/icons", capabilities: ["page.edit"] },
 		});
 	});
 
@@ -114,17 +114,28 @@ describe("loadDevExtension", () => {
 	it("keeps the capabilities this Builder knows", async () => {
 		const extension = await dev.loadDevExtension("http://localhost:5173");
 
-		expect(extension.capabilities).toEqual(["block.update"]);
+		expect(extension.capabilities).toEqual(["page.edit"]);
 	});
 
 	it("drops a capability this Builder does not have, and says so", async () => {
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-		vi.stubGlobal("fetch", answer({ ...DESCRIPTOR, capabilities: ["block.update", "quantum.read"] }));
+		vi.stubGlobal("fetch", answer({ ...DESCRIPTOR, capabilities: ["page.edit", "quantum.read"] }));
 
 		const extension = await dev.loadDevExtension("http://localhost:5173");
 
-		expect(extension.capabilities).toEqual(["block.update"]);
+		expect(extension.capabilities).toEqual(["page.edit"]);
 		expect(warn.mock.calls[0][0]).toContain("quantum.read");
+	});
+
+	it("maps a legacy key to today's, and drops a read that needs none", async () => {
+		vi.stubGlobal(
+			"fetch",
+			answer({ ...DESCRIPTOR, capabilities: ["block.update", "block.insert", "context.read"] }),
+		);
+
+		const extension = await dev.loadDevExtension("http://localhost:5173");
+
+		expect(extension.capabilities).toEqual(["page.edit"]);
 	});
 
 	it("grants nothing when the manifest asks for nothing", async () => {
@@ -227,17 +238,17 @@ describe("setDevCapabilities", () => {
 	it("carries a panel grant to the entry the browser gate reads", async () => {
 		await dev.loadDevExtension("http://localhost:5173");
 
-		dev.setDevCapabilities("acme/icons", ["page.read"]);
+		dev.setDevCapabilities("acme/icons", ["token.write"]);
 
-		expect(dev.devExtension.value?.capabilities).toEqual(["page.read"]);
+		expect(dev.devExtension.value?.capabilities).toEqual(["token.write"]);
 	});
 
 	it("leaves another extension's entry alone", async () => {
 		await dev.loadDevExtension("http://localhost:5173");
 
-		dev.setDevCapabilities("acme/other", ["page.read"]);
+		dev.setDevCapabilities("acme/other", ["token.write"]);
 
-		expect(dev.devExtension.value?.capabilities).toEqual(["block.update"]);
+		expect(dev.devExtension.value?.capabilities).toEqual(["page.edit"]);
 	});
 });
 

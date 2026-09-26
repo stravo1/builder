@@ -89,9 +89,7 @@ describe("what a frame sent", () => {
 	});
 
 	it("refuses a doc that is a list", async () => {
-		expect(await codeOf(() => run("data.insert", { doctype: "Contact", doc: [{}] }))).toBe(
-			"invalid_params",
-		);
+		expect(await codeOf(() => run("data.insert", { doctype: "Contact", doc: [{}] }))).toBe("invalid_params");
 	});
 
 	it("refuses fields that are not names", async () => {
@@ -202,14 +200,14 @@ describe("what travels back to the frame", () => {
 });
 
 describe("a refusal from the server", () => {
-	it("becomes grant_required when no grant covers the doctype", async () => {
-		thrown = { exc_type: "ExtensionGrantRequired", messages: ["not granted read"] };
+	it("becomes server_error, whatever the site said", async () => {
+		thrown = { exc_type: "PermissionError", messages: ["not permitted"] };
 
-		expect(await codeOf(() => run("data.getList", { doctype: "Contact" }))).toBe("grant_required");
+		expect(await codeOf(() => run("data.getList", { doctype: "Contact" }))).toBe("server_error");
 	});
 
 	it("carries the server's own words, so the frame can show them", async () => {
-		thrown = { exc_type: "ExtensionGrantRequired", messages: ["not granted read"] };
+		thrown = { exc_type: "PermissionError", messages: ["not granted read"] };
 
 		try {
 			await run("data.getList", { doctype: "Contact" });

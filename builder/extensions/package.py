@@ -33,6 +33,7 @@ from builder.extensions.constants import (
 	CAPABILITIES,
 	ENTRY_FILE,
 	EXTENSION_NAME_PATTERN,
+	LEGACY_CAPABILITIES,
 	MANIFEST_FILE,
 	MAX_EXTRACTED_BYTES,
 	MAX_ICON_BYTES,
@@ -218,7 +219,7 @@ def assert_capabilities(capabilities: object) -> None:
 		frappe.throw(_("The manifest capabilities must be a list of names."))
 	if len(capabilities) != len(set(capabilities)):
 		frappe.throw(_("The manifest capabilities repeat a name."))
-	unknown = sorted(set(capabilities) - set(CAPABILITIES))
+	unknown = sorted(set(capabilities) - set(CAPABILITIES) - set(LEGACY_CAPABILITIES))
 	if unknown:
 		frappe.throw(_("The manifest asks for an unknown capability: {0}.").format(unknown[0]))
 
@@ -234,9 +235,7 @@ def assert_identity(manifest: dict, expected_name: str, expected_version: str) -
 	if manifest["name"] != expected_name:
 		frappe.throw(_("The package is {0}, not {1}.").format(manifest["name"], expected_name))
 	if manifest["version"] != expected_version:
-		frappe.throw(
-			_("The package is version {0}, not {1}.").format(manifest["version"], expected_version)
-		)
+		frappe.throw(_("The package is version {0}, not {1}.").format(manifest["version"], expected_version))
 
 
 def read_main_js(archive: zipfile.ZipFile, entries: dict) -> bytes:

@@ -8,7 +8,7 @@
  * frappe-ui API added later, with no `setConfig`.
  *
  * **This is an adapter, not a gate.** It sends the request unread. The host
- * decides which operation it is, and the server checks the grant. A frame that
+ * decides which operation it is, and the server checks the capability. A frame that
  * removed this wrapper would lose frappe-ui, not a check.
  */
 
@@ -20,7 +20,6 @@ const API_PATH = /^\/api\/(method|v2)\//;
 
 /** Frappe's own status and exception name for each refusal, so frappe-ui reads it as Frappe's. */
 const REFUSALS: Record<string, [number, string]> = {
-	grant_required: [403, "ExtensionGrantRequired"],
 	capability_required: [403, "PermissionError"],
 	read_only: [403, "PermissionError"],
 	rate_limited: [429, "RateLimitExceededError"],

@@ -20,20 +20,14 @@ vi.mock("../../host/bridge", () => ({
 	bridge: { registerTeardown: (_extensionName: string, cleanup: () => void) => teardowns.push(cleanup) },
 }));
 
-import {
-	dismissDialog,
-	dismissPopover,
-	openDialogs,
-	openPopovers,
-	uiMethods,
-} from "../uiMethods";
+import { dismissDialog, dismissPopover, openDialogs, openPopovers, uiMethods } from "../uiMethods";
 import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 
 const record = (name = "acme/icons"): InstalledExtension => ({
 	name,
 	label: "Icon Library",
 	entry: `/builder_extension_asset/${name}@1.0.0/main.js`,
-	capabilities: ["ui.dialog", "ui.popover"],
+	capabilities: [],
 });
 
 const open = (params: unknown = {}, extension = record()) =>
@@ -66,16 +60,12 @@ describe("the capability", () => {
 		expect(uiMethods["ui.toast"].needs).toBeNull();
 	});
 
-	it("gates both dialog methods behind ui.dialog", () => {
-		expect(uiMethods["ui.openDialog"].needs).toBe("ui.dialog");
-		expect(uiMethods["ui.closeDialog"].needs).toBe("ui.dialog");
+	// a window the user sees and closes reaches nothing past the editor
+	it("lets any extension open and close its dialog and popover", () => {
+		for (const method of ["ui.openDialog", "ui.closeDialog", "ui.openPopover", "ui.closePopover"]) {
+			expect(uiMethods[method].needs).toBeNull();
+		}
 		expect(uiMethods["ui.setHeight"]).toBeUndefined();
-	});
-
-	// a popover leaves the editor usable, so a modal is not what it should grant
-	it("gates both popover methods behind ui.popover", () => {
-		expect(uiMethods["ui.openPopover"].needs).toBe("ui.popover");
-		expect(uiMethods["ui.closePopover"].needs).toBe("ui.popover");
 	});
 });
 
@@ -93,15 +83,13 @@ describe("toasts", () => {
 	});
 
 	it("refuses an invalid toast message", () => {
-		expect(codeOf(() => uiMethods["ui.toast"].run({ message: "" }, record()))).toBe(
-			"invalid_params",
-		);
+		expect(codeOf(() => uiMethods["ui.toast"].run({ message: "" }, record()))).toBe("invalid_params");
 	});
 
 	it("refuses an unknown toast type", () => {
-		expect(codeOf(() => uiMethods["ui.toast"].run({ message: "Icon copied", type: "urgent" }, record()))).toBe(
-			"invalid_params",
-		);
+		expect(
+			codeOf(() => uiMethods["ui.toast"].run({ message: "Icon copied", type: "urgent" }, record())),
+		).toBe("invalid_params");
 	});
 });
 

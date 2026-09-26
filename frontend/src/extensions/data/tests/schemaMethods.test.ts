@@ -3,7 +3,7 @@ import { reactive } from "vue";
 
 /**
  * The Frappe call is mocked. Under test is the gate, the validation, and the
- * confirmation that stands between an extension and a new or dropped table.
+ * one confirmation left: before a table and its records are dropped.
  */
 const submitted: Array<{ url: string; params: Record<string, unknown> }> = [];
 let answer: unknown = {};
@@ -18,11 +18,11 @@ vi.mock("frappe-ui", () => ({
 }));
 
 let allowed = true;
-const asked: Array<{ doctype: string; act: string }> = [];
+const asked: string[] = [];
 
-vi.mock("../grants", () => ({
-	confirmSchema: (_extension: unknown, doctype: string, act: string) => {
-		asked.push({ doctype, act });
+vi.mock("@/utils/helpers", () => ({
+	confirm: (_message: string, title: string) => {
+		asked.push(title);
 		return Promise.resolve(allowed);
 	},
 }));
@@ -80,9 +80,7 @@ describe("the capability", () => {
 
 describe("what a frame sent", () => {
 	it("refuses a create with no doctype", async () => {
-		expect(await codeOf(() => run("schema.createDoctype", { fields: FIELDS }))).toBe(
-			"invalid_params",
-		);
+		expect(await codeOf(() => run("schema.createDoctype", { fields: FIELDS }))).toBe("invalid_params");
 	});
 
 	it("refuses a doctype with no fields", async () => {
@@ -92,9 +90,9 @@ describe("what a frame sent", () => {
 	});
 
 	it("refuses a field that is not an object", async () => {
-		expect(
-			await codeOf(() => run("schema.createDoctype", { doctype: "Widget", fields: ["title"] })),
-		).toBe("invalid_params");
+		expect(await codeOf(() => run("schema.createDoctype", { doctype: "Widget", fields: ["title"] }))).toBe(
+			"invalid_params",
+		);
 	});
 
 	it("refuses a naming rule it does not know", async () => {
@@ -107,25 +105,18 @@ describe("what a frame sent", () => {
 });
 
 describe("the confirmation", () => {
-	it("asks before creating, and names the doctype", async () => {
+	// the site allowed schema.write at install, and a new table loses nothing
+	it("does not ask before creating", async () => {
 		await run("schema.createDoctype", { doctype: "Widget", fields: FIELDS });
 
-		expect(asked).toEqual([{ doctype: "Widget", act: "create" }]);
+		expect(asked).toHaveLength(0);
+		expect(last().url).toBe("builder.extensions.schema.create_doctype");
 	});
 
-	it("writes nothing when the user says no", async () => {
-		allowed = false;
-
-		expect(await codeOf(() => run("schema.createDoctype", { doctype: "Widget", fields: FIELDS }))).toBe(
-			"refused",
-		);
-		expect(submitted).toHaveLength(0);
-	});
-
-	it("asks before dropping a doctype", async () => {
+	it("asks before dropping a doctype, and names it", async () => {
 		await run("schema.deleteDoctype", { doctype: "Widget" });
 
-		expect(asked).toEqual([{ doctype: "Widget", act: "delete" }]);
+		expect(asked).toEqual(["Delete Widget?"]);
 	});
 
 	it("drops nothing when the user says no", async () => {

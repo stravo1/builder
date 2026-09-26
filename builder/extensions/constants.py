@@ -22,21 +22,34 @@ VERSION_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.+-]*$")
 # No other format, so the editor draws it in an <img> at any size.
 ICON_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.svg$")
 
-# every capability the bridge gates a method by
+# every capability the bridge gates a method by. Reads and windows need none
 CAPABILITIES = (
-	"context.read",
-	"block.read",
-	"block.update",
-	"block.insert",
-	"page.read",
+	"page.edit",
 	"page.write",
 	"token.write",
-	"ui.dialog",
-	"ui.popover",
 	"data.access",
 	"schema.write",
 	"method.call",
 )
+
+# Keys a published manifest may still carry. The two block keys became one, and
+# a read or a window no longer needs a permission, so those map to nothing.
+LEGACY_CAPABILITIES = {
+	"block.update": "page.edit",
+	"block.insert": "page.edit",
+	"context.read": None,
+	"block.read": None,
+	"page.read": None,
+	"ui.dialog": None,
+	"ui.popover": None,
+}
+
+
+def read_capabilities(keys: list[str]) -> list[str]:
+	"""Today's keys, in the order asked, with a legacy key mapped or dropped."""
+	current = (LEGACY_CAPABILITIES.get(key, key) for key in keys)
+	return list(dict.fromkeys(key for key in current if key))
+
 
 # An installation loaded from a dev server this session. It has no files, and the
 # browser adds its own entry for it, so the listing leaves it out.

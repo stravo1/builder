@@ -11,16 +11,16 @@ describe("capabilityDetails", () => {
 	it("gives every sensitive capability a reason to read", () => {
 		const sensitive = CAPABILITIES.filter(isSensitive);
 
-		expect(sensitive).toEqual(["token.write", "data.access", "schema.write", "method.call"]);
+		expect(sensitive).toEqual(["page.write", "token.write", "data.access", "schema.write", "method.call"]);
 		sensitive.forEach((capability) => expect(capabilityDetails[capability].warning).toBeTruthy());
 	});
 });
 
 describe("sortCapabilities", () => {
 	it("puts the widest reach last, whatever order the manifest used", () => {
-		const asked: Capability[] = ["schema.write", "block.update", "context.read"];
+		const asked: Capability[] = ["schema.write", "page.edit", "method.call"];
 
-		expect(sortCapabilities(asked)).toEqual(["context.read", "block.update", "schema.write"]);
+		expect(sortCapabilities(asked)).toEqual(["page.edit", "schema.write", "method.call"]);
 	});
 
 	it("answers with nothing when an extension asked for nothing", () => {

@@ -8,15 +8,11 @@
 
 import type { MethodTable } from "../host/capabilities";
 import { documentMethods } from "./documentMethods";
-import { grantMethods } from "./grants";
-import { methodMethods } from "./methodMethods";
 import { requestMethods } from "./requestMethods";
 import { schemaMethods } from "./schemaMethods";
 
 export const dataMethods: MethodTable = {
-	...grantMethods,
 	...documentMethods,
-	...methodMethods,
 	...requestMethods,
 	...schemaMethods,
 };

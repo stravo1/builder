@@ -95,7 +95,7 @@ Put `manifest.json` beside `vite.config.js`.
   "version": "1.0.0",
   "entry": "main.js",
   "icon": "icon.svg",
-  "capabilities": ["context.read", "block.read", "block.update"]
+  "capabilities": ["page.edit"]
 }
 ```
 
@@ -121,26 +121,22 @@ Builder draws its own plug glyph for an extension that ships no icon.
 
 Request only the capabilities that the extension uses. Builder rejects a protected method without its capability.
 
-| Capability | SDK methods or behavior |
-|---|---|
-| `context.read` | `context.get`, `context.subscribe`, and `useBuilderContext` |
-| `block.read` | `block.get` |
-| `block.update` | `block.update` and bound property controls |
-| `block.insert` | `block.insert` |
-| `page.read` | `page.getBlocks` |
-| `page.write` | `page.attachScript`, `page.detachScript`, `page.listScripts` |
-| `token.write` | `tokens.set`, `tokens.unset` |
-| `ui.dialog` | `ui.openDialog`, `ui.closeDialog` |
-| `ui.popover` | `ui.openPopover`, `ui.closePopover` |
-| `data.access` | Every `data.*` method, including `requestAccess` |
-| `schema.write` | Every `schema.*` method |
-| `method.call` | `methods.requestAccess`, `methods.getAccess`, and every server method call |
+| Capability | The user sees | SDK methods or behavior |
+|---|---|---|
+| `page.edit` | Edit pages | `block.update`, `block.insert`, and bound property controls |
+| `page.write` | Add scripts to pages | `page.attachScript`, `page.detachScript`, `page.listScripts` |
+| `token.write` | Change design tokens | `tokens.set`, `tokens.unset` |
+| `data.access` | Access records in the site | Every `data.*` method, and every document request from frappe-ui |
+| `schema.write` | Create and delete DocTypes | Every `schema.*` method |
+| `method.call` | Run actions from installed apps | Every server method call from frappe-ui or `fetch` |
 
-Surface registration, actions, extension state, `ui.toast`, and `host.info` need no capability.
+Reads and windows need no capability: `context.*`, `useBuilderContext`, `block.get`, `page.getBlocks`, `ui.openDialog`, `ui.openPopover` and their close calls. Nor do surface registration, actions, extension state, `ui.toast`, and `host.info`.
 
-Builder rejects page writes in read-only mode. This rule covers `block.update`, `block.insert`, `page.write`, and token writes. It does not cover `data.*` or `schema.*`, which write to the site and not to the page.
+The site approves these once, at install. Nothing asks again while the editor runs, except before a DocType is deleted.
 
-A capability grants the right to ask. For `data.*`, the user must also grant access to each doctype. Read [Site data](#site-data). For a server method, the user must also allow that method. Read [Server methods](#server-methods).
+Builder rejects page writes in read-only mode. This rule covers `page.edit`, `page.write`, and token writes. It does not cover `data.*` or `schema.*`, which write to the site and not to the page.
+
+A manifest that still names an old key keeps working. `block.update` and `block.insert` mean `page.edit`. `context.read`, `block.read`, `page.read`, `ui.dialog`, and `ui.popover` are ignored.
 
 ## Package and build configuration
 
@@ -197,8 +193,7 @@ The error object can include one of these codes:
 | `already_registered` | The extension already registered a panel, settings page, dialog, or popover |
 | `unknown_block` | The active canvas does not contain the block ID |
 | `no_canvas` | Builder has no active canvas |
-| `grant_required` | The access is not allowed. Call `data.requestAccess`, then check the answer for `"denied"` |
-| `refused` | The user answered no to a schema dialog |
+| `refused` | The user said no to deleting a DocType |
 | `server_error` | The site rejected the data or schema call |
 | `rate_limited` | The extension exceeded its request budget |
 | `state_too_large` | The extension state exceeded 100 kB |
@@ -369,7 +364,7 @@ builder.properties.registerSection({
 
 Available controls are `text`, `number`, `select`, `toggle`, `color`, and `range`.
 
-A bound control writes an attribute or a style. Bound controls require the `block.update` capability.
+A bound control writes an attribute or a style. Bound controls require the `page.edit` capability.
 
 An unbound control needs an `action`. It sends its value to the action when the value changes. Builder rejects a control that has neither `bind` nor `action`.
 
@@ -441,7 +436,7 @@ const result = await builder.ui.openDialog({
 
 The slot reads its input with `builder.ui.props()`. It returns a result with `builder.ui.closeDialog(result)`.
 
-Use `openPopover`, `closePopover`, and the `ui.popover` capability for a popover.
+Use `openPopover` and `closePopover` for a popover.
 
 Give a popover a start size with `width` and `height`, in pixels. Builder uses its own
 size for a field you omit. The user can always drag the corner to resize it.
@@ -598,8 +593,6 @@ Read these rules before you use it:
   a block is set to, and the page shows what it does.
 - One JavaScript script and one CSS script per extension per page. A second call of the same type
   replaces the script, so send the whole file every time.
-- The first script of a type asks the user, and the prompt names the page. A later call to replace
-  the same script does not ask.
 - Builder rejects the call in read-only mode.
 
 Use `builder.page.listScripts()` to read the scripts this extension owns on the open page. Call it
@@ -627,15 +620,9 @@ State uses browser `localStorage`. Builder scopes it by extension name and limit
 
 Use `builder.data` to read and write documents on the site. Every method needs the `data.access` capability.
 
-The capability alone grants nothing. The user must also grant access to each doctype, and Builder stores that grant.
+Every call runs as the current user, so an extension reads and changes what that user can, and no more.
 
 ```ts
-const grant = await builder.data.getAccess("Task");
-if (grant.read !== "allowed") {
-  const answer = await builder.data.requestAccess("Task", ["read", "write"]);
-  if (answer.read !== "allowed") return;
-}
-
 const tasks = await builder.data.getList("Task", {
   fields: ["name", "subject", "status"],
   filters: { status: "Open" },
@@ -644,33 +631,25 @@ const tasks = await builder.data.getList("Task", {
 });
 ```
 
-`requestAccess` opens a modal dialog. Call it after the user presses something, never at startup.
-
-Each access in a grant holds one answer: `"allowed"`, `"denied"`, or `"not asked"`. Compare an answer to `"allowed"`, because `"denied"` is a truthy string.
-
-`requestAccess` asks only about each access that is `"not asked"`. It returns without a dialog when every access you name is already allowed or denied. The user can change a denied access in the Extensions panel.
-
-These methods read and write documents:
-
-| Method | Grant | Result |
-|---|---|---|
-| `data.getList(doctype, options)` | `read` | One page of documents |
-| `data.getCount(doctype, filters)` | `read` | How many documents match |
-| `data.getDoc(doctype, name)` | `read` | One whole document |
-| `data.getMeta(doctype)` | `read` | The doctype's fields and settings |
-| `data.insert(doctype, doc)` | `write` | The inserted document |
-| `data.update(doctype, name, doc)` | `write` | The saved document |
-| `data.delete(doctype, name)` | `delete` | Nothing |
+| Method | Result |
+|---|---|
+| `data.getList(doctype, options)` | One page of documents |
+| `data.getCount(doctype, filters)` | How many documents match |
+| `data.getDoc(doctype, name)` | One whole document |
+| `data.getMeta(doctype)` | The doctype's fields and settings |
+| `data.insert(doctype, doc)` | The inserted document |
+| `data.update(doctype, name, doc)` | The saved document |
+| `data.delete(doctype, name)` | Nothing |
 
 `getList` takes `fields`, `filters`, `orFilters`, `orderBy`, `groupBy`, `start`, and `pageLength`. `pageLength` can reach 500. Builder rejects 0.
 
-A call fails with `grant_required` when the access it needs is not allowed. Catch that code and call `requestAccess`. Then read the answer. If the user denied that access before, `requestAccess` returns `"denied"` without a dialog, so tell the user to change it in the Extensions panel. Any other refusal comes from the site, and asking again does not help.
+A refusal comes from the site with `server_error` and the site's own message.
 
 ### frappe-ui
 
 frappe-ui's data layer works in an extension. `call`, `createResource`, `createListResource`,
-`createDocumentResource`, `useList`, `useDoc`, and `useNewDoc` all reach the site through the
-same grants as `builder.data`.
+`createDocumentResource`, `useList`, `useDoc`, and `useNewDoc` all reach the site under the same
+capabilities as `builder.data`.
 
 Set the resource fetcher once in the entry module, as any Frappe app does. Without it, a
 resource sends its URL without the `/api/method/` prefix, and the request fails. `call` and the
@@ -686,16 +665,15 @@ it to one of these operations, or refuses it:
 
 | Request | Operation | Needs |
 |---|---|---|
-| `frappe.client.get_list`, `get_count`, `get`, `insert`, `set_value`, `delete` | the matching `data.*` method | `data.access` and a doctype grant |
-| v2 `/document/<doctype>` and `/document/<doctype>/<name>` | list, insert, read, update, delete | `data.access` and a doctype grant |
-| v2 `/doctype/<doctype>/count` and `/doctype/<doctype>/meta` | `data.getCount`, `data.getMeta` | `data.access` and a read grant |
-| `run_doc_method`, v2 `/document/<doctype>/<name>/method/<method>` | a method of one document | `method.call` and a method grant |
-| any other `/api/method/<path>`, v2 `/method/<path>`, v2 `/method/<doctype>/<method>` | a server method | `method.call` and a method grant |
+| `frappe.client.get_list`, `get_count`, `get`, `insert`, `set_value`, `delete` | the matching `data.*` method | `data.access` |
+| v2 `/document/<doctype>` and `/document/<doctype>/<name>` | list, insert, read, update, delete | `data.access` |
+| v2 `/doctype/<doctype>/count` and `/doctype/<doctype>/meta` | `data.getCount`, `data.getMeta` | `data.access` |
+| `run_doc_method`, v2 `/document/<doctype>/<name>/method/<method>` | a method of one document | `method.call` |
+| any other `/api/method/<path>`, v2 `/method/<path>`, v2 `/method/<doctype>/<method>` | a server method | `method.call` |
 | bulk, copy, discovery | refused with 404 | |
 
-A refusal arrives in Frappe's own shape. A missing grant has `exc_type` `ExtensionGrantRequired`
-on a v1 call, and `errors[0].type` `ExtensionGrantRequired` on a v2 call. Catch it in `onError`
-and call `requestAccess`.
+A refusal arrives in Frappe's own shape. A missing capability has `exc_type` `PermissionError` on
+a v1 call, and `errors[0].type` `PermissionError` on a v2 call.
 
 A v2 list page holds at most 499 rows. Builder fetches one more row to answer `has_next_page`.
 
@@ -703,16 +681,10 @@ A request to another origin goes to the network unchanged.
 
 ## Server methods
 
-Use `builder.methods` to run whitelisted server methods, for example the API of a Frappe app that
-ships with the extension. Every method needs the `method.call` capability.
-
-The capability alone runs nothing. The user must also allow each method, or every method of the
-app that owns it. Ask behind a button, then call the method through frappe-ui:
+An extension runs whitelisted server methods through frappe-ui, for example the API of a Frappe
+app that ships with it. Every method needs the `method.call` capability.
 
 ```ts
-const grant = await builder.methods.requestAccess("acme_forms.api.export_responses");
-if (grant.answer !== "allowed") return;
-
 const csv = await call("acme_forms.api.export_responses", { form: "F-0012" });
 ```
 
@@ -723,18 +695,11 @@ Name a method in one of two ways:
 | Its dotted path | `acme_forms.api.export_responses` | One module function |
 | `<DocType>.<method>` | `Form.get_summary` | That method on the doctype's class, and the function of that name in its controller module |
 
-The dialog names the app that owns the method. The method and the first paragraph of its docstring
-stay behind a Details button. The user can allow this method only, or every method of its app. An answer for the method wins over an
-answer for the app.
-
-`requestAccess` returns without a dialog when the method, or its app, is already answered. The
-user can change an answer in the Extensions panel.
-
 A method runs as the user, so it can change anything the user can change. Frappe checks that the
 method is whitelisted and that it accepts the HTTP verb of the call.
 
-Builder refuses every method of the `frappe` and `builder` apps, whatever the user answers. Their
-data reaches an extension through `builder.data` and its doctype grants.
+Builder refuses every method of the `frappe` and `builder` apps. Their data reaches an extension
+through `builder.data`.
 
 A doc method answers with the document beside the result, so a `createDocumentResource` refreshes
 its `doc` after the call.
@@ -754,11 +719,9 @@ const doctype = await builder.schema.createDoctype(
 );
 ```
 
-Builder asks the user before it creates or deletes a doctype. The call fails with `refused` when the user says no.
+Builder asks the user before it deletes a doctype, because that deletes every record. The call fails with `refused` when the user says no.
 
 The user must be a System Manager. Frappe wants create permission on `DocType`, and the extension cannot lift that.
-
-The extension receives a full grant on a doctype it creates, so `data.*` works on it with no second question.
 
 | Method | Behavior |
 |---|---|
@@ -890,7 +853,7 @@ When a user asks for a Builder component, first identify the user action and the
 5. Give a surface its action as a function. Use `builder.actions.register` only for an action another frame runs.
 6. Add `showWhen` and `enableWhen` rules for selection and read-only state.
 7. Use a context subscription only when a rule cannot express the condition.
-8. Ask for a doctype grant behind a user action, never at startup.
+8. Request only the capabilities the extension uses. Reads and windows need none.
 9. Keep all Builder access behind the public SDK.
 10. Keep functions, Vue components, DOM nodes, and class instances inside the frame.
 11. Send only plain objects, arrays, strings, numbers, booleans, and null through SDK calls.

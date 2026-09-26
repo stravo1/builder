@@ -4,7 +4,7 @@
  * A client script is the one thing an extension writes that outlives the editor
  * and runs for a visitor. `builder/extension_page.py` carries the reasoning and
  * the ownership rules. This file holds the two the server cannot: the page is
- * the open one, and a create asks the user first.
+ * the open one.
  *
  * The snapshot deliberately leaves the tree out (1.11): it is large and it
  * changes on every keystroke, so an extension asks for it rather than being sent
@@ -26,7 +26,6 @@ import useCanvasStore from "@/stores/canvasStore";
 import { getBlockObject } from "@/utils/helpers";
 import { createResource } from "frappe-ui";
 import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
-import { confirmPageScript } from "../data/grants";
 import type { MethodTable } from "../host/capabilities";
 import { fields, oneOf, refuse, text } from "../params";
 
@@ -74,27 +73,15 @@ const readScriptType = (params: unknown) => oneOf(fields(params).type, SCRIPT_TY
 
 /**
  * Creates this extension's script of that type on the open page, or rewrites the
- * one already there.
- *
- * Only a create asks the user. The confirmation is about running this
- * extension's code on this page at all, and that answer does not become stale
- * when the extension ships its next version of the same script.
+ * one already there. The site allowed scripts at install, so nothing asks here.
  */
 const attachScript = async (params: unknown, extension: InstalledExtension) => {
 	const type = readScriptType(params);
 	const script = text(fields(params).script, "script");
-	const page = openPage();
-
-	const mine = await invoke("list_scripts", { extension: extension.name, page: page.name });
-	const exists = (mine as Array<{ type: string }>).some((row) => row.type === type);
-
-	if (!exists && !(await confirmPageScript(extension, page.route || page.name))) {
-		throw refuse(`The user did not allow "${extension.name}" to run a script on this page.`, "refused");
-	}
 
 	return invoke("attach_script", {
 		extension: extension.name,
-		page: page.name,
+		page: openPage().name,
 		script_type: type,
 		script,
 	});
@@ -111,7 +98,7 @@ const listScripts = (_params: unknown, extension: InstalledExtension) =>
 	invoke("list_scripts", { extension: extension.name, page: openPage().name });
 
 export const pageMethods: MethodTable = {
-	"page.getBlocks": { needs: "page.read", run: getBlocks },
+	"page.getBlocks": { needs: null, run: getBlocks },
 	"page.attachScript": { needs: "page.write", run: attachScript },
 	"page.detachScript": { needs: "page.write", run: detachScript },
 	// its own scripts, so the capability that wrote them is the one that reads them

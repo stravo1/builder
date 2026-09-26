@@ -115,7 +115,7 @@ export default defineConfig({
 Use the semantic classes from the preset, such as `bg-surface-base` and `text-ink-gray-9`.
 They follow the Builder theme. A raw color such as `bg-white` does not.
 
-frappe-ui's data layer reaches the site through the same grants as `builder.data`. Set the
+frappe-ui's data layer reaches the site under the same capabilities as `builder.data`. Set the
 resource fetcher once in the entry module, as any Frappe app does:
 
 ```js
@@ -123,9 +123,8 @@ import { frappeRequest, setConfig } from "frappe-ui";
 setConfig("resourceFetcher", frappeRequest);
 ```
 
-`call` and `useList` and `useDoc` need no setup. To run a server method, request `method.call`,
-and ask the user with `builder.methods.requestAccess` first. Read `references/extension-api.md`
-for the list of routes.
+`call` and `useList` and `useDoc` need no setup. To run a server method, request `method.call`.
+Read `references/extension-api.md` for the list of routes.
 
 ## Choose the surface
 
@@ -216,5 +215,5 @@ instance cannot cross the port.
 Register one panel, one settings page, one dialog, and one popover at most. A second one
 fails with `already_registered`.
 
-Ask for a doctype grant behind a button the user pressed. `data.requestAccess` opens a modal
-dialog, so it must never run at startup.
+Request only the capabilities the extension uses. Reads and windows need none, and the site
+approves the rest once, at install.

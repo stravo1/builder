@@ -21,8 +21,6 @@ import frappe
 from frappe import _
 
 INSTALLATION_DOCTYPE = "Builder User Extension"
-GRANT_DOCTYPE = "Builder Extension DocType Grant"
-METHOD_GRANT_DOCTYPE = "Builder Extension Method Grant"
 STATE_DOCTYPE = "Builder Extension State"
 
 
@@ -110,14 +108,6 @@ def installation_conditions(user: str | None = None) -> str:
 	return scoped_to_user(INSTALLATION_DOCTYPE, user)
 
 
-def grant_conditions(user: str | None = None) -> str:
-	return scoped_to_installation(GRANT_DOCTYPE, user)
-
-
-def method_grant_conditions(user: str | None = None) -> str:
-	return scoped_to_installation(METHOD_GRANT_DOCTYPE, user)
-
-
 def state_conditions(user: str | None = None) -> str:
 	return scoped_to_installation(STATE_DOCTYPE, user)
 
@@ -128,7 +118,7 @@ def owns_row(doc, ptype=None, user=None, debug=False) -> bool:
 
 
 def owns_through_installation(doc, ptype=None, user=None, debug=False) -> bool:
-	"""A grant and a state row both belong to whoever owns the installation."""
+	"""A state row belongs to whoever owns the installation."""
 	user = user or frappe.session.user
 	if is_system_manager(user):
 		return True

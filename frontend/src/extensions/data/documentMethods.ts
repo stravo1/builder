@@ -1,13 +1,11 @@
 /**
  * CRUD on real documents.
  *
- * Every method opens with the same two gates and then gets out of the way. The
- * `data.access` capability says this extension works with site data at all, and
- * the server checks the per-doctype grant before it touches anything.
- *
- * The third gate is the one that matters most, and nothing here can reach it:
- * `frappe.client` runs the query as the logged-in user, so an extension sees the
- * rows that user sees and no others. A grant widens intent, never permission.
+ * Two gates. The `data.access` capability says the site let this extension work
+ * with its records at all, and the server checks it again before it touches
+ * anything. The second is the one that matters most, and nothing here can reach
+ * it: `frappe.client` runs the query as the logged-in user, so an extension sees
+ * the rows that user sees and no others.
  *
  * The option names follow `createListResource` — `fields`, `filters`, `orderBy`,
  * `start`, `pageLength` — because an extension author is a frontend author and
@@ -23,30 +21,19 @@ import type { MethodTable } from "../host/capabilities";
 import { fields, optionalText, refuse, text, wholeNumber } from "../params";
 import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 
-/** The class name of the server exception, which travels as `exc_type`. */
-const GRANT_REQUIRED = "ExtensionGrantRequired";
-
 /**
  * Structured-cloneable, always.
  *
  * `createResource` keeps its `data` reactive, and `postMessage` cannot clone a
- * Vue proxy. A document has no fixed shape to rebuild field by field, the way
- * `grants.ts` rebuilds a grant, so the round trip through JSON is what makes it
- * plain. It drops `undefined`, which a document off the wire never holds.
+ * Vue proxy. A document has no fixed shape to rebuild field by field, so the
+ * round trip through JSON is what makes it plain. It drops `undefined`, which a document off the wire never holds.
  */
 const plain = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null));
 
-/**
- * A server refusal, as something the frame can branch on.
- *
- * `grant_required` is the one an extension acts on: it means "ask the user",
- * and `data.requestAccess` is how. Everything else is the site saying no, and
- * asking again would not change it.
- */
+/** A server refusal, with the site's own message. */
 const asRefusal = (thrown: unknown) => {
-	const sent = thrown as { exc_type?: string; messages?: string[]; message?: string };
-	const message = sent.messages?.[0] || sent.message || "The server refused that call.";
-	return refuse(message, sent.exc_type === GRANT_REQUIRED ? "grant_required" : "server_error");
+	const sent = thrown as { messages?: string[]; message?: string };
+	return refuse(sent.messages?.[0] || sent.message || "The server refused that call.", "server_error");
 };
 
 /** One-shot, the way `tokenMethods.ts:27` calls a whitelisted method. */
@@ -65,7 +52,7 @@ const readName = (sent: Record<string, unknown>) => text(sent.name, "name");
 /** A patch or a new document. Never a list, and never a bare value. */
 const readDoc = (value: unknown) => {
 	if (!value || typeof value !== "object" || Array.isArray(value)) {
-		throw refuse("\"doc\" must be an object.", "invalid_params");
+		throw refuse('"doc" must be an object.', "invalid_params");
 	}
 	return value as Record<string, unknown>;
 };
@@ -86,7 +73,7 @@ const readFilters = (value: unknown) => {
 const readFields = (value: unknown) => {
 	if (value === undefined) return undefined;
 	if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
-		throw refuse("\"fields\" must be a list of field names.", "invalid_params");
+		throw refuse('"fields" must be a list of field names.', "invalid_params");
 	}
 	return value as string[];
 };

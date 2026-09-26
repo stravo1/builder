@@ -1,6 +1,9 @@
 import { devExtension, isDevExtension, setDevCapabilities } from "@/extensions/devExtension";
-import type { Access, AccessAnswer } from "@/extensions/data/grants";
-import type { Capability, InstalledExtension } from "frappe-builder-extension-sdk/types";
+import {
+	readCapabilities,
+	type Capability,
+	type InstalledExtension,
+} from "frappe-builder-extension-sdk/types";
 import {
 	call,
 	createDocumentResource,
@@ -8,15 +11,12 @@ import {
 	createResource,
 	getCachedResource,
 	getCachedDocumentResource,
-	onDocUpdate,
 } from "frappe-ui";
 import { computed, shallowRef } from "vue";
 import { builderSettings } from "@/data/builderSettings";
 
 const METHOD = "builder.extensions.installations";
 const INSTALLATION_DOCTYPE = "Builder User Extension";
-const GRANT_DOCTYPE = "Builder Extension DocType Grant";
-const METHOD_GRANT_DOCTYPE = "Builder Extension Method Grant";
 
 const HUB_API = "api/method/builder_hub.extensions.api";
 const CATALOG_CACHE = "extensions-catalog";
@@ -207,29 +207,11 @@ type UserInstallation = {
 	is_development?: boolean;
 };
 
-/** One doctype this user answered for, as `Builder Extension DocType Grant` holds it. */
-type ExtensionGrant = {
-	document_type: string;
-	read_access: AccessAnswer;
-	write_access: AccessAnswer;
-	delete_access: AccessAnswer;
-};
-
-/** One method, or one app's methods, this user answered for. */
-type ExtensionMethodGrant = {
-	name: string;
-	scope: "method" | "app";
-	target: string;
-	answer: AccessAnswer;
-};
-
 type InstallationDetails = UserInstallation & {
 	installed_on: string;
 	readme?: string;
 	requested_capabilities: Capability[];
 	granted_capabilities: Capability[];
-	doctype_grants: ExtensionGrant[];
-	method_grants: ExtensionMethodGrant[];
 	development_server?: string;
 };
 
@@ -290,87 +272,26 @@ const findInstallation = (extension: string) =>
 	userInstallations.value.find((installation) => installation.name === extension);
 
 /**
- * Every grant list this has already wired a subscription for, keyed by doctype
- * and installation.
- *
- * A grant is inserted or deleted rather than only edited, so `createListResource`'s
- * own `realtime` option cannot keep it live: that option only refreshes a row
- * already in the fetched page, never a new one. `onDocUpdate` is the same
- * primitive `createDocumentResource` uses for its own realtime, applied here by
- * hand, once per list, so a bare reload catches the row it would miss.
- */
-const grantsSubscribed = new Set<string>();
-
-const installationGrants = <T>(
-	doctype: string,
-	installationId: string,
-	fields: string[],
-	orderBy: string,
-) => {
-	const resource = createListResource<T>(
-		{
-			doctype,
-			filters: [["installation", "=", installationId]],
-			fields,
-			orderBy,
-			auto: false,
-			cache: [doctype, installationId],
-			onError: (error: Error) => console.error("Could not load extension grants", error),
-		},
-		resourceVm,
-	);
-
-	const socket = (resourceVm as { $socket?: Parameters<typeof onDocUpdate>[0] } | undefined)?.$socket;
-	const key = `${doctype}:${installationId}`;
-	if (socket && !grantsSubscribed.has(key)) {
-		grantsSubscribed.add(key);
-		onDocUpdate(socket, doctype, () => void resource.reload());
-	}
-
-	return resource;
-};
-
-const installationDoctypeGrants = (installationId: string) =>
-	installationGrants<ExtensionGrant>(
-		GRANT_DOCTYPE,
-		installationId,
-		["document_type", "read_access", "write_access", "delete_access"],
-		"document_type asc",
-	);
-
-const installationMethodGrants = (installationId: string) =>
-	installationGrants<ExtensionMethodGrant>(
-		METHOD_GRANT_DOCTYPE,
-		installationId,
-		["name", "scope", "target", "answer"],
-		"target asc",
-	);
-
-/**
  * One installation, with the dev server standing in for what it owns.
  *
  * A development installation is real, so the record answers for the capabilities
- * it granted, the doctype grants and the install date. What the dev server shows
+ * it granted and the install date. What the dev server shows
  * a user comes from the dev server, which is the copy running right now.
  *
  * Composed from what the mount list and the panel's own list already fetch,
  * rather than a details call of its own: the document carries the readme and the
- * raw capability lists, `findInstallation` carries the icon and the install
- * state, and only the doctype grants are fetched here for the first time.
+ * raw capability lists, and `findInstallation` carries the icon and the install
+ * state.
  */
 const useInstallationDetails = (extension: string) => {
 	const document = shallowRef<ReturnType<typeof installationDocument> | null>(null);
-	const doctypeGrants = shallowRef<ReturnType<typeof installationDoctypeGrants> | null>(null);
-	const methodGrants = shallowRef<ReturnType<typeof installationMethodGrants> | null>(null);
 
 	const reload = async () => {
 		const installationId = findInstallation(extension)?.installation_id;
 		if (!installationId) return;
 
 		document.value = installationDocument(installationId);
-		doctypeGrants.value = installationDoctypeGrants(installationId);
-		methodGrants.value = installationMethodGrants(installationId);
-		await Promise.all([document.value.reload(), doctypeGrants.value.reload(), methodGrants.value.reload()]);
+		await document.value.reload();
 	};
 
 	const details = computed<InstallationDetails | null>(() => {
@@ -384,34 +305,11 @@ const useInstallationDetails = (extension: string) => {
 			readme: doc.readme,
 			requested_capabilities: grantedCapabilities(doc.requested_capabilities),
 			granted_capabilities: grantedCapabilities(doc.granted_capabilities),
-			doctype_grants: doctypeGrants.value?.data ?? [],
-			method_grants: methodGrants.value?.data ?? [],
 		});
 	});
 
 	return { details, reload };
 };
-
-/**
- * The three answers that stand for one doctype, answering with the grants after it.
- *
- * "Not asked" lets the extension ask about that access again, and the row stays
- * so the panel keeps listing the doctype. A denied access stops the asking.
- */
-const setExtensionGrant = (extension: string, doctype: string, answers: Record<Access, AccessAnswer>) =>
-	call(`${METHOD}.set_extension_grant`, { extension, doctype, answers }) as Promise<ExtensionGrant[]>;
-
-/**
- * One answer for one method grant. The row belongs to this user's installation,
- * and its permission hook says so, so Frappe's own write answers for it.
- */
-const setMethodGrantAnswer = (name: string, answer: AccessAnswer) =>
-	call("frappe.client.set_value", {
-		doctype: METHOD_GRANT_DOCTYPE,
-		name,
-		fieldname: "answer",
-		value: answer,
-	});
 
 /** What the site keeps when a user removes an extension. */
 type UninstallSummary = {
@@ -525,7 +423,8 @@ const getHubReleaseCapabilities = async (name: string, version: string): Promise
 		url: `${hubUrl()}/${HUB_API}.get_extension_release`,
 		params: { extension_name: name, version },
 	}).fetch();
-	return release.manifest?.capabilities ?? [];
+	// a release published before the keys changed still names the old ones
+	return readCapabilities(release.manifest?.capabilities ?? []);
 };
 
 /**
@@ -562,9 +461,7 @@ export {
 	installFromHub,
 	loadExtensions,
 	setExtensionEnabled,
-	setExtensionGrant,
 	setGrantedCapabilities,
-	setMethodGrantAnswer,
 	uninstallExtension,
 	updateFromHub,
 	uninstallSummary,
@@ -572,12 +469,4 @@ export {
 	userInstallations,
 };
 
-export type {
-	CatalogExtension,
-	ExtensionGrant,
-	ExtensionMethodGrant,
-	HubExtension,
-	InstallationDetails,
-	UninstallSummary,
-	UserInstallation,
-};
+export type { CatalogExtension, HubExtension, InstallationDetails, UninstallSummary, UserInstallation };

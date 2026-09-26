@@ -10,7 +10,7 @@ vi.mock("@/utils/helpers", () => ({
 	getBlockObject: (block: Record<string, unknown>) => ({ copied: block.blockId }),
 }));
 
-/** The Frappe call is mocked. Under test is the page it targets, and the confirmation. */
+/** The Frappe call is mocked. Under test is the page it targets. */
 const submitted: Array<{ url: string; params: Record<string, unknown> }> = [];
 let answer: unknown = {};
 
@@ -23,16 +23,6 @@ vi.mock("frappe-ui", () => ({
 	}),
 }));
 
-let allowed = true;
-const asked: string[] = [];
-
-vi.mock("../../data/grants", () => ({
-	confirmPageScript: (_extension: unknown, route: string) => {
-		asked.push(route);
-		return Promise.resolve(allowed);
-	},
-}));
-
 import { pageMethods } from "../pageMethods";
 import type { InstalledExtension } from "frappe-builder-extension-sdk/types";
 
@@ -40,7 +30,7 @@ const record = (): InstalledExtension => ({
 	name: "acme/a11y",
 	label: "Accessibility",
 	entry: "/builder_extension_asset/acme-a11y@1.0.0/main.js",
-	capabilities: ["page.read", "page.write"],
+	capabilities: ["page.write"],
 });
 
 const getBlocks = () => pageMethods["page.getBlocks"].run(undefined, record());
@@ -53,14 +43,12 @@ beforeEach(() => {
 	canvas.activeCanvas = null;
 	store.activePage = { name: "page-1", route: "landing" };
 	submitted.length = 0;
-	asked.length = 0;
-	allowed = true;
 	listed([]);
 });
 
 describe("page.getBlocks", () => {
-	it("needs page.read", () => {
-		expect(pageMethods["page.getBlocks"].needs).toBe("page.read");
+	it("lets any extension read the tree", () => {
+		expect(pageMethods["page.getBlocks"].needs).toBeNull();
 	});
 
 	it("answers with the canvas root, as a list", () => {
@@ -106,37 +94,11 @@ describe("page.attachScript", () => {
 		});
 	});
 
-	// the confirmation is about running this extension's code on this page at all
-	it("asks the user before it creates the first script of a type", async () => {
+	// the site allowed scripts at install, so a write goes straight to the server
+	it("writes without asking", async () => {
 		await run("page.attachScript", { type: "CSS", script: "a{}" });
 
-		expect(asked).toEqual(["landing"]);
-	});
-
-	it("writes nothing when the user says no", async () => {
-		allowed = false;
-
-		await expect(run("page.attachScript", { type: "CSS", script: "a{}" })).rejects.toMatchObject({
-			code: "refused",
-		});
-		expect(submitted.map((call) => call.url)).toEqual(["builder.extensions.page.list_scripts"]);
-	});
-
-	// the answer would not go stale when the extension ships the same script again
-	it("does not ask again to rewrite a script it already owns", async () => {
-		listed([{ name: "JavaScript-abc", type: "JavaScript", script: "old" }]);
-
-		await run("page.attachScript", { type: "JavaScript", script: "new" });
-
-		expect(asked).toEqual([]);
-	});
-
-	it("still asks when it owns a script of the other type", async () => {
-		listed([{ name: "CSS-abc", type: "CSS", script: "a{}" }]);
-
-		await run("page.attachScript", { type: "JavaScript", script: "new" });
-
-		expect(asked).toEqual(["landing"]);
+		expect(submitted.map((call) => call.url)).toEqual(["builder.extensions.page.attach_script"]);
 	});
 
 	it("refuses a script type Builder does not have", async () => {
@@ -162,12 +124,6 @@ describe("page.detachScript", () => {
 			url: "builder.extensions.page.detach_script",
 			params: { extension: "acme/a11y", page: "page-1", script_type: "CSS" },
 		});
-	});
-
-	it("never asks the user, because removing code takes nothing away", async () => {
-		await run("page.detachScript", { type: "CSS" });
-
-		expect(asked).toEqual([]);
 	});
 });
 

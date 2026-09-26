@@ -127,25 +127,22 @@ describe("a doc method's answer", () => {
 });
 
 describe("a refusal", () => {
-	it("says ExtensionGrantRequired in v1's shape, so an onError can ask the user", async () => {
-		thrown = refusal("grant_required");
+	it("says PermissionError in v1's shape when a capability is missing", async () => {
+		thrown = refusal("capability_required");
 
 		const response = await fetch("/api/method/frappe.client.get_list");
 
 		expect(response.status).toBe(403);
-		expect(await response.json()).toEqual({ exc_type: "ExtensionGrantRequired", message: "No." });
+		expect(await response.json()).toEqual({ exc_type: "PermissionError", message: "No." });
 	});
 
 	it("says it in v2's shape too", async () => {
-		thrown = refusal("grant_required");
+		thrown = refusal("capability_required");
 
 		const response = await fetch("/api/v2/document/Contact");
 
 		expect(response.status).toBe(403);
-		expect((await response.json()).errors[0]).toMatchObject({
-			type: "ExtensionGrantRequired",
-			message: "No.",
-		});
+		expect((await response.json()).errors[0]).toMatchObject({ type: "PermissionError", message: "No." });
 	});
 
 	it.each([

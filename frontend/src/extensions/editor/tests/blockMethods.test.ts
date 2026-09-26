@@ -28,7 +28,7 @@ vi.mock("@/utils/helpers", () => ({
 import { blockMethods } from "../blockMethods";
 import type { Capability, InstalledExtension } from "frappe-builder-extension-sdk/types";
 
-const record = (capabilities: Capability[] = ["block.read", "block.update"]): InstalledExtension => ({
+const record = (capabilities: Capability[] = ["page.edit"]): InstalledExtension => ({
 	name: "acme/icons",
 	label: "Icons",
 	entry: "/builder_extension_asset/acme-icons@1.0.0/main.js",
@@ -68,8 +68,8 @@ const block = (blockId: string) => {
 				breakpoint === "mobile"
 					? node.mobileStyles
 					: breakpoint === "tablet"
-					? node.tabletStyles
-					: node.baseStyles;
+						? node.tabletStyles
+						: node.baseStyles;
 			if (value === null || value === "") delete target[style];
 			else target[style] = value;
 		},
@@ -100,14 +100,13 @@ beforeEach(() => {
 });
 
 describe("the capabilities", () => {
-	it("gates the read and the write separately", () => {
-		expect(blockMethods["block.get"].needs).toBe("block.read");
-		expect(blockMethods["block.update"].needs).toBe("block.update");
+	it("lets any extension read a block", () => {
+		expect(blockMethods["block.get"].needs).toBeNull();
 	});
 
-	// adding a block changes what the page is, not what one block holds
-	it("gates inserting apart from updating", () => {
-		expect(blockMethods["block.insert"].needs).toBe("block.insert");
+	it("gates both writes behind page.edit", () => {
+		expect(blockMethods["block.update"].needs).toBe("page.edit");
+		expect(blockMethods["block.insert"].needs).toBe("page.edit");
 	});
 });
 
@@ -347,10 +346,7 @@ describe("inserting a tree", () => {
 
 		const form = parent().children[0];
 		expect(form.blockId).toBe(blockId);
-		expect(form.children.map((child: Record<string, unknown>) => child.element)).toEqual([
-			"label",
-			"input",
-		]);
+		expect(form.children.map((child: Record<string, unknown>) => child.element)).toEqual(["label", "input"]);
 		expect(form.children[1].children[0].element).toBe("span");
 	});
 
@@ -406,9 +402,9 @@ describe("inserting a tree", () => {
 
 	it("refuses children that are not a list", () => {
 		block("block-1");
-		expect(
-			codeOf(() => insert({ parentId: "block-1", block: { element: "div", children: {} } })),
-		).toBe("invalid_params");
+		expect(codeOf(() => insert({ parentId: "block-1", block: { element: "div", children: {} } }))).toBe(
+			"invalid_params",
+		);
 	});
 
 	it("refuses a tree deeper than the cap", () => {

@@ -22,8 +22,6 @@
 						:extension="extension"
 						:label="label"
 						:requested="requested"
-						:doctype-grants="[]"
-						:method-grants="[]"
 						v-model:granted="granted" />
 				</div>
 

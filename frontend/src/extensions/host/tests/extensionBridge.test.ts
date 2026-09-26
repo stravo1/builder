@@ -26,40 +26,41 @@ const codeOf = (call: () => unknown) => {
 };
 
 describe("read-only mode", () => {
-	const writing = { needs: "block.update" as const, run: () => "written" };
-	const reading = { needs: "block.read" as const, run: () => "read" };
+	const writing = { needs: "page.edit" as const, run: () => "written" };
+	const reading = { needs: "data.access" as const, run: () => "read" };
 
-	const readOnlyBridge = (methods: MethodTable) =>
-		createExtensionBridge(methods, { isReadOnly: () => true });
+	const readOnlyBridge = (methods: MethodTable) => createExtensionBridge(methods, { isReadOnly: () => true });
 
 	it("refuses a write while the page is read-only", () => {
-		const dispatch = readOnlyBridge({ "block.update": writing }).dispatcherFor(record(["block.update"]));
+		const dispatch = readOnlyBridge({ "block.update": writing }).dispatcherFor(record(["page.edit"]));
 
 		expect(codeOf(() => dispatch("block.update", {}))).toBe("read_only");
 	});
 
 	it("still answers a read while the page is read-only", () => {
-		const dispatch = readOnlyBridge({ "block.get": reading }).dispatcherFor(record(["block.read"]));
+		const dispatch = readOnlyBridge({ "block.get": reading }).dispatcherFor(record(["data.access"]));
 
 		expect(dispatch("block.get", {})).toBe("read");
 	});
 
 	it("still answers a method that needs no capability", () => {
-		const dispatch = readOnlyBridge({ "host.info": { needs: null, run: () => "info" } }).dispatcherFor(record());
+		const dispatch = readOnlyBridge({ "host.info": { needs: null, run: () => "info" } }).dispatcherFor(
+			record(),
+		);
 
 		expect(dispatch("host.info", {})).toBe("info");
 	});
 
 	it("allows the write when the page is not read-only", () => {
 		const host = createExtensionBridge({ "block.update": writing }, { isReadOnly: () => false });
-		const dispatch = host.dispatcherFor(record(["block.update"]));
+		const dispatch = host.dispatcherFor(record(["page.edit"]));
 
 		expect(dispatch("block.update", {})).toBe("written");
 	});
 
 	// a bridge built without the option is the shape every existing test uses
 	it("allows the write when no reader was injected", () => {
-		const dispatch = bridge({ "block.update": writing }).dispatcherFor(record(["block.update"]));
+		const dispatch = bridge({ "block.update": writing }).dispatcherFor(record(["page.edit"]));
 
 		expect(dispatch("block.update", {})).toBe("written");
 	});
@@ -178,7 +179,7 @@ describe("the entry channel", () => {
 describe("dispatch", () => {
 	const methods = {
 		"host.info": { needs: null, run: () => "info" },
-		"block.update": { needs: "block.update" as Capability, run: () => "written" },
+		"block.update": { needs: "page.edit" as Capability, run: () => "written" },
 	};
 
 	it("refuses a method it does not know", () => {
@@ -200,13 +201,13 @@ describe("dispatch", () => {
 	});
 
 	it("answers a method whose capability was granted", () => {
-		const dispatch = bridge(methods).dispatcherFor(record(["block.update"]));
+		const dispatch = bridge(methods).dispatcherFor(record(["page.edit"]));
 
 		expect(dispatch("block.update", {})).toBe("written");
 	});
 
 	it("refuses a method whose capability was not granted", () => {
-		const dispatch = bridge(methods).dispatcherFor(record(["block.read"]));
+		const dispatch = bridge(methods).dispatcherFor(record(["data.access"]));
 
 		expect(codeOf(() => dispatch("block.update", {}))).toBe("capability_required");
 	});

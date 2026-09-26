@@ -51,7 +51,7 @@ class TestListedInstallation(FrappeTestCase):
 		self.assertEqual(self.listed("acme/described")["description"], "Add and manage icons.")
 
 	def test_leaves_runtime_details_for_the_document_resource(self):
-		make_installation("acme/granted", capabilities=["context.read", "block.read"], checksum="abc123")
+		make_installation("acme/granted", capabilities=["page.write", "page.edit"], checksum="abc123")
 
 		listed = self.listed("acme/granted")
 		self.assertNotIn("checksum", listed)
@@ -59,7 +59,7 @@ class TestListedInstallation(FrappeTestCase):
 
 	def test_lists_an_extension_that_draws_nothing(self):
 		"""Every extension needs its entry frame, whether or not it registers a surface."""
-		make_installation("acme/quiet", capabilities=["page.read"])
+		make_installation("acme/quiet", capabilities=["data.access"])
 
 		self.assertIsNotNone(self.listed("acme/quiet"))
 
@@ -76,9 +76,7 @@ class TestExtensionIcon(FrappeTestCase):
 		make_installation("acme/drawn", icon="icon.svg", source="export default {};")
 
 		listed = next(row for row in get_user_installations() if row["name"] == "acme/drawn")
-		self.assertEqual(
-			listed["icon"], f"data:image/svg+xml;base64,{base64.b64encode(b'<svg />').decode()}"
-		)
+		self.assertEqual(listed["icon"], f"data:image/svg+xml;base64,{base64.b64encode(b'<svg />').decode()}")
 
 	def test_is_none_when_the_package_ships_none(self):
 		make_installation("acme/plainer", source="export default {};")
@@ -244,7 +242,7 @@ class TestExtensionTokens(FrappeTestCase):
 			set_extension_tokens("acme/never-installed", [self.shade()])
 
 	def test_refuses_an_extension_without_the_capability(self):
-		make_installation("acme/ungranted", capabilities=["page.read"])
+		make_installation("acme/ungranted", capabilities=["data.access"])
 
 		with self.assertRaises(frappe.PermissionError):
 			set_extension_tokens("acme/ungranted", [self.shade()])
@@ -270,40 +268,46 @@ class TestDevExtension(FrappeTestCase):
 		)
 
 	def test_registers_an_installation_the_gate_accepts(self):
-		install_dev_extension(self.extension, ["block.read", "ui.popover"])
+		install_dev_extension(self.extension, ["page.edit", "method.call"])
 
 		installed = self.installed()
 		self.assertEqual(installed.version, "0.0.0-dev")
-		self.assertEqual(frappe.parse_json(installed.granted_capabilities), ["block.read", "ui.popover"])
+		self.assertEqual(frappe.parse_json(installed.granted_capabilities), ["page.edit", "method.call"])
 
 	def test_grants_only_what_the_manifest_asks_for(self):
 		"""Both gates read this list, so a wider one would name what none allows."""
-		granted = install_dev_extension(self.extension, ["block.read"])
+		granted = install_dev_extension(self.extension, ["page.edit"])
 
-		self.assertEqual(granted, ["block.read"])
+		self.assertEqual(granted, ["page.edit"])
 		self.assertNotEqual(granted, list(CAPABILITIES))
 
 	def test_loading_again_follows_the_manifest(self):
 		"""A developer edits the manifest, or undoes a narrowing they were testing."""
-		install_dev_extension(self.extension, ["block.read"])
+		install_dev_extension(self.extension, ["page.edit"])
 
-		granted = install_dev_extension(self.extension, ["block.read", "page.read"])
+		granted = install_dev_extension(self.extension, ["page.edit", "data.access"])
 
-		self.assertEqual(granted, ["block.read", "page.read"])
+		self.assertEqual(granted, ["page.edit", "data.access"])
 
 	def test_refuses_a_capability_builder_does_not_have(self):
 		with self.assertRaises(frappe.ValidationError):
 			install_dev_extension(self.extension, ["quantum.read"])
 
+	def test_maps_a_legacy_manifest_to_todays_keys(self):
+		"""The two block keys became one, and a read needs no permission now."""
+		granted = install_dev_extension(self.extension, ["block.update", "block.read", "block.insert"])
+
+		self.assertEqual(granted, ["page.edit"])
+
 	def test_keeps_an_installation_the_user_already_has(self):
 		"""Building an extension you also run is the ordinary case."""
-		make_installation(self.extension, version="1.4.0", capabilities=["page.read"])
+		make_installation(self.extension, version="1.4.0", capabilities=["data.access"])
 
-		install_dev_extension(self.extension, ["block.read"])
+		install_dev_extension(self.extension, ["page.edit"])
 
 		installed = self.installed()
 		self.assertEqual(installed.version, "1.4.0")
-		self.assertEqual(frappe.parse_json(installed.granted_capabilities), ["page.read"])
+		self.assertEqual(frappe.parse_json(installed.granted_capabilities), ["data.access"])
 
 	def test_removes_the_installation_and_the_tokens_of_the_session(self):
 		install_dev_extension(self.extension, ["token.write"])

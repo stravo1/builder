@@ -11,7 +11,12 @@
  * remembered, so nobody retypes it.
  */
 
-import { CAPABILITIES, type Capability, type InstalledExtension } from "frappe-builder-extension-sdk/types";
+import {
+	CAPABILITIES,
+	readCapabilities,
+	type Capability,
+	type InstalledExtension,
+} from "frappe-builder-extension-sdk/types";
 import { call } from "frappe-ui";
 import { ref } from "vue";
 
@@ -44,12 +49,15 @@ export const isDevExtension = (extension: { name: string }) => devExtension.valu
  * bridge, as it would be for an installed extension.
  */
 const grantedFrom = (asked: unknown): Capability[] => {
-	const list = Array.isArray(asked) ? asked : [];
-	const unknown = list.filter((capability) => !CAPABILITIES.includes(capability));
+	// a legacy key maps to today's before anything is judged unknown
+	const list = readCapabilities(Array.isArray(asked) ? asked : []) as string[];
+	const unknown = list.filter((capability) => !CAPABILITIES.includes(capability as Capability));
 	if (unknown.length) {
 		console.warn(`[builder] this Builder has no ${unknown.join(", ")}, so they are not granted`);
 	}
-	return list.filter((capability): capability is Capability => CAPABILITIES.includes(capability));
+	return list.filter((capability): capability is Capability =>
+		CAPABILITIES.includes(capability as Capability),
+	);
 };
 
 const read = async (origin: string) => {

@@ -5,7 +5,6 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from builder.builder.tests.extension_fixtures import drop_installations, make_installation
-from builder.extensions.data import get_extension_grant
 from builder.extensions.schema import (
 	create_doctype,
 	delete_doctype,
@@ -80,13 +79,6 @@ class TestExtensionSchema(FrappeTestCase):
 			)
 		)
 
-	def test_the_maker_gets_a_full_grant_with_no_prompt(self):
-		"""It made the table, so asking whether it may read the table has one answer."""
-		self.create()
-
-		grant = get_extension_grant("acme/schema", NAME)
-		self.assertEqual((grant["read"], grant["write"], grant["delete"]), ("allowed", "allowed", "allowed"))
-
 	def test_the_default_naming_is_a_hash(self):
 		self.create()
 
@@ -137,8 +129,11 @@ class TestExtensionSchema(FrappeTestCase):
 		described = get_doctype("acme/schema", NAME)
 		self.assertIn("title", [field["fieldname"] for field in described["fields"]])
 
-	def test_reading_a_doctype_needs_a_grant(self):
-		self.assertRaises(frappe.PermissionError, get_doctype, "acme/schema", "Contact")
+	def test_reads_any_doctype_the_user_may_read(self):
+		"""Only reshaping and dropping belong to the maker. Reading is the user's own permission."""
+		described = get_doctype("acme/schema", "Contact")
+
+		self.assertIn("first_name", [field["fieldname"] for field in described["fields"]])
 
 	def test_update_adds_a_field(self):
 		self.create()
@@ -163,7 +158,7 @@ class TestExtensionSchema(FrappeTestCase):
 		self.assertEqual(frappe.get_meta(NAME).get_field("title").label, "Headline")
 
 	def test_only_the_maker_may_change_a_doctype(self):
-		"""A document grant says nothing about reshaping the table."""
+		"""Reading and writing documents says nothing about reshaping the table."""
 		self.create()
 		make_extension("acme/other")
 
@@ -187,18 +182,6 @@ class TestExtensionSchema(FrappeTestCase):
 
 		self.assertFalse(frappe.db.exists("DocType", NAME))
 		self.assertFalse(frappe.db.exists("Builder Extension Resource", {"resource_name": NAME}))
-
-	def test_delete_takes_the_grant_with_it(self):
-		"""Frappe lets a DocType be deleted while a Link names it.
-
-		A grant left behind would be inherited by any doctype created later under
-		the same name, with nobody asked.
-		"""
-		self.create()
-
-		delete_doctype("acme/schema", NAME)
-
-		self.assertFalse(frappe.db.exists("Builder Extension DocType Grant", {"document_type": NAME}))
 
 	def test_lists_what_this_extension_made(self):
 		self.create()

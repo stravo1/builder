@@ -30,7 +30,7 @@ export type MethodTable = Record<string, HostMethod>;
  * write method (1.12). Naming the capabilities rather than the methods means a
  * write method added later is covered before it is written.
  */
-const WRITE_CAPABILITIES: Capability[] = ["block.update", "block.insert", "page.write", "token.write"];
+const WRITE_CAPABILITIES: Capability[] = ["page.edit", "page.write", "token.write"];
 
 export const assertWritable = (extension: InstalledExtension, method: string, needs: Capability | null) => {
 	if (!needs || !WRITE_CAPABILITIES.includes(needs)) return;
@@ -41,7 +41,7 @@ export const assertWritable = (extension: InstalledExtension, method: string, ne
 };
 
 /** The check a `bind` control makes at registration, where there is no call to gate (B3). */
-export const canWrite = (extension: InstalledExtension) => extension.capabilities.includes("block.update");
+export const canWrite = (extension: InstalledExtension) => extension.capabilities.includes("page.edit");
 
 export const assertGranted = (extension: InstalledExtension, method: string, needs: Capability | null) => {
 	if (!needs || extension.capabilities.includes(needs)) return;

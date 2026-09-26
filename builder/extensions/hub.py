@@ -40,6 +40,7 @@ from builder.extensions.constants import (
 	EXTENSION_NAME_PATTERN,
 	MAX_PACKAGE_BYTES,
 	PROTOCOL_VERSION,
+	read_capabilities,
 )
 from builder.extensions.installations import describe_installation
 from builder.extensions.package import ValidatedPackage, validate_package
@@ -336,7 +337,13 @@ def assert_updatable(name: str) -> str:
 
 
 def run_hub_update(
-	installation: str, name: str, version: str, hub_url: str, listing: dict, user: str, capabilities: list[str]
+	installation: str,
+	name: str,
+	version: str,
+	hub_url: str,
+	listing: dict,
+	user: str,
+	capabilities: list[str],
 ) -> None:
 	"""Replace a working install with a newer release, once its package passes every check.
 
@@ -435,6 +442,7 @@ def apply_release(
 	what the user allowed at install, kept inside that ask.
 	"""
 	manifest = package.manifest
+	asked = read_capabilities(manifest["capabilities"])
 	doc.update(
 		{
 			"source_url": source_url,
@@ -443,9 +451,9 @@ def apply_release(
 			"icon": manifest.get("icon"),
 			"version": release.version,
 			"checksum": release.package_sha256[:12],
-			"requested_capabilities": frappe.as_json(manifest["capabilities"]),
+			"requested_capabilities": frappe.as_json(asked),
 			"granted_capabilities": frappe.as_json(
-				[capability for capability in manifest["capabilities"] if capability in capabilities]
+				[capability for capability in asked if capability in capabilities]
 			),
 			"install_state": "Ready",
 			"install_error": None,

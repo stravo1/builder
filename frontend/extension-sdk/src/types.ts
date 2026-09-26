@@ -5,7 +5,7 @@
  * holds the guards over these shapes.
  */
 
-import { CAPABILITIES, PROTOCOL_VERSION } from "./protocol.js";
+import { CAPABILITIES, LEGACY_CAPABILITIES, PROTOCOL_VERSION, readCapabilities } from "./protocol.js";
 
 /** The five documents an extension can have. The host names one at the handshake. */
 export type ExtensionSlot = "main" | "panel" | "dialog" | "popover" | "settings";
@@ -24,7 +24,7 @@ export type OpenTarget =
 	| { kind: "leftPanel"; name: string };
 
 /** Every capability the bridge gates a method by. Mirrors the server protocol. */
-export { CAPABILITIES, PROTOCOL_VERSION };
+export { CAPABILITIES, LEGACY_CAPABILITIES, PROTOCOL_VERSION, readCapabilities };
 
 export type Capability = (typeof CAPABILITIES)[number];
 

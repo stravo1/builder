@@ -15,13 +15,8 @@ from collections import Counter
 import frappe
 from frappe import _
 
-from builder.extensions.access import (
-	GRANT_DOCTYPE,
-	INSTALLATION_DOCTYPE,
-	find_installation,
-)
+from builder.extensions.access import INSTALLATION_DOCTYPE, find_installation
 from builder.extensions.constants import DEV_EXTENSION_VERSION
-from builder.extensions.data import ACCESS_FIELDS, read_answers, upsert_grant
 from builder.utils import has_page_read
 
 RESOURCE_DOCTYPE = "Builder Extension Resource"
@@ -56,39 +51,6 @@ def get_user_installations() -> list[dict]:
 def is_turned_off(row: dict) -> bool:
 	"""A pending or failed install is not enabled yet, but no user turned it off."""
 	return not row.enabled and row.install_state in (None, "", "Ready")
-
-
-def installation_doctype_grants(installation: str) -> list[dict]:
-	"""Every doctype this user answered for, as the panel lists them."""
-	return frappe.get_all(
-		GRANT_DOCTYPE,
-		filters={"installation": installation},
-		fields=["document_type", *ACCESS_FIELDS.values()],
-		order_by="document_type asc",
-	)
-
-
-@frappe.whitelist(methods=["POST"])
-@has_page_read(NOT_INSTALLED)
-def set_extension_grant(extension: str, doctype: str, answers: dict | None = None) -> list[dict]:
-	"""Write the three answers for one doctype, and answer with every grant after it.
-
-	`record_extension_grant` merges, because an extension asking for more must not
-	drop what it already has. This writes exactly what it is given: the user
-	narrows a grant here, and merging would never let them.
-
-	The row stays when all three answers are "not asked", so the panel keeps
-	listing the doctype. The extension asks again about each access, the way it
-	does when no grant names the doctype. A denial stops the asking for that access.
-
-	The gate is the user's own installation, not the extension's access. They most
-	want an answer back after they disable the extension or turn `data.access`
-	off, and the extension gate refuses both.
-	"""
-	installation = own_installation(extension)
-	upsert_grant(installation, doctype, read_answers(answers))
-
-	return installation_doctype_grants(installation)
 
 
 @frappe.whitelist(methods=["POST"])
@@ -137,7 +99,7 @@ def get_uninstall_summary(extension: str) -> dict:
 @frappe.whitelist(methods=["POST"])
 @has_page_read(NOT_INSTALLED)
 def uninstall_extension(extension: str) -> None:
-	"""This user's copy, their grants and their stored state, and nothing else.
+	"""This user's copy and their stored state, and nothing else.
 
 	`on_trash` takes all three. What the extension made stays, and
 	`get_uninstall_summary` names it before the user answers.

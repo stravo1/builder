@@ -41,7 +41,7 @@ describe("createExtension", () => {
 			label: "Sample Plugin",
 			description: "A Frappe Builder extension.",
 			version: "1.0.0",
-			capabilities: ["context.read", "block.insert", "ui.popover"],
+			capabilities: ["page.edit"],
 		});
 		expect(packageJson).toMatchObject({
 			name: "@acme-labs/sample-plugin",

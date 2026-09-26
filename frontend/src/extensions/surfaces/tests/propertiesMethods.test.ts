@@ -47,7 +47,7 @@ const writer: InstalledExtension = {
 	name: "acme/icons",
 	label: "Icons",
 	entry: "/main.js",
-	capabilities: ["block.update"],
+	capabilities: ["page.edit"],
 };
 const reader: InstalledExtension = { ...writer, name: "other/charts", capabilities: [] };
 
@@ -101,7 +101,10 @@ describe("registerSection", () => {
 	});
 
 	it("builds one property per control", () => {
-		register(section({ controls: [bound, { name: "size", control: "range", bind: { style: "width" } }] }), writer);
+		register(
+			section({ controls: [bound, { name: "size", control: "range", bind: { style: "width" } }] }),
+			writer,
+		);
 		expect(propertiesOf("acme/icons:Icon")).toHaveLength(2);
 	});
 
@@ -136,8 +139,8 @@ describe("registerSection", () => {
 });
 
 describe("the capability a bound control needs", () => {
-	it("refuses a bound control without block.update", () => {
-		expect(() => register(section(), reader)).toThrow(/block.update/);
+	it("refuses a bound control without page.edit", () => {
+		expect(() => register(section(), reader)).toThrow(/page.edit/);
 	});
 
 	it("leaves nothing registered when a control is refused", () => {
@@ -247,7 +250,10 @@ describe("the control the host renders", () => {
 describe("setControls", () => {
 	it("replaces the whole list", () => {
 		register(section(), writer);
-		setControls({ name: "Icon", controls: [bound, { name: "fill", control: "color", bind: { style: "fill" } }] }, writer);
+		setControls(
+			{ name: "Icon", controls: [bound, { name: "fill", control: "color", bind: { style: "fill" } }] },
+			writer,
+		);
 		expect(propertiesOf("acme/icons:Icon")).toHaveLength(2);
 	});
 
@@ -260,7 +266,7 @@ describe("setControls", () => {
 	it("checks the capability again, because it is a second door", () => {
 		const controls = [{ name: "tier", control: "text", value: "free", action: "icons.setTier" }];
 		register(section({ controls }), reader);
-		expect(() => setControls({ name: "Icon", controls: [bound] }, reader)).toThrow(/block.update/);
+		expect(() => setControls({ name: "Icon", controls: [bound] }, reader)).toThrow(/page.edit/);
 	});
 
 	it("refuses a section nobody registered", () => {

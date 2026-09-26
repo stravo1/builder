@@ -2,21 +2,46 @@
 
 export const PROTOCOL_VERSION = 1;
 
-/** @type {readonly ("context.read" | "block.read" | "block.update" | "block.insert" | "page.read" | "page.write" | "token.write" | "ui.dialog" | "ui.popover" | "data.access" | "schema.write" | "method.call")[]} */
+/**
+ * Every permission an extension may ask for. Reads and windows need none.
+ *
+ * @type {readonly ("page.edit" | "page.write" | "token.write" | "data.access" | "schema.write" | "method.call")[]}
+ */
 export const CAPABILITIES = [
-	"context.read",
-	"block.read",
-	"block.update",
-	"block.insert",
-	"page.read",
+	"page.edit",
 	"page.write",
 	"token.write",
-	"ui.dialog",
-	"ui.popover",
 	"data.access",
 	"schema.write",
 	"method.call",
 ];
+
+/**
+ * Keys a published manifest may still carry. The two block keys became one, and
+ * a read or a window no longer needs a permission, so those map to nothing.
+ *
+ * @type {Readonly<Record<string, string | null>>}
+ */
+export const LEGACY_CAPABILITIES = {
+	"block.update": "page.edit",
+	"block.insert": "page.edit",
+	"context.read": null,
+	"block.read": null,
+	"page.read": null,
+	"ui.dialog": null,
+	"ui.popover": null,
+};
+
+/**
+ * Today's keys, in the order asked, with a legacy key mapped or dropped.
+ *
+ * @param {readonly string[]} keys
+ * @returns {typeof CAPABILITIES[number][]}
+ */
+export const readCapabilities = (keys) => {
+	const current = keys.map((key) => (key in LEGACY_CAPABILITIES ? LEGACY_CAPABILITIES[key] : key));
+	return /** @type {typeof CAPABILITIES[number][]} */ ([...new Set(current.filter(Boolean))]);
+};
 
 const MANIFEST_FIELDS = new Set([
 	"v",
@@ -52,7 +77,9 @@ const requireText = (manifest, field, maximum, source) => {
 const validateCapabilities = (value, source) => {
 	if (!Array.isArray(value)) fail(source, 'field "capabilities" must be a list');
 	if (new Set(value).size !== value.length) fail(source, 'field "capabilities" must not contain duplicates');
-	const unknown = value.find((capability) => !CAPABILITIES.includes(capability));
+	const unknown = value.find(
+		(capability) => !CAPABILITIES.includes(capability) && !(capability in LEGACY_CAPABILITIES),
+	);
 	if (unknown !== undefined) fail(source, `requests unknown capability "${String(unknown)}"`);
 };
 

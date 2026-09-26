@@ -41,7 +41,7 @@ vi.mock("../../host/bridge", () => ({
 import type { Capability, InstalledExtension } from "frappe-builder-extension-sdk/types";
 import { contextMethods } from "../contextMethods";
 
-const record = (name = "acme/icons", capabilities: Capability[] = ["context.read"]): InstalledExtension => ({
+const record = (name = "acme/icons", capabilities: Capability[] = []): InstalledExtension => ({
 	name,
 	label: "Icons",
 	entry: "/builder_extension_asset/acme-icons@1.0.0/main.js",
@@ -94,9 +94,9 @@ beforeEach(() => {
 });
 
 describe("the capability", () => {
-	it("gates both methods behind context.read", () => {
-		expect(contextMethods["context.get"].needs).toBe("context.read");
-		expect(contextMethods["context.subscribe"].needs).toBe("context.read");
+	it("lets any extension read the editor context", () => {
+		expect(contextMethods["context.get"].needs).toBeNull();
+		expect(contextMethods["context.subscribe"].needs).toBeNull();
 	});
 });
 

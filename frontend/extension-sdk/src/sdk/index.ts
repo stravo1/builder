@@ -14,7 +14,6 @@ import {
 	contextMenu,
 	data,
 	leftPanel,
-	methods,
 	open,
 	page,
 	properties,
@@ -99,18 +98,12 @@ const builder = {
 	tokens,
 
 	/**
-	 * Site data. Ask the user for a doctype first: nothing here is granted at install.
-	 *
-	 * frappe-ui works as it does in any Frappe app: `call`, the resources, `useList`
-	 * and `useDoc` all reach the site through the same grants. Resources need
-	 * `setConfig("resourceFetcher", frappeRequest)`, as in any Frappe app. A request
-	 * errors with `exc_type` `ExtensionGrantRequired` until the user allows the
-	 * access it needs.
+	 * Site records, under the `data.access` capability. frappe-ui works as it
+	 * does in any Frappe app: `call`, the resources, `useList` and `useDoc` reach
+	 * the same records, and server methods run under `method.call`. Resources need
+	 * `setConfig("resourceFetcher", frappeRequest)`, as in any Frappe app.
 	 */
 	data,
-
-	/** Server methods this extension runs. Ask the user for each one, or for its app, first. */
-	methods,
 
 	/** Doctypes this extension creates. The user is asked before a table is made or dropped. */
 	schema,

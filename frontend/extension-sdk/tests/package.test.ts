@@ -17,7 +17,7 @@ const manifest = (values: Record<string, unknown> = {}) => ({
 	description: "Add and manage icons.",
 	version: "1.2.0",
 	entry: "main.js",
-	capabilities: ["context.read"],
+	capabilities: ["page.edit"],
 	...values,
 });
 

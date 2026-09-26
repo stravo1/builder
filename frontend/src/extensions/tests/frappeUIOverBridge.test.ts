@@ -56,12 +56,12 @@ describe("call()", () => {
 	});
 
 	it("rejects with an exc_type an onError can branch on", async () => {
-		thrown = new ChannelCallError({ message: "Ask first.", code: "grant_required" });
+		thrown = new ChannelCallError({ message: "Not allowed.", code: "capability_required" });
 
 		const error = await call("frappe.client.get_list", {}).catch((caught: unknown) => caught);
 
-		expect(error).toMatchObject({ exc_type: "ExtensionGrantRequired", status: 403 });
-		expect((error as { messages: string[] }).messages).toContain("Ask first.");
+		expect(error).toMatchObject({ exc_type: "PermissionError", status: 403 });
+		expect((error as { messages: string[] }).messages).toContain("Not allowed.");
 	});
 });
 

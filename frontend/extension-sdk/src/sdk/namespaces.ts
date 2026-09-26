@@ -387,19 +387,6 @@ export const tokens = {
 	unset: (key: string) => call("tokens.unset", { key }),
 };
 
-/** The user's answer about one access to one doctype. */
-export type AccessAnswer = "allowed" | "denied" | "not asked";
-
-/** What one extension may do to one doctype, as the host answers it. */
-export type Grant = {
-	doctype: string;
-	read: AccessAnswer;
-	write: AccessAnswer;
-	delete: AccessAnswer;
-};
-
-export type Access = "read" | "write" | "delete";
-
 /** One document, as Frappe holds it. Its fields are the doctype's own. */
 export type Doc = Record<string, unknown>;
 
@@ -420,54 +407,36 @@ export type ListOptions = {
 	pageLength?: number;
 };
 
+/**
+ * Site records. Every method needs the `data.access` capability, which the site
+ * allows at install, and runs as the current user: an extension reads and
+ * changes what that user can, and no more.
+ *
+ * frappe-ui reaches the same records with no extra step. These methods are for
+ * an extension that does not bundle frappe-ui.
+ */
 export const data = {
-	/**
-	 * Asks the user for access to one doctype, in a Builder dialog.
-	 *
-	 * The one method here that can open a dialog. Call it when the user is
-	 * expecting it — behind a button they pressed — because it is modal.
-	 *
-	 * It asks only about each access that is "not asked". An access the user
-	 * allowed or denied is not asked about again, so when every access named is
-	 * answered, it returns without a dialog. Compare an answer to "allowed"
-	 * before you use that access: "denied" is a truthy string.
-	 */
-	requestAccess: (doctype: string, access: Access[]) =>
-		call("data.requestAccess", { doctype, access }) as Promise<Grant>,
-
-	/** What this extension may already do, without asking for anything. */
-	getAccess: (doctype: string) => call("data.getAccess", { doctype }) as Promise<Grant>,
-
-	/**
-	 * One page of documents. Needs a `read` grant on the doctype.
-	 *
-	 * Every call below refuses with the code `grant_required` when the access it
-	 * needs is not allowed. That is the one refusal worth catching. Call
-	 * `requestAccess`, then read the answer: an access the user denied returns
-	 * "denied" without a dialog, so tell the user why nothing happened. Any other
-	 * refusal is the site saying no, and asking again will not change it.
-	 */
+	/** One page of documents. */
 	getList: (doctype: string, options: ListOptions = {}) =>
 		call("data.getList", { doctype, ...options }) as Promise<Doc[]>,
 
-	/** How many documents match, without fetching them. Needs `read`. */
+	/** How many documents match, without fetching them. */
 	getCount: (doctype: string, filters?: ListOptions["filters"]) =>
 		call("data.getCount", { doctype, filters }) as Promise<number>,
 
-	/** The doctype's fields and settings, as `/api/v2/doctype/<doctype>/meta` answers. Needs `read`. */
+	/** The doctype's fields and settings, as `/api/v2/doctype/<doctype>/meta` answers. */
 	getMeta: (doctype: string) => call("data.getMeta", { doctype }) as Promise<Doc>,
 
-	/** One whole document, child tables included. Needs `read`. */
+	/** One whole document, child tables included. */
 	getDoc: (doctype: string, name: string) => call("data.getDoc", { doctype, name }) as Promise<Doc>,
 
-	/** A new document. Needs `write`. Answers with the inserted document. */
+	/** A new document. Answers with the inserted document. */
 	insert: (doctype: string, doc: Doc) => call("data.insert", { doctype, doc }) as Promise<Doc>,
 
-	/** A patch, not a replacement. Needs `write`. Answers with the saved document. */
+	/** A patch, not a replacement. Answers with the saved document. */
 	update: (doctype: string, name: string, doc: Doc) =>
 		call("data.update", { doctype, name, doc }) as Promise<Doc>,
 
-	/** Needs its own `delete` grant: losing a record is not changing one. */
 	delete: (doctype: string, name: string) => call("data.delete", { doctype, name }),
 };
 
@@ -496,46 +465,13 @@ export type Doctype = {
 /** How a new document is named. Fixed at creation: changing it later renames nothing. */
 export type Naming = "hash" | "autoincrement" | "prompt";
 
-/** What the user answered about one server method, and what the prompt showed them. */
-export type MethodGrant = {
-	method: string;
-	app: string;
-	/** What the app calls itself, from its hooks. */
-	app_title: string;
-	description: string;
-	answer: AccessAnswer;
-};
-
-export const methods = {
-	/**
-	 * Asks the user to let this extension run one server method, in a Builder dialog.
-	 *
-	 * Name a module method by its dotted path, `myapp.api.export`, and a doctype's
-	 * method as `<DocType>.<method>`, `Form.get_summary`. The user may allow this
-	 * method only, or every method of the app that owns it. The dialog is modal,
-	 * so call this behind a button. It returns without a dialog when the method,
-	 * or its app, is already answered. Methods of frappe and builder are always
-	 * refused.
-	 *
-	 * Then call the method through frappe-ui or `fetch`, as in any Frappe app.
-	 */
-	requestAccess: (method: string) => call("methods.requestAccess", { method }) as Promise<MethodGrant>,
-
-	/** What the user already answered for this method, without asking. */
-	getAccess: (method: string) => call("methods.getAccess", { method }) as Promise<MethodGrant>,
-};
-
 export const schema = {
 	/**
 	 * A new custom doctype, owned by this extension.
 	 *
-	 * The user is asked first, by name, and the call is refused with the code
-	 * `refused` if they say no. It needs the `schema.write` capability, and it
-	 * needs the **user** to be a System Manager: Frappe wants create permission
-	 * on `DocType` and nothing here lifts that.
-	 *
-	 * The extension is given a full grant on what it made, so `data.*` works on
-	 * it with no second question.
+	 * It needs the `schema.write` capability, and it needs the **user** to be a
+	 * System Manager: Frappe wants create permission on `DocType` and nothing
+	 * here lifts that.
 	 */
 	createDoctype: (
 		doctype: string,
@@ -543,7 +479,7 @@ export const schema = {
 		options: { naming?: Naming; istable?: boolean } = {},
 	) => call("schema.createDoctype", { doctype, fields, ...options }) as Promise<Doctype>,
 
-	/** The field list of a doctype this extension may read. */
+	/** The field list of any doctype the user may read. */
 	getDoctype: (doctype: string) => call("schema.getDoctype", { doctype }) as Promise<Doctype>,
 
 	/**
@@ -556,7 +492,11 @@ export const schema = {
 	updateDoctype: (doctype: string, fields: SchemaField[]) =>
 		call("schema.updateDoctype", { doctype, fields }) as Promise<Doctype>,
 
-	/** Drops a doctype this extension made, and its table. The user is asked first. */
+	/**
+	 * Drops a doctype this extension made, and its table. The user is asked first,
+	 * because it deletes every record, and the call is refused with `refused` if
+	 * they say no.
+	 */
 	deleteDoctype: (doctype: string) => call("schema.deleteDoctype", { doctype }),
 
 	/** Every doctype this extension made, and whether each still exists. */

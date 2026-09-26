@@ -15,8 +15,6 @@ const call = vi.fn();
 let lastResourceConfig:
 	{ params?: Record<string, unknown>; transform?: (data: unknown) => unknown } | undefined;
 const documentResources = new Map<string, { doc: unknown; reload: ReturnType<typeof vi.fn> }>();
-const doctypeGrantsResources = new Map<string, { data: unknown; reload: ReturnType<typeof vi.fn> }>();
-const methodGrantsResources = new Map<string, { data: unknown; reload: ReturnType<typeof vi.fn> }>();
 let catalog: { data: { extensions: unknown[] } } | null = null;
 
 vi.mock("frappe-ui", () => ({
@@ -32,18 +30,6 @@ vi.mock("frappe-ui", () => ({
 	},
 	getCachedDocumentResource: (_doctype: string, name: string) => documentResources.get(name) ?? null,
 	getCachedResource: () => catalog,
-	createListResource: (config: { doctype: string; filters?: [string, string, string][] }) => {
-		const installationId = config.filters?.[0]?.[2] as string;
-		const grantsResource = reactive({
-			data: [] as unknown[],
-			reload: vi.fn().mockResolvedValue(null),
-		});
-		const resources =
-			config.doctype === "Builder Extension Method Grant" ? methodGrantsResources : doctypeGrantsResources;
-		resources.set(installationId, grantsResource);
-		return grantsResource;
-	},
-	onDocUpdate: vi.fn(),
 	frappeRequest: vi.fn(),
 	setConfig: vi.fn(),
 }));
@@ -99,15 +85,10 @@ const detailsDocument = (name: string, overrides: Partial<Record<string, unknown
 	extension: name,
 	readme: undefined,
 	installed_on: "2026-09-03 10:00:00",
-	requested_capabilities: JSON.stringify(["block.update", "data.access", "schema.write"]),
-	granted_capabilities: JSON.stringify(["block.update", "data.access", "schema.write"]),
+	requested_capabilities: JSON.stringify(["page.edit", "data.access", "schema.write"]),
+	granted_capabilities: JSON.stringify(["page.edit", "data.access", "schema.write"]),
 	...overrides,
 });
-
-const seedInstallationDoctypeGrants = (installationId: string, doctypeGrants: unknown[]) => {
-	const resource = doctypeGrantsResources.get(installationId);
-	if (resource) resource.data = doctypeGrants;
-};
 
 let modules: Awaited<ReturnType<typeof loadModule>>;
 
@@ -259,16 +240,8 @@ describe("useInstallationDetails", () => {
 		resource.data = null;
 		call.mockReset();
 		documentResources.clear();
-		doctypeGrantsResources.clear();
-		methodGrantsResources.clear();
 		modules = await loadModule();
 	});
-
-	const doctypeGrants = [
-		{ document_type: "ToDo", read_access: "allowed", write_access: "not asked", delete_access: "not asked" },
-	];
-
-	const methodGrants = [{ name: "grant-1", scope: "app", target: "acme", answer: "allowed" }];
 
 	const running = () =>
 		Object.assign(development("acme/icons"), {
@@ -277,10 +250,10 @@ describe("useInstallationDetails", () => {
 			version: "1.2.0",
 			serverOrigin: "http://localhost:5173",
 			readme: "# Icons\n\nDevelopment documentation.",
-			capabilities: ["block.update"],
+			capabilities: ["page.edit"],
 		});
 
-	/** Reload creates the document and doctype-grants resources; fill them in once they exist. */
+	/** Reload creates the document resource; fill it in once it exists. */
 	const openDetails = async (
 		name: string,
 		documentOverrides: Partial<Record<string, unknown>> = {},
@@ -291,18 +264,15 @@ describe("useInstallationDetails", () => {
 		await installation.reload();
 
 		documentResources.get(`${name}-id`)!.doc = detailsDocument(name, documentOverrides);
-		seedInstallationDoctypeGrants(`${name}-id`, doctypeGrants);
-		methodGrantsResources.get(`${name}-id`)!.data = methodGrants;
 		return installation.details.value!;
 	};
 
-	it("requests the document and the doctype grants for this installation", async () => {
+	it("requests the document for this installation", async () => {
 		resource.data = [installationRow("acme/icons")];
 
 		await modules.data.useInstallationDetails("acme/icons").reload();
 
 		expect(documentResources.has("acme/icons-id")).toBe(true);
-		expect(doctypeGrantsResources.has("acme/icons-id")).toBe(true);
 	});
 
 	it("lets the dev server answer for what it shows a user", async () => {
@@ -339,26 +309,19 @@ describe("useInstallationDetails", () => {
 		modules.dev.devExtension.value = running();
 
 		const details = await openDetails("acme/icons", {
-			granted_capabilities: JSON.stringify(["block.update"]),
+			granted_capabilities: JSON.stringify(["page.edit"]),
 		});
 
-		expect(details.requested_capabilities).toEqual(["block.update", "data.access", "schema.write"]);
-		expect(details.granted_capabilities).toEqual(["block.update"]);
+		expect(details.requested_capabilities).toEqual(["page.edit", "data.access", "schema.write"]);
+		expect(details.granted_capabilities).toEqual(["page.edit"]);
 	});
 
-	it("keeps the doctype grants and the install date, which only the record holds", async () => {
+	it("keeps the install date, which only the record holds", async () => {
 		modules.dev.devExtension.value = running();
 
 		const details = await openDetails("acme/icons");
 
-		expect(details.doctype_grants).toEqual(doctypeGrants);
 		expect(details.installed_on).toBe("2026-09-03 10:00:00");
-	});
-
-	it("lists the method grants beside the doctype grants", async () => {
-		const details = await openDetails("acme/icons");
-
-		expect(details.method_grants).toEqual(methodGrants);
 	});
 
 	it("answers with the record untouched for an installed extension", async () => {
@@ -367,9 +330,8 @@ describe("useInstallationDetails", () => {
 		expect(details).toMatchObject({
 			name: "acme/icons",
 			label: "acme/icons",
-			requested_capabilities: ["block.update", "data.access", "schema.write"],
-			granted_capabilities: ["block.update", "data.access", "schema.write"],
-			doctype_grants: doctypeGrants,
+			requested_capabilities: ["page.edit", "data.access", "schema.write"],
+			granted_capabilities: ["page.edit", "data.access", "schema.write"],
 			installed_on: "2026-09-03 10:00:00",
 		});
 	});
