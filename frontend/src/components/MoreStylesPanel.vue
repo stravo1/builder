@@ -64,10 +64,11 @@ import {
 	type StyleControlConfig,
 } from "@/utils/cssMetadata";
 import {
-	getStylePropertiesWithControls,
+	getOverriddenProperties,
 	getStylePropertiesWithoutControls,
 	isStylePropertyWithControls,
 } from "@/utils/stylePropertiesWithControls";
+import { toOverriddenStyle } from "@/utils/overriddenStyles";
 import {
 	isInteractiveControl,
 	normalizeCSSPropertyName,
@@ -102,11 +103,25 @@ const cascadingStyles = computed(() => {
 	return block.getStyles(canvasStore.activeCanvas?.activeBreakpoint || "desktop");
 });
 
+// overrides are read from the block's own maps, since getStyles has already applied them
+const overriddenProperties = computed(() => {
+	const block = selectedBlock.value;
+	if (!block) return new Set<string>();
+	return getOverriddenProperties({ ...block.baseStyles, ...block.tabletStyles, ...block.mobileStyles });
+});
+
 const activeProperties = computed(() => {
 	const properties = getStylePropertiesWithoutControls(cascadingStyles.value);
+	overriddenProperties.value.forEach((property) => properties.add(property));
 	addedProperties.forEach((property) => properties.add(property));
 	return properties;
 });
+
+// an override has its own key, so the built-in control keeps its value
+const getRowStyleProperty = (property: string) => {
+	const styleProperty = String(toStyleProperty(property));
+	return isStylePropertyWithControls(property) ? toOverriddenStyle(styleProperty) : styleProperty;
+};
 
 // keyword suggestions are only meaningful on the fallback Autocomplete control
 const getControlAttrs = (property: string, { component, controlAttrs }: StyleControlConfig) => {
@@ -123,10 +138,13 @@ const propertyRows = computed(() =>
 	Array.from(activeProperties.value)
 		.sort()
 		.map((property) => {
-			const { controlAttrs, options, component, ...controlProps } = getCSSPropertyControl(property);
+			// an override skips the inferred control, which validates values the way the built-in one does
+			const { controlAttrs, options, component, ...controlProps } = isStylePropertyWithControls(property)
+				? ({} as StyleControlConfig)
+				: getCSSPropertyControl(property);
 			return {
 				property,
-				styleProperty: String(toStyleProperty(property)),
+				styleProperty: getRowStyleProperty(property),
 				label: toTitleCase(property),
 				controlProps: {
 					...controlProps,
@@ -140,17 +158,13 @@ const propertyRows = computed(() =>
 
 const canAddProperty = (property: string | null | undefined) => {
 	const normalizedProperty = normalizeCSSPropertyName(property);
-	return (
-		isValidCSSPropertyName(normalizedProperty) &&
-		!isStylePropertyWithControls(normalizedProperty) &&
-		!activeProperties.value.has(normalizedProperty)
-	);
+	return isValidCSSPropertyName(normalizedProperty) && !activeProperties.value.has(normalizedProperty);
 };
 
 const normalizedPropertySearch = computed(() => normalizeCSSPropertyName(propertySearch.value));
 
 const searchablePropertyOptions = computed(() =>
-	getCSSPropertyOptions(propertySearch.value, getStylePropertiesWithControls())
+	getCSSPropertyOptions(propertySearch.value)
 		.filter((option) => !activeProperties.value.has(option.value))
 		.map((option) => ({
 			...option,
@@ -174,7 +188,7 @@ const propertyOptions = computed(() => [
 
 const focusProperty = async (property: string) => {
 	await nextTick();
-	const selector = `[data-property="${String(toStyleProperty(property))}"]`;
+	const selector = `[data-property="${getRowStyleProperty(property)}"]`;
 	const row = document.querySelector(selector) as HTMLElement | null;
 	row?.scrollIntoView({ block: "nearest" });
 	row?.querySelector("input")?.focus();
@@ -196,8 +210,9 @@ const addProperty = (property: ComboboxOptionValue | null | undefined) => {
 
 const removeProperty = (property: string) => {
 	addedProperties.delete(property);
-	blockController.setStyle(toStyleProperty(property), null);
-	STATES.forEach((state) => blockController.setStyle(toStyleProperty(`${state}:${property}`), null));
+	const styleProperty = getRowStyleProperty(property);
+	blockController.setStyle(styleProperty as styleProperty, null);
+	STATES.forEach((state) => blockController.setStyle(`${state}:${styleProperty}` as styleProperty, null));
 	resetPropertyPicker();
 };
 

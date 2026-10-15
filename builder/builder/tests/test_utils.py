@@ -7,6 +7,7 @@ from frappe.tests.utils import FrappeTestCase
 from builder.utils import (
 	Block,
 	ColonRule,
+	apply_overridden_styles,
 	camel_case_to_kebab_case,
 	clean_data,
 	copy_asset_file,
@@ -239,6 +240,20 @@ class TestBuilderUtils(FrappeTestCase):
 
 		self.assertEqual(result["regular"], {"color": "red", "margin": "10px"})
 		self.assertEqual(result["state"], {"hover:color": "blue", "focus:border": "1px solid black"})
+
+	def test_apply_overridden_styles(self):
+		self.assertEqual(apply_overridden_styles(None), {})
+
+		styles = {
+			"display": "flex",
+			"display:overridden": "block",
+			"hover:color:overridden": "red",
+			"width:overridden": "",
+			"width": "10px",
+		}
+		self.assertEqual(
+			apply_overridden_styles(styles), {"display": "block", "hover:color": "red", "width": "10px"}
+		)
 
 	def test_normalize_legacy_raw_styles_merges_into_base_styles(self):
 		blocks = [

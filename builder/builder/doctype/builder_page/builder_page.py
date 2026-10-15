@@ -41,6 +41,7 @@ from builder.html_preview_image import generate_preview
 from builder.template_sync import delete_template_page_fixture, export_template_group
 from builder.utils import (
 	ColonRule,
+	apply_overridden_styles,
 	camel_case_to_kebab_case,
 	clean_data,
 	compact_json,
@@ -1150,9 +1151,10 @@ def generate_and_apply_styles(block: dict, state: dict, ancestor_font: str | Non
 	font_map = state["font_map"]
 
 	styles = {
-		"base": split_styles(block.get("baseStyles", {})),
-		"mobile": split_styles(block.get("mobileStyles", {})),
-		"tablet": split_styles(block.get("tabletStyles", {})),
+		# overrides apply per breakpoint, so a tablet value still beats a desktop override
+		"base": split_styles(apply_overridden_styles(block.get("baseStyles", {}))),
+		"mobile": split_styles(apply_overridden_styles(block.get("mobileStyles", {}))),
+		"tablet": split_styles(apply_overridden_styles(block.get("tabletStyles", {}))),
 	}
 
 	style_list = [

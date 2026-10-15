@@ -2222,6 +2222,26 @@ component.update({
 		self.assertIn("@media only screen and (max-width: 576px)", css)
 		self.assertIn("text-overflow: ellipsis", css)
 
+	def test_renders_overridden_styles_per_breakpoint(self):
+		from builder.builder.doctype.builder_page.builder_page import get_block_html
+
+		blocks = [
+			{
+				"blockId": "overridden",
+				"element": "div",
+				"baseStyles": {"display": "flex", "display:overridden": "block", "hover:color:overridden": "red"},
+				"tabletStyles": {"display": "grid"},
+			}
+		]
+
+		_, css, _, _ = get_block_html(blocks)
+
+		self.assertIn("display: block;", css)
+		self.assertNotIn("display: flex", css)
+		self.assertIn(":hover { color: red; }", css)
+		self.assertIn("display: grid", css)
+		self.assertNotIn("overridden", css)
+
 	def test_conflicting_routes_picks_last_published(self):
 		"""Pages sharing a route should resolve to the most recently published one."""
 		from frappe.utils import add_to_date, now_datetime

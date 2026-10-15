@@ -648,6 +648,20 @@ def add_composite_index_to_web_page_view():
 	frappe.db.add_index("Web Page View", ["creation", "is_unique", "path"])
 
 
+OVERRIDDEN_SUFFIX = ":overridden"
+
+
+def apply_overridden_styles(styles):
+	# More Styles saves its value for a property with a built-in control under "<style>:overridden"
+	if not styles:
+		return {}
+	resolved = {key: value for key, value in styles.items() if not key.endswith(OVERRIDDEN_SUFFIX)}
+	for key, value in styles.items():
+		if key.endswith(OVERRIDDEN_SUFFIX) and value not in (None, ""):
+			resolved[key.removesuffix(OVERRIDDEN_SUFFIX)] = value
+	return resolved
+
+
 def split_styles(styles):
 	if not styles:
 		return {"regular": {}, "state": {}}

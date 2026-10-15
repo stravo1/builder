@@ -131,17 +131,16 @@ const getFuzzySearchScore = (query: string, property: string) => {
 	return score + compactProperty.length - compactQuery.length;
 };
 
-const getCSSPropertyOptions = (query: string, excludedProperties = new Set<string>()) => {
+const getCSSPropertyOptions = (query: string) => {
 	const normalizedQuery = query.trim().toLowerCase();
-	const availableProperties = baselineCSSProperties.filter((property) => !excludedProperties.has(property));
 
 	if (!normalizedQuery) {
-		return availableProperties
+		return baselineCSSProperties
 			.slice(0, MAX_SEARCH_RESULTS)
 			.map((property) => ({ label: property, value: property }));
 	}
 
-	return availableProperties
+	return baselineCSSProperties
 		.map((property) => ({ property, score: getFuzzySearchScore(normalizedQuery, property) }))
 		.filter((result): result is { property: string; score: number } => result.score !== null)
 		.sort((a, b) => a.score - b.score || a.property.localeCompare(b.property))

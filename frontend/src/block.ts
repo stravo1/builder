@@ -7,6 +7,7 @@ import {
 	syncBlockWithComponent,
 } from "@/utils/block/componentInstance";
 import { findBlockInTree, resetBlock } from "@/utils/block/tree";
+import { applyOverriddenStyles } from "@/utils/overriddenStyles";
 import type { SpacingType } from "@/utils/cssUtils";
 import {
 	addPxToNumber,
@@ -265,11 +266,12 @@ class Block implements BlockOptions {
 		if (this.isExtendedFromComponent()) {
 			styleObj = this.getComponentStyles(breakpoint);
 		}
-		styleObj = { ...styleObj, ...this.baseStyles };
+		// overrides apply per breakpoint, so a tablet value still beats a desktop override
+		styleObj = { ...styleObj, ...applyOverriddenStyles(this.baseStyles) };
 		if (["mobile", "tablet"].includes(breakpoint)) {
-			styleObj = { ...styleObj, ...this.tabletStyles };
+			styleObj = { ...styleObj, ...applyOverriddenStyles(this.tabletStyles) };
 			if (breakpoint === "mobile") {
-				styleObj = { ...styleObj, ...this.mobileStyles };
+				styleObj = { ...styleObj, ...applyOverriddenStyles(this.mobileStyles) };
 			}
 		}
 		// replace variables with values
