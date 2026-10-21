@@ -43,6 +43,7 @@ const props = withDefaults(
 		getVariantValue?: (variantName: string) => string | number | boolean;
 		setVariantValue?: (variantName: string, value: string | number | boolean | null) => void;
 		getControlAttrs?: (variant: string | null) => Record<string, unknown>;
+		isCustomStyle?: boolean;
 	}>(),
 	{
 		enableStates: true,
@@ -56,6 +57,14 @@ const stateLabels: Record<string, string> = {
 	active: __("On Active"),
 	focus: __("On Focus"),
 };
+
+// More Styles edits a property with a built-in control as a custom style, so the built-in value stays
+const getNativeStyle = (style: string) =>
+	(props.isCustomStyle
+		? blockController.getNativeCustomStyle(style)
+		: blockController.getNativeStyle(style)) ?? "";
+const setStyle = (style: string, value: StyleValue) =>
+	props.isCustomStyle ? blockController.setCustomStyle(style, value) : blockController.setStyle(style, value);
 
 const stateVariants = computed(() =>
 	props.enabledStates.map((state) => ({
@@ -75,7 +84,7 @@ const getVariantValue = (variantName: string): string | number | boolean => {
 		return props.getVariantValue(variantName);
 	}
 	if (stateVariants.value.find((v) => v.name === variantName)) {
-		return blockController.getNativeStyle(`${variantName}:${props.propertyKey}`) ?? "";
+		return getNativeStyle(`${variantName}:${props.propertyKey}`);
 	}
 	const property = props.variants?.find((v) => v.name === variantName)?.property;
 	return property ? (blockController.getNativeStyle(property) ?? "") : "";
@@ -96,7 +105,7 @@ const setVariantValue = (variantName: string, value: string | number | boolean |
 				}
 			});
 		}
-		blockController.setStyle(`${variantName}:${props.propertyKey}`, value);
+		setStyle(`${variantName}:${props.propertyKey}`, value);
 		return;
 	}
 	const property = props.variants?.find((v) => v.name === variantName)?.property;
@@ -104,14 +113,13 @@ const setVariantValue = (variantName: string, value: string | number | boolean |
 };
 
 const baseProps = computed(() => {
-	const { enableStates, enabledStates, variants, ...rest } = props;
+	const { enableStates, enabledStates, variants, isCustomStyle, ...rest } = props;
 	return {
 		...rest,
 		controlType: "style" as const,
-		getModelValue: props.getModelValue || (() => blockController.getNativeStyle(props.propertyKey) ?? ""),
+		getModelValue: props.getModelValue || (() => getNativeStyle(props.propertyKey)),
 		setModelValue:
-			props.setModelValue ||
-			((value: string | number | boolean) => blockController.setStyle(props.propertyKey, value)),
+			props.setModelValue || ((value: string | number | boolean) => setStyle(props.propertyKey, value)),
 		getPlaceholder:
 			props.getPlaceholder || (() => blockController.getCascadingStyle(props.propertyKey) ?? "unset"),
 	};

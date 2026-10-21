@@ -119,6 +119,16 @@ def sync_standard_builder_pages(app_name=None):
 			make_records(pages_path)
 
 
+STYLE_KEYS = (
+	"baseStyles",
+	"mobileStyles",
+	"tabletStyles",
+	"baseCustomStyles",
+	"mobileCustomStyles",
+	"tabletCustomStyles",
+)
+
+
 def extract_fonts_from_blocks(blocks):
 	"""Extract font family names from blocks recursively"""
 	fonts = set()
@@ -130,7 +140,7 @@ def extract_fonts_from_blocks(blocks):
 		if not isinstance(block, dict):
 			continue
 
-		for style_key in ["baseStyles", "mobileStyles", "tabletStyles"]:
+		for style_key in STYLE_KEYS:
 			styles = block.get(style_key, {})
 			if styles and isinstance(styles, dict):
 				font = styles.get("fontFamily")
@@ -176,7 +186,7 @@ def extract_variables_from_blocks(blocks):
 		if not isinstance(block, dict):
 			continue
 
-		for style_key in ["baseStyles", "mobileStyles", "tabletStyles"]:
+		for style_key in STYLE_KEYS:
 			styles = block.get(style_key, {})
 			if styles and isinstance(styles, dict):
 				for _prop, value in styles.items():

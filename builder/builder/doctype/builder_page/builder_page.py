@@ -41,7 +41,6 @@ from builder.html_preview_image import generate_preview
 from builder.template_sync import delete_template_page_fixture, export_template_group
 from builder.utils import (
 	ColonRule,
-	apply_overridden_styles,
 	camel_case_to_kebab_case,
 	clean_data,
 	compact_json,
@@ -58,6 +57,7 @@ from builder.utils import (
 )
 
 MOBILE_BREAKPOINT = 576
+BREAKPOINT_STYLE_PREFIXES = ("base", "mobile", "tablet")
 TABLET_BREAKPOINT = 768
 DESKTOP_BREAKPOINT = 1024
 
@@ -905,11 +905,7 @@ def build_tag(
 
 	set_dynamic_content_placeholders(block, data_key)
 
-	all_styles = [
-		block.get("baseStyles") or {},
-		block.get("mobileStyles") or {},
-		block.get("tabletStyles") or {},
-	]
+	all_styles = [get_breakpoint_styles(block, breakpoint) for breakpoint in BREAKPOINT_STYLE_PREFIXES]
 	resolved_font = (
 		next(
 			(s.get("fontFamily", "").strip("'\"") for s in all_styles if s.get("fontFamily")),
@@ -1137,11 +1133,17 @@ def build_tag_classes(block: dict, state: dict, ancestor_font: str | None = None
 	if element in text_elements:
 		classes.insert(0, "__text_block__")
 
-	if block.get("baseStyles") or block.get("tabletStyles") or block.get("mobileStyles"):
+	if any(get_breakpoint_styles(block, breakpoint) for breakpoint in BREAKPOINT_STYLE_PREFIXES):
 		style_class = generate_and_apply_styles(block, state, ancestor_font=ancestor_font)
 		classes.insert(0, style_class)
 
 	return classes
+
+
+def get_breakpoint_styles(block: dict, breakpoint: str) -> dict:
+	# custom styles come from More Styles and win over the built-in values at the same breakpoint,
+	# so a tablet value still beats a desktop custom style
+	return {**(block.get(f"{breakpoint}Styles") or {}), **(block.get(f"{breakpoint}CustomStyles") or {})}
 
 
 def generate_and_apply_styles(block: dict, state: dict, ancestor_font: str | None = None) -> str:
@@ -1151,10 +1153,9 @@ def generate_and_apply_styles(block: dict, state: dict, ancestor_font: str | Non
 	font_map = state["font_map"]
 
 	styles = {
-		# overrides apply per breakpoint, so a tablet value still beats a desktop override
-		"base": split_styles(apply_overridden_styles(block.get("baseStyles", {}))),
-		"mobile": split_styles(apply_overridden_styles(block.get("mobileStyles", {}))),
-		"tablet": split_styles(apply_overridden_styles(block.get("tabletStyles", {}))),
+		"base": split_styles(get_breakpoint_styles(block, "base")),
+		"mobile": split_styles(get_breakpoint_styles(block, "mobile")),
+		"tablet": split_styles(get_breakpoint_styles(block, "tablet")),
 	}
 
 	style_list = [
@@ -1776,6 +1777,9 @@ def extend_block(block, overridden_block):
 	block.setdefault("baseStyles", {}).update(overridden_block.get("baseStyles") or {})
 	block.setdefault("mobileStyles", {}).update(overridden_block.get("mobileStyles") or {})
 	block.setdefault("tabletStyles", {}).update(overridden_block.get("tabletStyles") or {})
+	for breakpoint in BREAKPOINT_STYLE_PREFIXES:
+		custom_styles_key = f"{breakpoint}CustomStyles"
+		block.setdefault(custom_styles_key, {}).update(overridden_block.get(custom_styles_key) or {})
 	block.setdefault("attributes", {}).update(overridden_block.get("attributes") or {})
 
 	dynamicValues = overridden_block.get("dynamicValues") or []
@@ -1909,6 +1913,9 @@ def reset_block(block):
 	block["baseStyles"] = {}
 	block["mobileStyles"] = {}
 	block["tabletStyles"] = {}
+	block["baseCustomStyles"] = {}
+	block["mobileCustomStyles"] = {}
+	block["tabletCustomStyles"] = {}
 	block["attributes"] = {}
 	block["customAttributes"] = {}
 	block["classes"] = []

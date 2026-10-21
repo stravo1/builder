@@ -2222,25 +2222,61 @@ component.update({
 		self.assertIn("@media only screen and (max-width: 576px)", css)
 		self.assertIn("text-overflow: ellipsis", css)
 
-	def test_renders_overridden_styles_per_breakpoint(self):
+	def test_renders_custom_styles_per_breakpoint_and_state(self):
 		from builder.builder.doctype.builder_page.builder_page import get_block_html
 
 		blocks = [
 			{
-				"blockId": "overridden",
+				"blockId": "custom",
 				"element": "div",
-				"baseStyles": {"display": "flex", "display:overridden": "block", "hover:color:overridden": "red"},
+				"baseStyles": {"display": "flex", "hover:color": "blue"},
+				"baseCustomStyles": {"display": "block", "hover:color": "red"},
 				"tabletStyles": {"display": "grid"},
+				"mobileCustomStyles": {"display": "contents"},
 			}
 		]
 
-		_, css, _, _ = get_block_html(blocks)
+		html, css, _, _ = get_block_html(blocks)
 
+		self.assertIn("fb-", html)
 		self.assertIn("display: block;", css)
 		self.assertNotIn("display: flex", css)
 		self.assertIn(":hover { color: red; }", css)
+		self.assertNotIn("color: blue", css)
 		self.assertIn("display: grid", css)
-		self.assertNotIn("overridden", css)
+		self.assertIn("display: contents", css)
+
+	def test_renders_custom_styles_from_component_and_instance(self):
+		from builder.builder.doctype.builder_page.builder_page import get_block_html
+
+		component_root = {"blockId": "comp-root", "element": "div", "baseCustomStyles": {"display": "contents"}}
+		component = frappe.get_doc(
+			{"doctype": "Builder Component", "block": frappe.as_json(component_root)}
+		).insert()
+		blocks = [
+			{
+				"blockId": "instance",
+				"extendedFromComponent": component.name,
+				"tabletCustomStyles": {"width": "clamp(1rem, 5vw, 3rem)"},
+			}
+		]
+
+		try:
+			_, css, _, _ = get_block_html(blocks)
+			self.assertIn("display: contents", css)
+			self.assertIn("width: clamp(1rem, 5vw, 3rem)", css)
+		finally:
+			component.delete()
+
+	def test_renders_block_with_only_custom_styles(self):
+		from builder.builder.doctype.builder_page.builder_page import get_block_html
+
+		blocks = [{"blockId": "custom-only", "element": "div", "tabletCustomStyles": {"width": "clamp(1rem, 5vw, 3rem)"}}]
+
+		html, css, _, _ = get_block_html(blocks)
+
+		self.assertIn("fb-", html)
+		self.assertIn("width: clamp(1rem, 5vw, 3rem)", css)
 
 	def test_conflicting_routes_picks_last_published(self):
 		"""Pages sharing a route should resolve to the most recently published one."""

@@ -136,6 +136,9 @@ class Block:
 	baseStyles: ClassVar[dict] = {}
 	mobileStyles: ClassVar[dict] = {}
 	tabletStyles: ClassVar[dict] = {}
+	baseCustomStyles: ClassVar[dict] = {}
+	mobileCustomStyles: ClassVar[dict] = {}
+	tabletCustomStyles: ClassVar[dict] = {}
 	attributes: ClassVar[dict] = {}
 	classes: ClassVar[list[str]] = []
 	dataKey: BlockDataKey | None = None
@@ -206,6 +209,9 @@ class Block:
 			"baseStyles": self.baseStyles,
 			"mobileStyles": self.mobileStyles,
 			"tabletStyles": self.tabletStyles,
+			"baseCustomStyles": self.baseCustomStyles,
+			"mobileCustomStyles": self.mobileCustomStyles,
+			"tabletCustomStyles": self.tabletCustomStyles,
 			"attributes": self.attributes,
 			"classes": self.classes,
 			"dataKey": self.dataKey,
@@ -646,20 +652,6 @@ def add_composite_index_to_web_page_view():
 	This is used to speed up queries that filter by creation, is_unique, and path.
 	"""
 	frappe.db.add_index("Web Page View", ["creation", "is_unique", "path"])
-
-
-OVERRIDDEN_SUFFIX = ":overridden"
-
-
-def apply_overridden_styles(styles):
-	# More Styles saves its value for a property with a built-in control under "<style>:overridden"
-	if not styles:
-		return {}
-	resolved = {key: value for key, value in styles.items() if not key.endswith(OVERRIDDEN_SUFFIX)}
-	for key, value in styles.items():
-		if key.endswith(OVERRIDDEN_SUFFIX) and value not in (None, ""):
-			resolved[key.removesuffix(OVERRIDDEN_SUFFIX)] = value
-	return resolved
 
 
 def split_styles(styles):

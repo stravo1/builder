@@ -214,14 +214,15 @@ const propertyHandlers = [
 		key: "styles",
 		name: __("Style"),
 		matches: (block: Block, term: string) => {
-			const styles = { ...block.baseStyles, ...block.mobileStyles, ...block.tabletStyles };
-			return Object.values(styles).some((val) => String(val).toLowerCase().includes(term));
+			return getStyleMaps(block).some((styles) =>
+				Object.values(styles).some((val) => String(val).toLowerCase().includes(term)),
+			);
 		},
 		replace: (block: Block, searchTerm: string, replaceTerm: string) => {
 			let replaced = false;
-			replaced = replaceInProperty(block.baseStyles, searchTerm, replaceTerm) || replaced;
-			replaced = replaceInProperty(block.mobileStyles, searchTerm, replaceTerm) || replaced;
-			replaced = replaceInProperty(block.tabletStyles, searchTerm, replaceTerm) || replaced;
+			getStyleMaps(block).forEach((styles) => {
+				replaced = replaceInProperty(styles, searchTerm, replaceTerm) || replaced;
+			});
 			return replaced;
 		},
 	},
@@ -322,6 +323,15 @@ const getMatchDetails = (block: Block) => {
 
 	return details.length > 0 ? __("Found in: {0}", [details.join(", ")]) : "";
 };
+
+const getStyleMaps = (block: Block) => [
+	block.baseStyles,
+	block.mobileStyles,
+	block.tabletStyles,
+	block.baseCustomStyles,
+	block.mobileCustomStyles,
+	block.tabletCustomStyles,
+];
 
 const replaceInProperty = (obj: any, searchTerm: string, replaceTerm: string): boolean => {
 	let hasReplacement = false;

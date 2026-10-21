@@ -1,7 +1,7 @@
+import type Block from "@/block";
 import { propertySections, type PropertySection } from "@/components/BlockPropertySections";
 import { isValidCSSPropertyName } from "@/utils/cssMetadata";
 import { stripStatePrefix, toCSSProperty } from "@/utils/helpers";
-import { isOverriddenStyle, stripOverriddenSuffix } from "@/utils/overriddenStyles";
 
 const getSectionProperties = (section: PropertySection) =>
 	typeof section.properties === "function" ? section.properties() : section.properties;
@@ -23,7 +23,7 @@ const addSectionProperties = (section: PropertySection, properties: Set<string>)
 
 let cachedStyleProperties: Set<string> | null = null;
 
-// properties owned by a dedicated Builder control; More Styles edits them only as overrides
+// properties owned by a dedicated Builder control; More Styles edits them only as custom styles
 const getStylePropertiesWithControls = () => {
 	if (!cachedStyleProperties) {
 		cachedStyleProperties = new Set();
@@ -41,19 +41,18 @@ const isStylePropertyWithControls = (property: string) => getStylePropertiesWith
 const getStylePropertiesWithoutControls = (styleMap: BlockStyleMap) => {
 	const properties = new Set<string>();
 	Object.keys(styleMap).forEach((style) => {
-		if (isOverriddenStyle(style)) return;
 		const property = stripStatePrefix(toCSSProperty(style));
 		if (!isStylePropertyWithControls(property) && isValidCSSPropertyName(property)) properties.add(property);
 	});
 	return properties;
 };
 
-// properties whose built-in control More Styles overrides
-const getOverriddenProperties = (styleMap: BlockStyleMap) =>
+// properties with a custom style at any breakpoint or state
+const getCustomStyleProperties = (block: Block) =>
 	new Set(
-		Object.keys(styleMap)
-			.filter(isOverriddenStyle)
-			.map((style) => stripStatePrefix(toCSSProperty(stripOverriddenSuffix(style)))),
+		Object.keys({ ...block.baseCustomStyles, ...block.tabletCustomStyles, ...block.mobileCustomStyles }).map(
+			(style) => stripStatePrefix(toCSSProperty(style)),
+		),
 	);
 
-export { getOverriddenProperties, getStylePropertiesWithoutControls, isStylePropertyWithControls };
+export { getCustomStyleProperties, getStylePropertiesWithoutControls, isStylePropertyWithControls };

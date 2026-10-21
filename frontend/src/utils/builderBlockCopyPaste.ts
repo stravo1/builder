@@ -407,6 +407,9 @@ function rewriteVariableRefsInBlock(block: BlockOptions, idMap: Map<string, stri
 	rewriteObj(block.baseStyles as Record<string, unknown> | undefined);
 	rewriteObj(block.mobileStyles as Record<string, unknown> | undefined);
 	rewriteObj(block.tabletStyles as Record<string, unknown> | undefined);
+	rewriteObj(block.baseCustomStyles as Record<string, unknown> | undefined);
+	rewriteObj(block.mobileCustomStyles as Record<string, unknown> | undefined);
+	rewriteObj(block.tabletCustomStyles as Record<string, unknown> | undefined);
 	rewriteObj(block.attributes as Record<string, unknown> | undefined);
 	if (block.innerHTML) block.innerHTML = rewrite(block.innerHTML) as string;
 	block.children?.forEach((child) => rewriteVariableRefsInBlock(child, idMap));

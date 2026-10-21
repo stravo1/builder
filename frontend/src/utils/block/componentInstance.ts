@@ -135,6 +135,9 @@ function copyUserOverrides(src: Block, dst: Block, oldComponentChild: Block) {
 	mergeOverrideMap(src.baseStyles, oldComponentChild.baseStyles, dst.baseStyles);
 	mergeOverrideMap(src.mobileStyles, oldComponentChild.mobileStyles, dst.mobileStyles);
 	mergeOverrideMap(src.tabletStyles, oldComponentChild.tabletStyles, dst.tabletStyles);
+	mergeOverrideMap(src.baseCustomStyles, oldComponentChild.baseCustomStyles, dst.baseCustomStyles);
+	mergeOverrideMap(src.mobileCustomStyles, oldComponentChild.mobileCustomStyles, dst.mobileCustomStyles);
+	mergeOverrideMap(src.tabletCustomStyles, oldComponentChild.tabletCustomStyles, dst.tabletCustomStyles);
 	mergeOverrideMap(src.attributes, oldComponentChild.attributes, dst.attributes);
 	mergeOverrideMap(src.customAttributes, oldComponentChild.customAttributes, dst.customAttributes);
 	dst.props = mergeOverrideProps(src.props, oldComponentChild.props, dst.props || {});

@@ -212,6 +212,9 @@ def reset_block_styles(block: Block) -> None:
 	block.baseStyles = dict()
 	block.mobileStyles = dict()
 	block.tabletStyles = dict()
+	block.baseCustomStyles = dict()
+	block.mobileCustomStyles = dict()
+	block.tabletCustomStyles = dict()
 	block.attributes = dict()
 	block.customAttributes = dict()
 	block.classes = []

@@ -115,7 +115,14 @@ function rewrite(block: BlockOptions, map: Record<string, string>) {
 }
 
 function styleMaps(block: BlockOptions): BlockStyleMap[] {
-	return [block.baseStyles, block.tabletStyles, block.mobileStyles].filter(Boolean) as BlockStyleMap[];
+	return [
+		block.baseStyles,
+		block.tabletStyles,
+		block.mobileStyles,
+		block.baseCustomStyles,
+		block.tabletCustomStyles,
+		block.mobileCustomStyles,
+	].filter(Boolean) as BlockStyleMap[];
 }
 
 function backgroundUrls(background: unknown): string[] {

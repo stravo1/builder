@@ -30,6 +30,11 @@ const blockController = {
 			block.setStyle(style, value);
 		});
 	},
+	setCustomStyle: (style: styleProperty, value: StyleValue) => {
+		canvasStore.activeCanvas?.selectedBlocks.forEach((block) => {
+			block.setCustomStyle(style, value);
+		});
+	},
 	setBaseStyle: (style: styleProperty, value: StyleValue) => {
 		canvasStore.activeCanvas?.selectedBlocks.forEach((block) => {
 			block.setBaseStyle(style, value);
@@ -52,6 +57,17 @@ const blockController = {
 			if (styleValue === "__initial__") {
 				styleValue = block.getStyle(style, undefined, true);
 			} else if (styleValue !== block.getStyle(style, undefined, true)) {
+				styleValue = "Mixed";
+			}
+		});
+		return styleValue;
+	},
+	getNativeCustomStyle: (style: styleProperty) => {
+		let styleValue = "__initial__" as StyleValue;
+		canvasStore.activeCanvas?.selectedBlocks.forEach((block) => {
+			if (styleValue === "__initial__") {
+				styleValue = block.getCustomStyle(style);
+			} else if (styleValue !== block.getCustomStyle(style)) {
 				styleValue = "Mixed";
 			}
 		});

@@ -1,5 +1,5 @@
 <template>
-	<div class="flex flex-col gap-4">
+	<div ref="panel" class="flex flex-col gap-4">
 		<div v-if="propertyRows.length" class="mt-1 flex flex-col gap-4">
 			<div
 				v-for="row in propertyRows"
@@ -11,6 +11,7 @@
 					v-bind="row.controlProps"
 					:propertyKey="row.styleProperty"
 					:label="row.label"
+					:isCustomStyle="row.isCustomStyle"
 					:getControlAttrs="() => row.controlAttrs" />
 			</div>
 		</div>
@@ -22,6 +23,7 @@
 			:placeholder="__('Add CSS property')"
 			:empty-text="__('No matching properties')"
 			open-on-focus
+			@paste="pasteStyles"
 			@update:query="propertySearch = $event"
 			@update:modelValue="addProperty">
 			<template #suffix>
@@ -64,17 +66,19 @@ import {
 	type StyleControlConfig,
 } from "@/utils/cssMetadata";
 import {
-	getOverriddenProperties,
+	getCustomStyleProperties,
 	getStylePropertiesWithoutControls,
 	isStylePropertyWithControls,
 } from "@/utils/stylePropertiesWithControls";
-import { toOverriddenStyle } from "@/utils/overriddenStyles";
 import {
 	isInteractiveControl,
 	normalizeCSSPropertyName,
+	stripStatePrefix,
+	toCSSProperty,
 	toStyleProperty,
 	toTitleCase,
 } from "@/utils/helpers";
+import { getStylesFromText } from "@/utils/styleText";
 import { Combobox, type ComboboxOptionValue, type SelectionExposed } from "frappe-ui";
 import { computed, nextTick, reactive, ref, watch } from "vue";
 
@@ -85,6 +89,7 @@ const propertySearch = ref("");
 const contextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
 const contextMenuProperty = ref<string | null>(null);
 const propertyCombobox = ref<SelectionExposed | null>(null);
+const panel = ref<HTMLElement | null>(null);
 
 // rows added from the picker stay visible until they are removed, even without a value
 const addedProperties = reactive(new Set<string>());
@@ -103,25 +108,13 @@ const cascadingStyles = computed(() => {
 	return block.getStyles(canvasStore.activeCanvas?.activeBreakpoint || "desktop");
 });
 
-// overrides are read from the block's own maps, since getStyles has already applied them
-const overriddenProperties = computed(() => {
-	const block = selectedBlock.value;
-	if (!block) return new Set<string>();
-	return getOverriddenProperties({ ...block.baseStyles, ...block.tabletStyles, ...block.mobileStyles });
-});
-
 const activeProperties = computed(() => {
 	const properties = getStylePropertiesWithoutControls(cascadingStyles.value);
-	overriddenProperties.value.forEach((property) => properties.add(property));
+	if (selectedBlock.value)
+		getCustomStyleProperties(selectedBlock.value).forEach((property) => properties.add(property));
 	addedProperties.forEach((property) => properties.add(property));
 	return properties;
 });
-
-// an override has its own key, so the built-in control keeps its value
-const getRowStyleProperty = (property: string) => {
-	const styleProperty = String(toStyleProperty(property));
-	return isStylePropertyWithControls(property) ? toOverriddenStyle(styleProperty) : styleProperty;
-};
 
 // keyword suggestions are only meaningful on the fallback Autocomplete control
 const getControlAttrs = (property: string, { component, controlAttrs }: StyleControlConfig) => {
@@ -138,13 +131,15 @@ const propertyRows = computed(() =>
 	Array.from(activeProperties.value)
 		.sort()
 		.map((property) => {
-			// an override skips the inferred control, which validates values the way the built-in one does
-			const { controlAttrs, options, component, ...controlProps } = isStylePropertyWithControls(property)
+			const isCustomStyle = isStylePropertyWithControls(property);
+			// a custom style skips the inferred control, which validates values the way the built-in one does
+			const { controlAttrs, options, component, ...controlProps } = isCustomStyle
 				? ({} as StyleControlConfig)
 				: getCSSPropertyControl(property);
 			return {
 				property,
-				styleProperty: getRowStyleProperty(property),
+				styleProperty: String(toStyleProperty(property)),
+				isCustomStyle,
 				label: toTitleCase(property),
 				controlProps: {
 					...controlProps,
@@ -188,8 +183,9 @@ const propertyOptions = computed(() => [
 
 const focusProperty = async (property: string) => {
 	await nextTick();
-	const selector = `[data-property="${getRowStyleProperty(property)}"]`;
-	const row = document.querySelector(selector) as HTMLElement | null;
+	const selector = `[data-property="${String(toStyleProperty(property))}"]`;
+	// a built-in control earlier on the page can share the data-property
+	const row = panel.value?.querySelector(selector) as HTMLElement | null;
 	row?.scrollIntoView({ block: "nearest" });
 	row?.querySelector("input")?.focus();
 };
@@ -208,11 +204,28 @@ const addProperty = (property: ComboboxOptionValue | null | undefined) => {
 	resetPropertyPicker();
 };
 
+// a property with a built-in control keeps that value and gets a custom style at the active breakpoint
+const getStyleSetter = (property: string) =>
+	isStylePropertyWithControls(property) ? blockController.setCustomStyle : blockController.setStyle;
+
+// pasting "color: red; hover:color: blue" or a style object into the picker sets every declaration
+const pasteStyles = (event: ClipboardEvent) => {
+	const styles = Object.entries(getStylesFromText(event.clipboardData?.getData("text/plain") || ""))
+		.map(([style, value]) => ({ style: toCSSProperty(style), value }))
+		.filter(({ style }) => isValidCSSPropertyName(stripStatePrefix(style)));
+	if (!styles.length) return;
+	event.preventDefault();
+	styles.forEach(({ style, value }) =>
+		getStyleSetter(stripStatePrefix(style))(toStyleProperty(style), value),
+	);
+	resetPropertyPicker();
+};
+
 const removeProperty = (property: string) => {
 	addedProperties.delete(property);
-	const styleProperty = getRowStyleProperty(property);
-	blockController.setStyle(styleProperty as styleProperty, null);
-	STATES.forEach((state) => blockController.setStyle(`${state}:${styleProperty}` as styleProperty, null));
+	const setStyle = getStyleSetter(property);
+	setStyle(toStyleProperty(property), null);
+	STATES.forEach((state) => setStyle(toStyleProperty(`${state}:${property}`), null));
 	resetPropertyPicker();
 };
 

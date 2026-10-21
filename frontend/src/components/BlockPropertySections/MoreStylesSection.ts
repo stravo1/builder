@@ -1,7 +1,7 @@
 import MoreStylesPanel from "@/components/MoreStylesPanel.vue";
 import blockController from "@/utils/blockController";
 import {
-	getOverriddenProperties,
+	getCustomStyleProperties,
 	getStylePropertiesWithoutControls,
 } from "@/utils/stylePropertiesWithControls";
 import { computed } from "vue";
@@ -21,7 +21,7 @@ export default {
 		const block = blockController.getFirstSelectedBlock();
 		if (!block) return true;
 		const styles = { ...block.baseStyles, ...block.tabletStyles, ...block.mobileStyles };
-		return getStylePropertiesWithoutControls(styles).size === 0 && getOverriddenProperties(styles).size === 0;
+		return getStylePropertiesWithoutControls(styles).size === 0 && getCustomStyleProperties(block).size === 0;
 	}),
 	condition: () => blockController.getSelectedBlocks().length === 1,
 };

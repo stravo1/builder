@@ -61,6 +61,9 @@ declare interface BlockOptions {
 	baseStyles?: BlockStyleMap;
 	mobileStyles?: BlockStyleMap;
 	tabletStyles?: BlockStyleMap;
+	baseCustomStyles?: BlockStyleMap;
+	mobileCustomStyles?: BlockStyleMap;
+	tabletCustomStyles?: BlockStyleMap;
 	attributes?: BlockAttributeMap;
 	classes?: Array<string>;
 	children?: Array<Block | BlockOptions>;
@@ -91,6 +94,9 @@ declare interface BlockStyleObjects {
 	baseStyles: BlockStyleMap;
 	mobileStyles?: BlockStyleMap;
 	tabletStyles?: BlockStyleMap;
+	baseCustomStyles?: BlockStyleMap;
+	mobileCustomStyles?: BlockStyleMap;
+	tabletCustomStyles?: BlockStyleMap;
 }
 
 declare interface StyleCopy {

@@ -254,6 +254,9 @@ const detachBlockFromComponent = (block: Block, componentId: null | string) => {
 	blockCopy.tabletStyles = component?.tabletStyles
 		? { ...component.tabletStyles, ...block.tabletStyles }
 		: block.tabletStyles;
+	blockCopy.baseCustomStyles = { ...component?.baseCustomStyles, ...block.baseCustomStyles };
+	blockCopy.mobileCustomStyles = { ...component?.mobileCustomStyles, ...block.mobileCustomStyles };
+	blockCopy.tabletCustomStyles = { ...component?.tabletCustomStyles, ...block.tabletCustomStyles };
 	blockCopy.customAttributes = component?.customAttributes
 		? { ...component.customAttributes, ...block.customAttributes }
 		: block.customAttributes;

@@ -7,7 +7,6 @@ import {
 	syncBlockWithComponent,
 } from "@/utils/block/componentInstance";
 import { findBlockInTree, resetBlock } from "@/utils/block/tree";
-import { applyOverriddenStyles } from "@/utils/overriddenStyles";
 import type { SpacingType } from "@/utils/cssUtils";
 import {
 	addPxToNumber,
@@ -106,6 +105,10 @@ class Block implements BlockOptions {
 	baseStyles: BlockStyleMap;
 	mobileStyles: BlockStyleMap;
 	tabletStyles: BlockStyleMap;
+	// values set in More Styles for properties with a built-in control; they win at the same breakpoint
+	baseCustomStyles: BlockStyleMap;
+	mobileCustomStyles: BlockStyleMap;
+	tabletCustomStyles: BlockStyleMap;
 	attributes: BlockAttributeMap;
 	classes: Array<string>;
 	dataKey?: BlockDataKey | null = null;
@@ -219,6 +222,9 @@ class Block implements BlockOptions {
 		this.customAttributes = reactive(options.customAttributes || {});
 		this.mobileStyles = reactive(options.mobileStyles || {});
 		this.tabletStyles = reactive(options.tabletStyles || {});
+		this.baseCustomStyles = reactive(options.baseCustomStyles || {});
+		this.mobileCustomStyles = reactive(options.mobileCustomStyles || {});
+		this.tabletCustomStyles = reactive(options.tabletCustomStyles || {});
 		this.attributes = reactive(options.attributes || {});
 		this.dynamicValues = reactive(options.dynamicValues || []);
 		this.props = reactive(options.props || {});
@@ -266,12 +272,12 @@ class Block implements BlockOptions {
 		if (this.isExtendedFromComponent()) {
 			styleObj = this.getComponentStyles(breakpoint);
 		}
-		// overrides apply per breakpoint, so a tablet value still beats a desktop override
-		styleObj = { ...styleObj, ...applyOverriddenStyles(this.baseStyles) };
+		// custom styles apply per breakpoint, so a tablet value still beats a desktop custom style
+		styleObj = { ...styleObj, ...this.baseStyles, ...this.baseCustomStyles };
 		if (["mobile", "tablet"].includes(breakpoint)) {
-			styleObj = { ...styleObj, ...applyOverriddenStyles(this.tabletStyles) };
+			styleObj = { ...styleObj, ...this.tabletStyles, ...this.tabletCustomStyles };
 			if (breakpoint === "mobile") {
-				styleObj = { ...styleObj, ...applyOverriddenStyles(this.mobileStyles) };
+				styleObj = { ...styleObj, ...this.mobileStyles, ...this.mobileCustomStyles };
 			}
 		}
 		// replace variables with values
@@ -297,19 +303,21 @@ class Block implements BlockOptions {
 	}
 	hasOverrides(breakpoint: string) {
 		if (breakpoint === "mobile") {
-			return Object.keys(this.mobileStyles).length > 0;
+			return Object.keys({ ...this.mobileStyles, ...this.mobileCustomStyles }).length > 0;
 		}
 		if (breakpoint === "tablet") {
-			return Object.keys(this.tabletStyles).length > 0;
+			return Object.keys({ ...this.tabletStyles, ...this.tabletCustomStyles }).length > 0;
 		}
 		return false;
 	}
 	resetOverrides(breakpoint: string) {
 		if (breakpoint === "mobile") {
 			this.mobileStyles = {};
+			this.mobileCustomStyles = {};
 		}
 		if (breakpoint === "tablet") {
 			this.tabletStyles = {};
+			this.tabletCustomStyles = {};
 		}
 	}
 	getComponentStyles(breakpoint: string): BlockStyleMap {
@@ -433,6 +441,28 @@ class Block implements BlockOptions {
 			return;
 		}
 		styleObj[style] = value;
+	}
+	setCustomStyle(style: styleProperty, value: StyleValue) {
+		const breakpoint = useCanvasStore().activeCanvas?.activeBreakpoint || "desktop";
+		const styleObj = this.getCustomStyleMapForBreakpoint(breakpoint);
+		style = kebabToCamelCase(style as string) as styleProperty;
+		if (value === null || value === "") {
+			delete styleObj[style];
+			return;
+		}
+		styleObj[style] = value;
+	}
+	getCustomStyle(style: styleProperty, breakpoint?: string | null): StyleValue | undefined {
+		const currentBreakpoint = breakpoint || useCanvasStore().activeCanvas?.activeBreakpoint || "desktop";
+		return this.getCustomStyleMapForBreakpoint(currentBreakpoint)[style];
+	}
+	getCustomStyleMapForBreakpoint(breakpoint: string) {
+		const styleMap = {
+			mobile: this.mobileCustomStyles,
+			tablet: this.tabletCustomStyles,
+			desktop: this.baseCustomStyles,
+		};
+		return styleMap[breakpoint as keyof typeof styleMap] || this.baseCustomStyles;
 	}
 	setActiveStyle(style: styleProperty, value: StyleValue) {
 		this.setStyle(this.getActiveStyleProperty(style), value);
@@ -613,6 +643,9 @@ class Block implements BlockOptions {
 			baseStyles: Object.assign({}, this.baseStyles),
 			mobileStyles: Object.assign({}, this.mobileStyles),
 			tabletStyles: Object.assign({}, this.tabletStyles),
+			baseCustomStyles: Object.assign({}, this.baseCustomStyles),
+			mobileCustomStyles: Object.assign({}, this.mobileCustomStyles),
+			tabletCustomStyles: Object.assign({}, this.tabletCustomStyles),
 		};
 	}
 	isMovable(): boolean {
@@ -773,6 +806,9 @@ class Block implements BlockOptions {
 		this.baseStyles = Object.assign({}, this.baseStyles, styles.baseStyles);
 		this.mobileStyles = Object.assign({}, this.mobileStyles, styles.mobileStyles);
 		this.tabletStyles = Object.assign({}, this.tabletStyles, styles.tabletStyles);
+		this.baseCustomStyles = Object.assign({}, this.baseCustomStyles, styles.baseCustomStyles);
+		this.mobileCustomStyles = Object.assign({}, this.mobileCustomStyles, styles.mobileCustomStyles);
+		this.tabletCustomStyles = Object.assign({}, this.tabletCustomStyles, styles.tabletCustomStyles);
 	}
 	getBackgroundColor() {
 		return this.getStyle("backgroundColor") || "transparent";
@@ -1022,7 +1058,14 @@ class Block implements BlockOptions {
 			}
 		};
 
-		const styleObjects = [this.baseStyles, this.mobileStyles, this.tabletStyles];
+		const styleObjects = [
+			this.baseStyles,
+			this.mobileStyles,
+			this.tabletStyles,
+			this.baseCustomStyles,
+			this.mobileCustomStyles,
+			this.tabletCustomStyles,
+		];
 		styleObjects.forEach((styleObj) => {
 			if (styleObj) {
 				Object.values(styleObj).forEach(extractVarsFromValue);
