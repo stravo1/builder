@@ -20,6 +20,7 @@ from builder.extensions.app_extensions import (
 	install_app_extensions,
 	remove_app_extensions,
 	sync_app_extensions,
+	sync_built_apps,
 )
 from builder.extensions.constants import ENTRY_FILE
 from builder.extensions.installations import uninstall_extension
@@ -129,3 +130,19 @@ class TestAppExtension(FrappeTestCase):
 
 		with self.assertRaisesRegex(frappe.ValidationError, "builder app"):
 			uninstall_extension(EXTENSION)
+
+	def test_a_build_syncs_each_site(self):
+		with (
+			patch("builder.extensions.app_extensions.get_sites", return_value=["one.localhost"]),
+			patch("builder.extensions.app_extensions.subprocess.run") as run,
+		):
+			run.return_value.returncode = 0
+			sync_built_apps([APP])
+
+		self.assertIn("one.localhost", run.call_args.args[0])
+
+	def test_a_build_without_extensions_starts_nothing(self):
+		with patch("builder.extensions.app_extensions.subprocess.run") as run:
+			sync_built_apps(["frappe"])
+
+		run.assert_not_called()

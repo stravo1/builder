@@ -6,6 +6,7 @@ from builder.extensions.app_extensions import (
 	install_app_extensions,
 	remove_app_extensions,
 	sync_app_extensions,
+	sync_built_apps,
 )
 from builder.utils import (
 	add_composite_index_to_web_page_view,
@@ -41,6 +42,10 @@ def before_app_install(app_name):
 def after_app_install(app_name=None):
 	sync_standard_builder_pages(app_name)
 	install_app_extensions(app_name)
+
+
+def after_app_build(built_apps):
+	sync_built_apps(built_apps)
 
 
 def before_app_uninstall(app_name):

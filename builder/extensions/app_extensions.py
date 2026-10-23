@@ -16,11 +16,14 @@ migrate, and removes it with the app. The Hub plays no part.
 """
 
 import hashlib
+import subprocess
+import sys
 from functools import cached_property
 from pathlib import Path
 
 import frappe
 from frappe import _
+from frappe.utils import get_sites
 
 from builder.extensions.access import INSTALLATION_DOCTYPE, find_installation
 from builder.extensions.constants import MANIFEST_FILE
@@ -142,12 +145,36 @@ def install_app_extensions(app: str) -> None:
 
 def sync_app_extensions() -> None:
 	"""On migrate. One app's extension that fails must not stop the migrate for every app, so it is skipped."""
-	for app in frappe.get_installed_apps():
+	installed = frappe.get_installed_apps()
+	# a build syncs every site on the bench, and one without Builder has no extensions table
+	if "builder" not in installed:
+		return
+	for app in installed:
 		for extension in get_app_extensions(app):
 			try:
 				extension.install()
 			except frappe.ValidationError as error:
 				print(f"Skipped an extension of the {app} app: {error}")
+
+
+def sync_built_apps(built_apps: list[str]) -> None:
+	"""After `bench build`. `bench update` migrates before it builds, so without this a new build waits for the next migrate.
+
+	A build has no site, so each site syncs in its own process. A site that cannot connect,
+	such as in a Docker image build, is skipped with a warning.
+	"""
+	if not any(get_extension_folders(app) for app in built_apps):
+		return
+	for site in get_sites():
+		command = [sys.executable, "-m", "frappe.utils.bench_helper", "frappe", "--site", site, "execute"]
+		result = subprocess.run(
+			[*command, "builder.extensions.app_extensions.sync_app_extensions"],
+			cwd=frappe.local.sites_path,
+			capture_output=True,
+			text=True,
+		)
+		if result.returncode:
+			print(f"Skipped Builder extensions on {site}: {result.stderr.strip()[-300:]}")
 
 
 def remove_app_extensions(app: str) -> None:
