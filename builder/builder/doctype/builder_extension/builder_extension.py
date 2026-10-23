@@ -19,6 +19,7 @@ from builder.extensions.constants import (
 	MAX_README_BYTES,
 	VERSION_PATTERN,
 )
+from builder.extensions.package import ValidatedPackage
 
 STATE_DOCTYPE = "Builder Extension State"
 KEPT_PREVIOUS_RELEASES = 1
@@ -47,6 +48,7 @@ class BuilderExtension(Document):
 		label: DF.Data | None
 		readme: DF.LongText | None
 		source: DF.Literal["Hub", "App", "Development"]
+		source_app: DF.Data | None
 		version: DF.Data
 	# end: auto-generated types
 
@@ -115,6 +117,24 @@ class BuilderExtension(Document):
 	def validate_readme(self):
 		if self.readme and len(self.readme.encode()) > MAX_README_BYTES:
 			frappe.throw(_("A README may hold {0} bytes at most.").format(MAX_README_BYTES))
+
+	def apply_package(self, package: ValidatedPackage, checksum: str, origin: dict):
+		"""Run this package from now on. `origin` holds the source fields, such as `hub_url`."""
+		manifest = package.manifest
+		self.update(
+			{
+				**origin,
+				"label": manifest["label"],
+				"description": manifest["description"],
+				"icon": manifest.get("icon"),
+				"version": manifest["version"],
+				"checksum": checksum,
+				"install_state": "Ready",
+				"install_error": None,
+			}
+		)
+		self.save()
+		self.write_extension_files(package.files)
 
 	def write_extension_files(self, files: dict[str, bytes]):
 		"""Write one release to its own folder, keyed by path under the release root.
