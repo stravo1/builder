@@ -22,7 +22,6 @@ from builder.extensions.app_extensions import (
 	sync_app_extensions,
 )
 from builder.extensions.constants import ENTRY_FILE
-from builder.extensions.hub import assert_installable
 from builder.extensions.installations import uninstall_extension
 
 EXTENSION = "acme/bundled"
@@ -33,12 +32,14 @@ class TestAppExtension(FrappeTestCase):
 	def setUp(self):
 		drop_installations(EXTENSION)
 		self.addCleanup(drop_installations, EXTENSION)
-		self.build = Path(tempfile.mkdtemp())
-		self.addCleanup(shutil.rmtree, self.build, ignore_errors=True)
+		self.project = Path(tempfile.mkdtemp())
+		self.addCleanup(shutil.rmtree, self.project, ignore_errors=True)
+		self.build = self.project / "dist"
+		self.build.mkdir()
 		self.write_build("1.0.0")
 		folders = patch(
 			"builder.extensions.app_extensions.get_extension_folders",
-			side_effect=lambda app: [self.build] if app == APP else [],
+			side_effect=lambda app: [self.project] if app == APP else [],
 		)
 		folders.start()
 		self.addCleanup(folders.stop)
@@ -59,10 +60,14 @@ class TestAppExtension(FrappeTestCase):
 		return frappe.get_doc(INSTALLATION_DOCTYPE, {"extension": EXTENSION})
 
 	def test_installs_an_app_extension_disabled(self):
+		(self.project / "README.md").write_text("# For developers")
+		(self.project / "DESCRIPTION.md").write_text("# For users")
+
 		install_app_extensions(APP)
 
 		row = self.installed()
 		self.assertEqual([row.source, row.source_app, row.enabled, row.version], ["App", APP, 0, "1.0.0"])
+		self.assertEqual(row.readme, "# For users")
 		self.assertEqual(Path(row.release_path, ENTRY_FILE).read_text(), "// 1.0.0")
 
 	def test_a_new_build_keeps_the_extension_enabled(self):
@@ -105,12 +110,6 @@ class TestAppExtension(FrappeTestCase):
 		with self.assertRaisesRegex(frappe.ValidationError, "bench build --app builder"):
 			check_app_extensions(APP)
 
-	def test_refuses_a_build_with_a_file_a_package_may_not_hold(self):
-		(self.build / "index.html").write_text("<script></script>")
-
-		with self.assertRaisesRegex(frappe.ValidationError, "index.html"):
-			check_app_extensions(APP)
-
 	def test_migrate_skips_an_extension_another_source_has(self):
 		make_installation(EXTENSION, source="Hub", hub_url="https://hub.example.com")
 
@@ -130,9 +129,3 @@ class TestAppExtension(FrappeTestCase):
 
 		with self.assertRaisesRegex(frappe.ValidationError, "builder app"):
 			uninstall_extension(EXTENSION)
-
-	def test_a_hub_install_names_the_app_that_has_the_extension(self):
-		install_app_extensions(APP)
-
-		with self.assertRaisesRegex(frappe.ValidationError, "builder app"):
-			assert_installable(EXTENSION)

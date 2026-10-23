@@ -3,12 +3,14 @@
 
 """Extensions that a Frappe app ships with its code.
 
-An app names its built extension folders in the `builder_extensions` hook,
+An app names its extension project folders in the `builder_extensions` hook,
 relative to the app's source folder:
 
-    builder_extensions = ["extension/dist"]
+    builder_extensions = ["extension"]
 
-`bench build` builds them through the app's root `package.json`. Builder
+A project folder has the SDK's layout: the build in `dist/`, and a
+`README.md` beside it. `bench build` builds it through the app's root
+`package.json`. Builder
 installs each one disabled when the app installs, applies a new build on each
 migrate, and removes it with the app. The Hub plays no part.
 """
@@ -25,31 +27,42 @@ from builder.extensions.constants import MANIFEST_FILE
 from builder.extensions.installations import describe_source
 from builder.extensions.package import ValidatedPackage, validate_files
 
+# the SDK's names, so an app's project reads as any extension project does
+BUILD_FOLDER = "dist"
+# in Builder Hub's order: DESCRIPTION.md is for users, README.md for developers
+README_FILES = ("DESCRIPTION.md", "README.md")
+
 
 class AppExtension:
-	"""One built extension folder that an app names in its hook."""
+	"""One extension project folder that an app names in its hook."""
 
 	def __init__(self, app: str, folder: Path):
 		self.app = app
 		self.folder = folder
+		self.build = folder / BUILD_FOLDER
 
 	@cached_property
 	def package(self) -> ValidatedPackage:
-		"""The folder's files, keyed by path, through the same rules as a Hub package."""
-		if not (self.folder / MANIFEST_FILE).is_file():
+		"""The build's files, keyed by path, through the same rules as a Hub package."""
+		if not (self.build / MANIFEST_FILE).is_file():
 			frappe.throw(
 				_("The {0} app has no built extension at {1}. Run bench build --app {0}.").format(
-					self.app, self.folder
+					self.app, self.build
 				)
 			)
-		files = self.folder.rglob("*")
+		files = self.build.rglob("*")
 		return validate_files(
 			{
-				file.relative_to(self.folder).as_posix(): file.read_bytes()
+				file.relative_to(self.build).as_posix(): file.read_bytes()
 				for file in sorted(files)
 				if file.is_file()
 			}
 		)
+
+	@property
+	def readme(self) -> str | None:
+		files = [self.folder / name for name in README_FILES]
+		return next((file.read_text() for file in files if file.is_file()), None)
 
 	@property
 	def name(self) -> str:
@@ -95,12 +108,14 @@ class AppExtension:
 			doc = frappe.get_doc(INSTALLATION_DOCTYPE, installation)
 		else:
 			doc = frappe.new_doc(INSTALLATION_DOCTYPE).update({"extension": self.name})
-		if doc.checksum == self.checksum:
+		if doc.checksum == self.checksum and doc.readme == self.readme:
 			return
 		if doc.source != "App":
 			doc.enabled = 0
 		doc.flags.ignore_permissions = True
-		doc.apply_package(self.package, self.checksum, {"source": "App", "source_app": self.app})
+		doc.apply_package(
+			self.package, self.checksum, {"source": "App", "source_app": self.app, "readme": self.readme}
+		)
 
 
 def get_extension_folders(app: str) -> list[Path]:
