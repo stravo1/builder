@@ -64,14 +64,17 @@ class AppExtension:
 
 	@property
 	def conflict(self) -> str | None:
-		"""Why the site cannot take this extension: another source has its name."""
+		"""Why the site cannot take this extension: the Hub or another app has its name.
+
+		A dev row is a throwaway record of a dev server load, so the app takes it over.
+		"""
 		row = frappe.db.get_value(
 			INSTALLATION_DOCTYPE,
 			{"extension": self.name},
 			["source", "hub_url", "source_app"],
 			as_dict=True,
 		)
-		if not row or row.source_app == self.app:
+		if not row or row.source_app == self.app or row.source == "Development":
 			return None
 		return _('The {0} app cannot install "{1}". The site has it from {2}.').format(
 			self.app, self.name, describe_source(row)
@@ -82,15 +85,20 @@ class AppExtension:
 			frappe.throw(self.conflict)
 
 	def install(self) -> None:
-		"""Insert it disabled, or apply a new build. An update keeps `enabled` as a manager left it."""
+		"""Insert it disabled, or apply a new build. An update keeps `enabled` as a manager left it.
+
+		A taken over dev row starts disabled too, so a manager sees the trust dialog before it runs.
+		"""
 		self.assert_installable()
 		installation = find_installation(self.name)
 		if installation:
 			doc = frappe.get_doc(INSTALLATION_DOCTYPE, installation)
 		else:
-			doc = frappe.new_doc(INSTALLATION_DOCTYPE).update({"extension": self.name, "enabled": 0})
+			doc = frappe.new_doc(INSTALLATION_DOCTYPE).update({"extension": self.name})
 		if doc.checksum == self.checksum:
 			return
+		if doc.source != "App":
+			doc.enabled = 0
 		doc.flags.ignore_permissions = True
 		doc.apply_package(self.package, self.checksum, {"source": "App", "source_app": self.app})
 

@@ -90,6 +90,15 @@ class TestAppExtension(FrappeTestCase):
 		with self.assertRaisesRegex(frappe.ValidationError, "hub.example.com"):
 			check_app_extensions(APP)
 
+	def test_takes_over_a_development_row_disabled(self):
+		make_installation(EXTENSION, source="Development", version="0.0.0-dev", enabled=1)
+
+		check_app_extensions(APP)
+		install_app_extensions(APP)
+
+		row = self.installed()
+		self.assertEqual([row.source, row.version, row.enabled], ["App", "1.0.0", 0])
+
 	def test_refuses_the_app_without_a_build(self):
 		shutil.rmtree(self.build)
 
