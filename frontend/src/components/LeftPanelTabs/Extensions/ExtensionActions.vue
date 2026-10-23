@@ -23,7 +23,7 @@
 		</span>
 
 		<span
-			v-if="canManage"
+			v-if="canManage && canUninstall"
 			ref="uninstallAction"
 			class="inline-flex shrink-0"
 			:class="{ 'invisible absolute': !isActionVisible('uninstall') }">
@@ -64,6 +64,8 @@ type ActionId = "open" | "toggle" | "uninstall";
 const props = defineProps<{
 	canOpen: boolean;
 	canManage: boolean;
+	/** An app's extension goes with the app, so it has no Uninstall. */
+	canUninstall: boolean;
 	enabled: boolean;
 	working: boolean;
 }>();
@@ -84,7 +86,8 @@ let resizeObserver: ResizeObserver | null = null;
 
 const availableActionIds = computed<ActionId[]>(() => [
 	...(props.canOpen ? (["open"] as const) : []),
-	...(props.canManage ? (["toggle", "uninstall"] as const) : []),
+	...(props.canManage ? (["toggle"] as const) : []),
+	...(props.canManage && props.canUninstall ? (["uninstall"] as const) : []),
 ]);
 
 const overflowActionIds = computed(() =>
@@ -164,5 +167,8 @@ const observeActionRow = async () => {
 
 onMounted(observeActionRow);
 onBeforeUnmount(() => resizeObserver?.disconnect());
-watch([() => props.canOpen, () => props.canManage, () => props.enabled], observeActionRow);
+watch(
+	[() => props.canOpen, () => props.canManage, () => props.canUninstall, () => props.enabled],
+	observeActionRow,
+);
 </script>
