@@ -8,8 +8,8 @@
 		<div class="bg-surface-elevation-2 p-5">
 			<DialogTitle as="h3" class="text-md-semibold text-ink-gray-9">{{ action }} {{ label }}?</DialogTitle>
 			<p class="pt-2 text-p-sm text-ink-gray-6">
-				It runs inside the editor with the access of each user who opens it. It can read and change pages and
-				site data that the user can. {{ action }} only extensions that you trust.
+				An extension can change your pages and site data. Only {{ action.toLowerCase() }} extensions from
+				sources you trust.
 			</p>
 
 			<div class="flex justify-end gap-2 pt-4">
