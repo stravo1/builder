@@ -1,6 +1,7 @@
 <template>
+	<!-- v-show and KeepAlive: closing the drawer or switching its tab keeps each tab's state -->
 	<div
-		v-if="activeTab"
+		v-show="activeTab"
 		class="flex flex-col border-t border-outline-gray-2 bg-surface-base shadow-2xl dark:border-outline-gray-1"
 		:style="{
 			height: builderStore.isDrawerExpanded ? '100%' : `${builderStore.builderLayout.drawerHeight}px`,
@@ -14,7 +15,9 @@
 			@resize="(height) => (builderStore.builderLayout.drawerHeight = height)" />
 		<div class="flex min-h-10 shrink-0 items-center gap-2 border-b border-outline-gray-1 px-3">
 			<div :id="headerId" class="flex min-w-0 flex-1 items-center self-stretch">
-				<span v-if="!hasCustomHeader" class="text-sm font-medium text-ink-gray-9">{{ activeTab.label }}</span>
+				<span v-if="!hasCustomHeader" class="text-sm font-medium text-ink-gray-9">
+					{{ activeTab?.label }}
+				</span>
 			</div>
 			<div class="flex shrink-0 gap-1">
 				<Button
@@ -30,7 +33,13 @@
 			</div>
 		</div>
 		<div class="min-h-0 flex-1 overflow-auto">
-			<component :is="activeTab.component" :key="activeTab.name" v-bind="activeTab.props?.()" />
+			<KeepAlive>
+				<component
+					:is="activeTab.component"
+					v-if="activeTab"
+					:key="activeTab.name"
+					v-bind="activeTab.props?.()" />
+			</KeepAlive>
 		</div>
 	</div>
 </template>
