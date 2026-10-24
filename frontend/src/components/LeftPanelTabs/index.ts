@@ -8,7 +8,7 @@ import { pluginsDisabled } from "@/data/plugins";
 import useBuilderStore from "@/stores/builderStore";
 import { createRegistry, type RegistryItem } from "@/utils/createRegistry";
 import type { KeyboardShortcutCombo } from "frappe-ui";
-import { defineAsyncComponent, type Component } from "vue";
+import { defineAsyncComponent, type Component, type InjectionKey, type Ref } from "vue";
 import { __ } from "@/translation";
 
 export type LeftPanelTab = RegistryItem & {
@@ -30,9 +30,14 @@ export type LeftPanelTab = RegistryItem & {
 	action?: () => void;
 	/** for action tabs that own their own active state */
 	isActive?: () => boolean;
+	/** "drawer" puts the button at the bottom of the rail and opens the tab in a wide drawer over the editor */
+	placement?: "panel" | "drawer";
 };
 
 export const leftPanelTabs = createRegistry<LeftPanelTab>();
+
+/** The drawer gives this to its tab, so a `DrawerHeader` inside it knows where to go */
+export const drawerKey: InjectionKey<{ headerId: string; hasCustomHeader: Ref<boolean> }> = Symbol("drawer");
 
 // the route chunk imports this after pinia is installed, so the lookup resolves
 const builderStore = useBuilderStore();
@@ -105,4 +110,13 @@ leftPanelTabs.register({
 	icon: "lucide-plug",
 	component: PluginsTab,
 	condition: () => !pluginsDisabled.value,
+});
+
+leftPanelTabs.register({
+	name: "SampleDrawer",
+	label: __("Sample Drawer"),
+	icon: "lucide-panel-bottom",
+	placement: "drawer",
+	component: defineAsyncComponent(() => import("@/components/LeftPanelTabs/SampleDrawer.vue")),
+	condition: () => Boolean(window.is_developer_mode),
 });

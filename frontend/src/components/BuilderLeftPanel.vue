@@ -6,30 +6,36 @@
 			:minDimension="minWidth"
 			:maxDimension="500"
 			@resize="(width) => (builderStore.builderLayout.leftPanelWidth = width)" />
-		<div
-			class="flex min-h-full flex-col items-center gap-2 border-r border-outline-gray-1 p-3"
-			ref="miniSidebar">
-			<Tooltip v-for="tab of tabs" :key="tab.name" side="right">
-				<template #content>
-					<span class="flex items-center gap-1.5">
-						{{ tab.label }}
-						<KeyboardShortcut v-if="tab.shortcut" :combo="tab.shortcut" class="!text-xs !text-ink-gray-4" />
-					</span>
-				</template>
-				<Button
-					:icon="tab.icon"
-					size="md"
-					:class="{ '!text-ink-gray-6': !isActive(tab) }"
-					:variant="isActive(tab) ? 'subtle' : 'ghost'"
-					@click.stop="select(tab)"></Button>
-			</Tooltip>
+		<div class="flex min-h-full flex-col items-center border-r border-outline-gray-1 p-3" ref="miniSidebar">
+			<!-- drawer tabs sit at the bottom of the rail -->
+			<div
+				v-for="(group, index) of [panelTabs, drawerTabs]"
+				:key="index"
+				class="flex flex-col items-center gap-2"
+				:class="{ 'mt-auto border-t border-outline-gray-1 pt-3': index === 1 && group.length }">
+				<Tooltip v-for="tab of group" :key="tab.name" side="right">
+					<template #content>
+						<span class="flex items-center gap-1.5">
+							{{ tab.label }}
+							<KeyboardShortcut v-if="tab.shortcut" :combo="tab.shortcut" class="!text-xs !text-ink-gray-4" />
+						</span>
+					</template>
+					<Button
+						:icon="tab.icon"
+						size="md"
+						:class="{ '!text-ink-gray-6': !isActive(tab) }"
+						:variant="getVariant(tab)"
+						:disabled="isHidden(tab)"
+						@click.stop="select(tab)"></Button>
+				</Tooltip>
+			</div>
 		</div>
 		<div
 			class="no-scrollbar relative min-h-full overflow-auto"
 			:style="{
 				width: `${builderStore.builderLayout.leftPanelWidth}px`,
 			}">
-			<template v-for="tab of tabs" :key="tab.name">
+			<template v-for="tab of panelTabs" :key="tab.name">
 				<div
 					v-if="tab.component && mountedTabs.has(tab.name)"
 					v-show="builderStore.leftPanelActiveTab === tab.name"
@@ -59,6 +65,8 @@ const builderStore = useBuilderStore();
 const route = useRoute();
 
 const tabs = leftPanelTabs.visible;
+const panelTabs = computed(() => tabs.value.filter((tab) => tab.placement !== "drawer"));
+const drawerTabs = computed(() => tabs.value.filter((tab) => tab.placement === "drawer"));
 
 const PANEL_MIN_WIDTH = 200;
 const activeTab = computed(() => tabs.value.find((tab) => tab.name === builderStore.leftPanelActiveTab));
@@ -76,10 +84,28 @@ watch(
 const miniSidebar = ref(null) as Ref<HTMLElement | null>;
 const mountedTabs = reactive(new Set<string>());
 
-const isActive = (tab: LeftPanelTab) => tab.isActive?.() ?? builderStore.leftPanelActiveTab === tab.name;
+const isActive = (tab: LeftPanelTab) => {
+	const activeName =
+		tab.placement === "drawer" ? builderStore.activeDrawerTab : builderStore.leftPanelActiveTab;
+	return tab.isActive?.() ?? activeName === tab.name;
+};
+
+// the panel and the drawer can both be open, so an open drawer reads apart from the active panel tab
+const getVariant = (tab: LeftPanelTab) => {
+	if (!isActive(tab) || isHidden(tab)) return "ghost";
+	return tab.placement === "drawer" ? "outline" : "subtle";
+};
+
+// a full screen drawer hides what a panel tab would show
+const isHidden = (tab: LeftPanelTab) => builderStore.isDrawerFullScreen && tab.placement !== "drawer";
 
 const select = (tab: LeftPanelTab) => {
+	if (isHidden(tab)) return;
 	if (tab.action) return tab.action();
+	if (tab.placement === "drawer") {
+		builderStore.activeDrawerTab = builderStore.activeDrawerTab === tab.name ? null : tab.name;
+		return;
+	}
 	builderStore.leftPanelActiveTab = tab.name;
 	builderStore.showTokenManager = false;
 };
@@ -98,7 +124,7 @@ useKeyboardShortcut(
 
 // a non-lazy tab mounts as soon as it registers, a lazy one on first open
 watchEffect(() => {
-	tabs.value.forEach((tab) => {
+	panelTabs.value.forEach((tab) => {
 		if (!tab.component) return;
 		if (!tab.lazy || builderStore.leftPanelActiveTab === tab.name || tab.preload?.()) {
 			mountedTabs.add(tab.name);
