@@ -1,11 +1,13 @@
 <template>
 	<div class="flex items-center gap-2" :class="containerClass">
-		<Dropdown v-if="showDropdown" size="sm" :options="dropdownOptions">
-			<span
-				ref="dropdownTrigger"
-				class="lucide-plus-circle h-3 w-3 cursor-pointer text-ink-gray-4 hover:text-ink-gray-7 active:text-ink-gray-9"
-				aria-hidden="true" />
-		</Dropdown>
+		<!-- the trigger renders as-child, which replaces a ref on it, so the wrapper holds the ref -->
+		<span v-if="showDropdown" ref="dropdownTrigger" class="flex">
+			<Dropdown size="sm" :options="dropdownOptions">
+				<span
+					class="lucide-plus-circle h-3 w-3 cursor-pointer text-ink-gray-4 hover:text-ink-gray-7 active:text-ink-gray-9"
+					aria-hidden="true" />
+			</Dropdown>
+		</span>
 		<InputLabel
 			class="w-full truncate"
 			:title="label"
