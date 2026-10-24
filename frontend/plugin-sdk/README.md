@@ -45,7 +45,7 @@ export default {
 
 | Export                                                                                          | What it gives                                                                      |
 | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `leftPanelTabs`, `toolbarItems`, `blockContextMenuOptions`, `propertySections`, `settingsItems` | The registries of the editor surfaces. `register` answers with its own unregister. |
+| `leftPanelTabs`, `toolbarItems`, `blockContextMenuOptions`, `propertySections`, `settingsItems`, `dynamicValueGroups` | The registries of the editor surfaces. `register` answers with its own unregister. A `dynamicValueGroups` item adds a labelled set of values to "Set Dynamic Value". |
 | `usePageStore`, `useCanvasStore`, `useBuilderStore`                                             | The editor's stores                                                                |
 | `blockController`, `Block`                                                                      | The selected blocks, and the block tree                                            |
 | `lucideIcon(name)`                                                                              | Any lucide icon, as a component for an `icon` field                                |

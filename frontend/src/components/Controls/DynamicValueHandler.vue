@@ -2,45 +2,34 @@
 	<div class="flex min-h-36 flex-col justify-between gap-2">
 		<div class="flex flex-col gap-2">
 			<BuilderInput
-				v-if="pageDataArray.length > 5"
+				v-if="itemCount > 5"
 				v-model="searchQuery"
 				@input="(val: string) => (searchQuery = val)"
 				type="text"
 				:placeholder="__('Search...')" />
-			<div class="max-h-[60vh] overflow-y-auto">
-				<ul class="m-0 list-none p-0">
-					<li
-						v-if="
-							selectedItem?.key &&
-							!filteredItems.some(
-								(i) => i.key === selectedItem!.key && i.comesFrom === selectedItem!.comesFrom,
-							)
-						">
-						<div
-							class="w-full cursor-pointer truncate rounded-4 bg-surface-gray-3 p-2 text-left font-mono text-p-sm text-ink-gray-9"
-							@click.stop="selectAndSetItem(selectedItem)">
-							<MiddleTruncate :text="selectedItem.key" />
-							<p class="truncate text-xs text-ink-gray-5" :class="{ italic: getValue(selectedItem) == null }">
-								{{ getValue(selectedItem) == null ? __("No Value Set") : getValue(selectedItem) }}
-							</p>
-						</div>
+			<div class="no-scrollbar max-h-80 overflow-y-auto">
+				<ul class="m-0 flex list-none flex-col gap-0.5 p-0">
+					<li v-if="selectedItem?.key && !shownItems.some((item) => isSameItem(item, selectedItem!))">
+						<DynamicValueRow
+							:item="selectedItem"
+							:value="getValue(selectedItem)"
+							selected
+							@click.stop="selectAndSetItem(selectedItem)" />
 					</li>
-					<li v-for="item in filteredItems" :key="item.key">
-						<div
-							class="w-full cursor-pointer truncate rounded-4 p-2 text-left font-mono text-p-sm text-ink-gray-7 hover:bg-surface-gray-2"
-							:class="{
-								'bg-surface-gray-3 text-ink-gray-9':
-									selectedItem?.key === item.key && selectedItem?.comesFrom === item.comesFrom,
-							}"
-							@click.stop="selectAndSetItem(item)">
-							<MiddleTruncate :text="item.key" />
-							<p class="truncate text-xs text-ink-gray-5" :class="{ italic: getValue(item) == null }">
-								{{ getValue(item) == null ? __("No Value Set") : getValue(item) }}
-							</p>
-						</div>
-					</li>
+					<template v-for="section in sections" :key="section.name">
+						<li v-if="section.label" class="px-2 pb-1 pt-3 text-xs font-medium text-ink-gray-5 first:pt-1">
+							{{ section.label }}
+						</li>
+						<li v-for="item in section.items" :key="`${item.comesFrom}:${item.key}`">
+							<DynamicValueRow
+								:item="item"
+								:value="getValue(item)"
+								:selected="Boolean(selectedItem && isSameItem(item, selectedItem))"
+								@click.stop="selectAndSetItem(item)" />
+						</li>
+					</template>
 					<li
-						v-if="filteredItems.length === 0 && !selectedItem?.key"
+						v-if="shownItems.length === 0 && !selectedItem?.key"
 						class="flex flex-col items-center justify-center p-10 text-center text-sm text-ink-gray-5">
 						<div>
 							{{ __("No dynamic values found. Please add using") }}
@@ -57,13 +46,13 @@
 			</div>
 		</div>
 		<div
-			class="flex items-center justify-end gap-2"
-			v-if="filteredItems.length !== 0 && builderStore.leftPanelActiveTab !== 'Code'">
-			<div class="flex gap-2">
-				<Button variant="subtle" @click="builderStore.leftPanelActiveTab = 'Code'">
-					{{ __("Open Code Tab") }}
-				</Button>
-			</div>
+			class="-mx-3 border-t border-outline-gray-1 px-3 pt-2"
+			v-if="shownItems.length !== 0 && builderStore.leftPanelActiveTab !== 'Code'">
+			<Button
+				variant="ghost"
+				icon-left="lucide-code"
+				:label="__('Open Code Tab')"
+				@click="builderStore.leftPanelActiveTab = 'Code'" />
 		</div>
 	</div>
 </template>
@@ -82,18 +71,19 @@ import {
 	getRepeaterScopedData,
 } from "@/utils/helpers";
 import { computed, ref } from "vue";
-import MiddleTruncate from "../MiddleTruncate.vue";
+import DynamicValueRow from "./DynamicValueRow.vue";
 import useCanvasStore from "@/stores/canvasStore.js";
 import componentController from "@/utils/componentController.js";
+import {
+	isSameItem,
+	withoutGroupedItems,
+	type DynamicValueItem,
+	type LoadedDynamicValueGroup,
+} from "@/components/DynamicValueGroups";
 
 const pageStore = usePageStore();
 const builderStore = useBuilderStore();
 const canvasStore = useCanvasStore();
-
-type DynamicValueItem = {
-	key: string;
-	comesFrom: BlockDataKey["comesFrom"];
-};
 
 type DynamicValueFilterOptions = {
 	excludePassedDownProps?: boolean;
@@ -104,6 +94,7 @@ const props = defineProps<{
 	selectedValue?: DynamicValueItem;
 	block?: Block;
 	options?: DynamicValueFilterOptions;
+	groups: LoadedDynamicValueGroup[];
 }>();
 
 const emit = defineEmits(["setDynamicValue"]);
@@ -153,7 +144,7 @@ const filteredBlockProps = computed(() => {
 	return combinedProps;
 });
 
-const filteredItems = computed(() => {
+const builtInItems = computed(() => {
 	const pageDataArrayItems = pageDataArray.value.map((item) => ({ key: item, comesFrom: "dataScript" }));
 	const componentDataArrayItems = componentDataArray.value.map((item) => ({
 		key: item,
@@ -164,23 +155,41 @@ const filteredItems = computed(() => {
 		key: item,
 		comesFrom: "props",
 	}));
-	const allItems = [
+	return [
 		...pageDataArrayItems,
 		...componentDataArrayItems,
 		...propItems,
 		...defaultPropsKeys,
 	] as DynamicValueItem[];
-	if (!searchQuery.value) return allItems;
-	const query = searchQuery.value.toLowerCase();
-	return allItems.filter(
-		(item) =>
-			item.key.toLowerCase().includes(query) ||
-			String(getDataScriptValue(item.key)).toLowerCase().includes(query) ||
-			String(getPropValue(item.key, currentBlock.value, getDataScriptValue, defaultProps.value))
-				.toLowerCase()
-				.includes(query),
-	);
 });
+
+const itemCount = computed(
+	() => builtInItems.value.length + props.groups.reduce((count, group) => count + group.items.length, 0),
+);
+
+const matchesQuery = (item: DynamicValueItem) => {
+	const query = searchQuery.value.toLowerCase();
+	return [item.label, item.key, getValue(item)].some((text) =>
+		String(text ?? "")
+			.toLowerCase()
+			.includes(query),
+	);
+};
+
+const sections = computed(() =>
+	[
+		...props.groups,
+		{
+			name: "builder",
+			label: props.groups.length ? __("Other Values") : "",
+			items: withoutGroupedItems(builtInItems.value, props.groups),
+		},
+	]
+		.map((section) => ({ ...section, items: section.items.filter(matchesQuery) }))
+		.filter((section) => section.items.length),
+);
+
+const shownItems = computed(() => sections.value.flatMap((section) => section.items));
 
 const selectedItem = ref<DynamicValueItem | null>(props.selectedValue || null);
 

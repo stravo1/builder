@@ -29,11 +29,14 @@
 				:container="propertyLabelRef?.dropdownTrigger"
 				placement="middle-right"
 				:clickOutsideToClose="false"
-				:placementOffset="20"
+				:placementOffset="32"
 				v-if="showDynamicValueModal">
 				<template #header>{{ __("Set Dynamic Value") }}</template>
 				<template #content>
-					<DynamicValueHandler @setDynamicValue="updateDynamicValue" :selectedValue="dynamicValue" />
+					<DynamicValueHandler
+						@setDynamicValue="updateDynamicValue"
+						:selectedValue="dynamicValue"
+						:groups="dynamicValueGroups" />
 				</template>
 			</DraggablePopup>
 
@@ -44,7 +47,7 @@
 				:modelValue="modelValue"
 				:defaultValue="defaultValue"
 				:placeholder="placeholderValue"
-				:dynamicValueKey="dynamicValue?.key"
+				:dynamicValueLabel="dynamicValueLabel"
 				componentClass="w-full"
 				@focusin="clearActiveState"
 				@mousedown="clearActiveState"
@@ -91,6 +94,7 @@
 <script lang="ts" setup>
 import { __ } from "@/translation";
 import DynamicValueHandler from "@/components/Controls/DynamicValueHandler.vue";
+import { isSameItem, useDynamicValueGroups } from "@/components/DynamicValueGroups";
 import Input from "@/components/Controls/Input.vue";
 import PropertyControlInput from "@/components/Controls/PropertyControlInput.vue";
 import PropertyLabel from "@/components/Controls/PropertyLabel.vue";
@@ -364,6 +368,20 @@ const dynamicValue = computed(() => {
 		.getDynamicValues()
 		.find((obj) => obj.type === props.controlType && obj.property === props.propertyKey);
 	return { key: dataKeyObj?.key || "", comesFrom: dataKeyObj?.comesFrom || "dataScript" };
+});
+
+// a bound value shows its group's label, so the groups load once a value is bound or the picker opens
+const dynamicValueGroups = useDynamicValueGroups(() => {
+	const block = blockController.getFirstSelectedBlock();
+	if (!block || !(showDynamicValueModal.value || dynamicValue.value?.key)) return null;
+	return { block, property: props.propertyKey, type: props.controlType };
+});
+
+const dynamicValueLabel = computed(() => {
+	const bound = dynamicValue.value;
+	if (!bound?.key) return "";
+	const items = dynamicValueGroups.value.flatMap((group) => group.items);
+	return items.find((item) => isSameItem(item, bound))?.label || bound.key;
 });
 
 const clearDynamicValue = () => {

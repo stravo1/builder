@@ -17,16 +17,16 @@
 
 		<!-- Dynamic value overlay -->
 		<div
-			v-if="dynamicValueKey"
+			v-if="dynamicValueLabel"
 			class="absolute bottom-0 left-0 right-0 top-0 flex cursor-pointer items-center gap-2 rounded-4 bg-surface-violet-2 py-0.5 pl-2.5 pr-6 text-sm text-ink-violet-8"
 			@click.stop="$emit('openDynamicModal')">
 			<span class="lucide-zap size-3" aria-hidden="true" />
-			<MiddleTruncate :text="dynamicValueKey" />
+			<MiddleTruncate :text="dynamicValueLabel" />
 		</div>
 
 		<!-- Clear button -->
 		<button
-			v-show="dynamicValueKey"
+			v-show="dynamicValueLabel"
 			class="absolute right-1 top-1 cursor-pointer p-1 text-ink-gray-4 hover:text-ink-gray-5"
 			tabindex="-1"
 			@click="$emit('clearDynamic')">
@@ -46,7 +46,7 @@ defineProps<{
 	modelValue: string | number | boolean;
 	defaultValue?: string | number | boolean;
 	placeholder?: string | number | boolean;
-	dynamicValueKey?: string;
+	dynamicValueLabel?: string;
 	componentClass?: string;
 }>();
 

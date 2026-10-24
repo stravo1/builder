@@ -87,7 +87,29 @@ declare module "builder" {
 		disabled?: boolean;
 	};
 
+	/** One value a block property can show. `key` is a path into the page data, such as `entry.title`. */
+	export type DynamicValueItem = {
+		key: string;
+		comesFrom: "dataScript" | "props" | "componentData";
+		/** Shown in place of the key. */
+		label?: string;
+	};
+
+	/** The property control that opened the "Set Dynamic Value" picker, such as `src` of type `attribute`. */
+	export type DynamicValueContext = {
+		block: Block;
+		property: string;
+		type: "style" | "attribute" | "key";
+	};
+
+	/** A labelled set of values in the picker. Give only the items that fit the property. */
+	export type DynamicValueGroup = RegistryEntry & {
+		label: string;
+		getItems: (context: DynamicValueContext) => DynamicValueItem[] | Promise<DynamicValueItem[]>;
+	};
+
 	export const leftPanelTabs: Registry<LeftPanelTab>;
+	export const dynamicValueGroups: Registry<DynamicValueGroup>;
 	export const toolbarItems: Registry<ToolbarItem>;
 	export const blockContextMenuOptions: Registry<ContextMenuOption>;
 	export const propertySections: Registry<PropertySection>;
