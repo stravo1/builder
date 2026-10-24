@@ -8,7 +8,7 @@
 			<Button
 				:variant="builderStore.showVersionHistory ? 'subtle' : 'ghost'"
 				icon="lucide-history"
-				:disabled="builderStore.readOnlyMode"
+				:disabled="builderStore.readOnlyMode || builderStore.isDrawerFullScreen"
 				@click="toggleVersionHistory"></Button>
 		</Tooltip>
 		<Tooltip :text="__('Settings')" :hoverDelay="600" :offset="12">

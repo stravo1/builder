@@ -80,6 +80,12 @@
 			v-show="builderStore.showRightPanel"
 			data-panel="right"
 			class="no-scrollbar absolute bottom-0 right-0 top-[var(--toolbar-height)] overflow-auto border-l-[1px] border-outline-gray-2 bg-surface-base dark:border-outline-gray-1"></BuilderRightPanel>
+		<!-- over the canvas and both panels, beside the rail that opens it -->
+		<div
+			class="pointer-events-none absolute bottom-0 right-0 top-[var(--toolbar-height)] z-10 flex flex-col justify-end"
+			:style="{ left: `${builderStore.showLeftPanel ? builderStore.builderLayout.optionsPanelWidth : 0}px` }">
+			<LeftPanelDrawer class="pointer-events-auto relative" />
+		</div>
 
 		<!-- Toolbar layer (top) - comes last in DOM -->
 		<BuilderToolbar data-panel="toolbar" class="absolute left-0 right-0 top-0"></BuilderToolbar>
@@ -116,6 +122,7 @@ import BlockContextMenu from "@/components/BlockContextMenu.vue";
 import BuilderCanvas from "@/components/BuilderCanvas.vue";
 import BuilderCommandPalette from "@/components/BuilderCommandPalette.vue";
 import BuilderLeftPanel from "@/components/BuilderLeftPanel.vue";
+import LeftPanelDrawer from "@/components/LeftPanelTabs/LeftPanelDrawer.vue";
 import BuilderRightPanel from "@/components/BuilderRightPanel.vue";
 import BuilderToolbar from "@/components/BuilderToolbar.vue";
 import { installEditorDemo } from "@/components/EditorDemo";
