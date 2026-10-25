@@ -37,14 +37,32 @@ describe("dynamic value groups", () => {
 		expect(await loadDynamicValueGroups(context)).toEqual([]);
 	});
 
-	it("loads the groups while there is a context, and clears them without one", async () => {
+	it("loads the groups while there is a context, keeps them until the next load, and clears them without one", async () => {
 		const items = [{ key: "entry.title", comesFrom: "dataScript" as const, label: "Title" }];
-		unregisters.push(dynamicValueGroups.register({ name: "cms", label: "CMS", getItems: async () => items }));
+		const nextItems = [{ key: "entry.summary", comesFrom: "dataScript" as const, label: "Summary" }];
+		let finishNextLoad = () => {};
+		unregisters.push(
+			dynamicValueGroups.register({
+				name: "cms",
+				label: "CMS",
+				getItems: ({ block }) =>
+					block.blockId === "heading"
+						? items
+						: new Promise((resolve) => (finishNextLoad = () => resolve(nextItems))),
+			}),
+		);
 		const current = ref<typeof context | null>({ ...context, block: { blockId: "heading" } as Block });
 
 		const groups = useDynamicValueGroups(() => current.value);
 		await flushPromises();
 		expect(groups.value).toEqual([{ name: "cms", label: "CMS", items }]);
+
+		current.value = { ...context, block: { blockId: "summary" } as Block };
+		await flushPromises();
+		expect(groups.value).toEqual([{ name: "cms", label: "CMS", items }]);
+		finishNextLoad();
+		await flushPromises();
+		expect(groups.value).toEqual([{ name: "cms", label: "CMS", items: nextItems }]);
 
 		current.value = null;
 		await flushPromises();

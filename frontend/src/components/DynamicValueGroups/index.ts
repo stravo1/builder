@@ -36,7 +36,10 @@ export const loadDynamicValueGroups = async (context: DynamicValueContext) => {
 	return groups.filter((group) => group.items.length);
 };
 
-/** Loads the groups again when the context changes. A null context clears them. */
+/**
+ * Loads the groups again when the context changes. The old groups stay until the new ones
+ * arrive, so the open picker does not empty and lose its scroll. A null context clears them.
+ */
 export const useDynamicValueGroups = (getContext: () => DynamicValueContext | null) => {
 	const groups = shallowRef<LoadedDynamicValueGroup[]>([]);
 	let loadVersion = 0;
@@ -49,8 +52,10 @@ export const useDynamicValueGroups = (getContext: () => DynamicValueContext | nu
 		async () => {
 			const version = ++loadVersion;
 			const context = getContext();
-			groups.value = [];
-			if (!context) return;
+			if (!context) {
+				groups.value = [];
+				return;
+			}
 			const loaded = await loadDynamicValueGroups(context);
 			if (version === loadVersion) groups.value = loaded;
 		},

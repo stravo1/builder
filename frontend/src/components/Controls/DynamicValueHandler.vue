@@ -7,14 +7,14 @@
 				@input="(val: string) => (searchQuery = val)"
 				type="text"
 				:placeholder="__('Search...')" />
-			<div class="no-scrollbar max-h-80 overflow-y-auto">
+			<div ref="listRef" class="no-scrollbar max-h-80 overflow-y-auto">
 				<ul class="m-0 flex list-none flex-col gap-0.5 p-0">
 					<li v-if="selectedItem?.key && !shownItems.some((item) => isSameItem(item, selectedItem!))">
 						<DynamicValueRow
 							:item="selectedItem"
 							:value="getValue(selectedItem)"
 							selected
-							@click.stop="selectAndSetItem(selectedItem)" />
+							@click.stop="setItem(selectedItem)" />
 					</li>
 					<template v-for="section in sections" :key="section.name">
 						<li v-if="section.label" class="px-2 pb-1 pt-3 text-xs font-medium text-ink-gray-5 first:pt-1">
@@ -25,7 +25,7 @@
 								:item="item"
 								:value="getValue(item)"
 								:selected="Boolean(selectedItem && isSameItem(item, selectedItem))"
-								@click.stop="selectAndSetItem(item)" />
+								@click.stop="setItem(item)" />
 						</li>
 					</template>
 					<li
@@ -70,7 +70,7 @@ import {
 	getPropValue,
 	getRepeaterScopedData,
 } from "@/utils/helpers";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import DynamicValueRow from "./DynamicValueRow.vue";
 import useCanvasStore from "@/stores/canvasStore.js";
 import componentController from "@/utils/componentController.js";
@@ -191,7 +191,24 @@ const sections = computed(() =>
 
 const shownItems = computed(() => sections.value.flatMap((section) => section.items));
 
-const selectedItem = ref<DynamicValueItem | null>(props.selectedValue || null);
+// follows the selected block, since the picker stays open when the selection changes
+const selectedItem = computed(() => (props.selectedValue?.key ? props.selectedValue : null));
+
+const listRef = ref<HTMLElement | null>(null);
+
+// sets scrollTop, not scrollIntoView, which would also scroll the editor behind the picker
+const centerSelectedItem = () => {
+	const list = listRef.value;
+	const row = list?.querySelector<HTMLElement>("[data-selected]");
+	if (!list || !row) return;
+	const offset = row.getBoundingClientRect().top - list.getBoundingClientRect().top;
+	// a visible row stays where it is, so the list does not jump
+	if (offset >= 0 && offset + row.offsetHeight <= list.clientHeight) return;
+	list.scrollTop += offset - (list.clientHeight - row.offsetHeight) / 2;
+};
+
+// listRef starts the first run after mount, and the groups load later, so center again when they arrive
+watch(() => [listRef.value, selectedItem.value?.key, props.groups], centerSelectedItem, { flush: "post" });
 
 const getValue = (item: DynamicValueItem): any => {
 	if (item.comesFrom == "props") {
@@ -213,9 +230,7 @@ const getComponentDataValue = (path: string): any => {
 	return path.split(".").reduce((obj: Record<string, any>, key: string) => obj?.[key], collectionObject);
 };
 
-function selectAndSetItem(item: DynamicValueItem) {
-	selectedItem.value = item;
+function setItem(item: DynamicValueItem) {
 	emit("setDynamicValue", item);
-	selectedItem.value = null;
 }
 </script>
