@@ -10,6 +10,7 @@ export { toolbarItems, type ToolbarItem } from "@/components/ToolbarItems";
 export { blockContextMenuOptions } from "@/components/BlockContextMenuOptions";
 export type { ContextMenuOption } from "@/types/blockContextMenu";
 export { propertySections, type PropertySection } from "@/components/BlockPropertySections";
+export { blockTemplates, type BlockTemplateItem } from "@/components/BlockTemplates";
 export { settingsItems, type SettingsItem } from "@/components/Settings";
 export {
 	dynamicValueGroups,
@@ -32,4 +33,7 @@ export { default as StylePropertyControl } from "@/components/Controls/StyleProp
 export { default as ColorInput } from "@/components/Controls/ColorInput.vue";
 export { default as OptionToggle } from "@/components/Controls/OptionToggle.vue";
 export { default as RangeInput } from "@/components/Controls/RangeInput.vue";
+// the framework's filter rules, so a plugin's filters read and save the way Frappe apps do
+export { getOperators, parseFilters, serializeFilters } from "@framework/ui/components/Filter";
+export type { FilterCondition, FilterField, WireFilters } from "@framework/ui/components/Filter";
 export type { PluginContext, PluginState } from "@/plugins/context";

@@ -1,4 +1,5 @@
 import type Block from "@/block";
+import { getBlockTemplateItem } from "@/components/BlockTemplates";
 import useBlockTemplateStore from "@/stores/blockTemplateStore";
 import useBuilderStore from "@/stores/builderStore";
 import useCanvasStore from "@/stores/canvasStore";
@@ -201,6 +202,7 @@ export function useCanvasDropZone(
 		let { parentBlock, index } = canvasStore.dropTarget;
 		const componentName = ev.dataTransfer?.getData("componentName");
 		const blockTemplate = ev.dataTransfer?.getData("blockTemplate");
+		const blockTemplateItem = ev.dataTransfer?.getData("blockTemplateItem");
 
 		if (componentName) {
 			await componentStore.loadComponent(componentName);
@@ -220,9 +222,8 @@ export function useCanvasDropZone(
 			}
 			ev.stopPropagation();
 			capture("builder_component_used");
-		} else if (blockTemplate) {
-			await blockTemplateStore.fetchBlockTemplate(blockTemplate);
-			const newBlock = getBlockInstance(blockTemplateStore.getBlockTemplate(blockTemplate).block, false);
+		} else if (blockTemplate || blockTemplateItem) {
+			const newBlock = getBlockInstance(await getTemplateBlock(blockTemplate, blockTemplateItem), false);
 			// if shift key is pressed, replace parent block with new block
 			if (ev.shiftKey) {
 				parentBlock = getBlockToReplace(ev);
@@ -235,8 +236,14 @@ export function useCanvasDropZone(
 				if (!parentBlock) return;
 				parentBlock.addChild(newBlock, index);
 			}
-			capture("builder_block_template_used", { template: blockTemplate });
+			capture("builder_block_template_used", { template: blockTemplate || blockTemplateItem });
 		}
+	};
+
+	const getTemplateBlock = async (recordName?: string, itemName?: string) => {
+		if (itemName) return getBlockTemplateItem(itemName).getBlock();
+		await blockTemplateStore.fetchBlockTemplate(recordName as string);
+		return blockTemplateStore.getBlockTemplate(recordName as string).block;
 	};
 
 	const handleFileDrop = (files: File[], ev: DragEvent) => {

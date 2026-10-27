@@ -108,12 +108,23 @@ declare module "builder" {
 		getItems: (context: DynamicValueContext) => DynamicValueItem[] | Promise<DynamicValueItem[]>;
 	};
 
+	/** A tile in the Blocks tab. A drop inserts what `getBlock` returns and selects it. */
+	export type BlockTemplateItem = RegistryItem & {
+		label: string;
+		/** The section of the Blocks tab. A new name adds a section after the built-in ones. */
+		category: string;
+		icon: Component;
+		/** Called on each drop, so every drop gets a fresh tree. */
+		getBlock: () => Record<string, unknown> | Promise<Record<string, unknown>>;
+	};
+
 	export const leftPanelTabs: Registry<LeftPanelTab>;
 	export const dynamicValueGroups: Registry<DynamicValueGroup>;
 	export const toolbarItems: Registry<ToolbarItem>;
 	export const blockContextMenuOptions: Registry<ContextMenuOption>;
 	export const propertySections: Registry<PropertySection>;
 	export const settingsItems: Registry<SettingsItem>;
+	export const blockTemplates: Registry<BlockTemplateItem>;
 
 	/** One block of the page tree. */
 	export class Block {
@@ -153,6 +164,17 @@ declare module "builder" {
 	export const StylePropertyControl: Component;
 	export const ColorInput: Component;
 	export const OptionToggle: Component;
+
+	/** One Frappe filter row: `[fieldname, operator, value]`. */
+	export type WireFilters = [string, string, unknown][];
+	/** A field the filter control offers. `value` is the fieldname. */
+	export type FilterField = { label: string; value: string; fieldname: string; fieldtype: string; options?: string };
+	/** One condition as the filter control holds it. */
+	export type FilterCondition = { fieldname: string; operator: string; value: unknown; field?: FilterField };
+	/** The operators a field type can filter with, as select options, such as `{ label: "Like", value: "like" }`. */
+	export function getOperators(fieldtype: string, fieldname?: string): { label: string; value: string }[];
+	export function parseFilters(fields: FilterField[], wire: WireFilters): FilterCondition[];
+	export function serializeFilters(conditions: FilterCondition[]): WireFilters;
 	export const RangeInput: Component;
 
 	/** What a plugin stores for the user who opens the editor. It merges at the top level. */
