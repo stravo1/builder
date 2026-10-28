@@ -6,29 +6,23 @@
 			:minDimension="minWidth"
 			:maxDimension="500"
 			@resize="(width) => (builderStore.builderLayout.leftPanelWidth = width)" />
-		<div class="flex min-h-full flex-col items-center border-r border-outline-gray-1 p-3" ref="miniSidebar">
-			<!-- drawer tabs sit at the bottom of the rail -->
-			<div
-				v-for="(group, index) of [panelTabs, drawerTabs]"
-				:key="index"
-				class="flex flex-col items-center gap-2"
-				:class="{ 'mt-auto border-t border-outline-gray-1 pt-3': index === 1 && group.length }">
-				<Tooltip v-for="tab of group" :key="tab.name" side="right">
-					<template #content>
-						<span class="flex items-center gap-1.5">
-							{{ tab.label }}
-							<KeyboardShortcut v-if="tab.shortcut" :combo="tab.shortcut" class="!text-xs !text-ink-gray-4" />
-						</span>
-					</template>
-					<Button
-						:icon="tab.icon"
-						size="md"
-						:class="{ '!text-ink-gray-6': !isActive(tab) }"
-						:variant="getVariant(tab)"
-						:disabled="isHidden(tab)"
-						@click.stop="select(tab)"></Button>
-				</Tooltip>
-			</div>
+		<div
+			class="flex min-h-full flex-col items-center gap-2 border-r border-outline-gray-1 p-3"
+			ref="miniSidebar">
+			<Tooltip v-for="tab of tabs" :key="tab.name" side="right">
+				<template #content>
+					<span class="flex items-center gap-1.5">
+						{{ tab.label }}
+						<KeyboardShortcut v-if="tab.shortcut" :combo="tab.shortcut" class="!text-xs !text-ink-gray-4" />
+					</span>
+				</template>
+				<Button
+					:icon="tab.icon"
+					size="md"
+					:class="{ '!text-ink-gray-6': !isActive(tab) }"
+					:variant="isActive(tab) ? 'subtle' : 'ghost'"
+					@click.stop="select(tab)"></Button>
+			</Tooltip>
 		</div>
 		<div
 			class="no-scrollbar relative min-h-full overflow-auto"
@@ -66,7 +60,6 @@ const route = useRoute();
 
 const tabs = leftPanelTabs.visible;
 const panelTabs = computed(() => tabs.value.filter((tab) => tab.placement !== "drawer"));
-const drawerTabs = computed(() => tabs.value.filter((tab) => tab.placement === "drawer"));
 
 const PANEL_MIN_WIDTH = 200;
 const activeTab = computed(() => tabs.value.find((tab) => tab.name === builderStore.leftPanelActiveTab));
@@ -85,29 +78,22 @@ const miniSidebar = ref(null) as Ref<HTMLElement | null>;
 const mountedTabs = reactive(new Set<string>());
 
 const isActive = (tab: LeftPanelTab) => {
-	const activeName =
-		tab.placement === "drawer" ? builderStore.activeDrawerTab : builderStore.leftPanelActiveTab;
-	return tab.isActive?.() ?? activeName === tab.name;
+	if (tab.isActive) return tab.isActive();
+	if (tab.placement === "drawer") return builderStore.activeDrawerTab === tab.name;
+	// an open drawer is the one active item, so the panel tab under it is not
+	return !builderStore.activeDrawerTab && builderStore.leftPanelActiveTab === tab.name;
 };
 
-// the panel and the drawer can both be open, so an open drawer reads apart from the active panel tab
-const getVariant = (tab: LeftPanelTab) => {
-	if (!isActive(tab) || isHidden(tab)) return "ghost";
-	return tab.placement === "drawer" ? "outline" : "subtle";
-};
-
-// a full screen drawer hides what a panel tab would show
-const isHidden = (tab: LeftPanelTab) => builderStore.isDrawerFullScreen && tab.placement !== "drawer";
-
+// a drawer tab and the other tabs replace each other, so one item is active at a time
 const select = (tab: LeftPanelTab) => {
-	if (isHidden(tab)) return;
+	if (tab.placement !== "drawer") builderStore.activeDrawerTab = null;
 	if (tab.action) return tab.action();
+	builderStore.showTokenManager = false;
 	if (tab.placement === "drawer") {
 		builderStore.activeDrawerTab = builderStore.activeDrawerTab === tab.name ? null : tab.name;
 		return;
 	}
 	builderStore.leftPanelActiveTab = tab.name;
-	builderStore.showTokenManager = false;
 };
 
 // read once at setup, so a tab registered later gets no binding until reload

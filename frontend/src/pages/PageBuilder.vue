@@ -80,15 +80,14 @@
 			v-show="builderStore.showRightPanel"
 			data-panel="right"
 			class="no-scrollbar absolute bottom-0 right-0 top-[var(--toolbar-height)] overflow-auto border-l-[1px] border-outline-gray-2 bg-surface-base dark:border-outline-gray-1"></BuilderRightPanel>
-		<!-- over the canvas and both panels, beside the rail that opens it -->
-		<div
-			class="pointer-events-none absolute bottom-0 right-0 top-[var(--toolbar-height)] z-10 flex flex-col justify-end"
-			:style="{ left: `${builderStore.showLeftPanel ? builderStore.builderLayout.optionsPanelWidth : 0}px` }">
-			<LeftPanelDrawer class="pointer-events-auto relative" />
-		</div>
+		<!-- covers the editor beside the rail -->
+		<LeftPanelDrawer class="absolute inset-0 z-10" />
 
 		<!-- Toolbar layer (top) - comes last in DOM -->
-		<BuilderToolbar data-panel="toolbar" class="absolute left-0 right-0 top-0"></BuilderToolbar>
+		<!-- as tall as the drawer header over it, so their borders meet -->
+		<BuilderToolbar
+			data-panel="toolbar"
+			class="absolute left-0 right-0 top-0 h-[var(--toolbar-height)]"></BuilderToolbar>
 	</div>
 	<PageListModal v-model="pageListDialog" :pages="componentUsedInPages"></PageListModal>
 	<Dialog

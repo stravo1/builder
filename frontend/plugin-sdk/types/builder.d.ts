@@ -44,7 +44,7 @@ declare module "builder" {
 		preload?: () => boolean;
 		action?: () => void;
 		isActive?: () => boolean;
-		/** `"drawer"` puts the button at the bottom of the rail and opens the tab in a wide drawer over the editor. */
+		/** `"drawer"` opens the tab over the editor, beside the rail and under Builder's main menu. */
 		placement?: "panel" | "drawer";
 	};
 

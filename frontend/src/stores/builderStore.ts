@@ -35,11 +35,10 @@ const useBuilderStore = defineStore("builderStore", {
 			leftPanelWidth: 300,
 			scriptEditorHeight: 300,
 			optionsPanelWidth: 57,
-			drawerHeight: 360,
 		},
 		leftPanelActiveTab: <LeftSidebarTabOption>"Layers",
+		/** the open drawer tab, which covers the editor beside the rail */
 		activeDrawerTab: <string | null>null,
-		isDrawerExpanded: false,
 		showRightPanel: <boolean>true,
 		showLeftPanel: <boolean>true,
 		showVersionHistory: <boolean>false,
@@ -75,10 +74,6 @@ const useBuilderStore = defineStore("builderStore", {
 		aiConfigured: <boolean | null>null,
 	}),
 	getters: {
-		/** the open drawer covers the canvas and both panels */
-		isDrawerFullScreen(): boolean {
-			return Boolean(this.activeDrawerTab) && this.isDrawerExpanded;
-		},
 		isSmallScreen(): boolean {
 			return belowLgBreakpoint.value;
 		},

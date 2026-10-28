@@ -30,7 +30,7 @@ export type LeftPanelTab = RegistryItem & {
 	action?: () => void;
 	/** for action tabs that own their own active state */
 	isActive?: () => boolean;
-	/** "drawer" puts the button at the bottom of the rail and opens the tab in a wide drawer over the editor */
+	/** "drawer" opens the tab over the editor, beside the rail and under Builder's main menu */
 	placement?: "panel" | "drawer";
 };
 
