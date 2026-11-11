@@ -73,6 +73,12 @@ const routes = [
 		component: () => import("@/pages/PageBuilderDashboard.vue"),
 	},
 	{
+		path: "/dashboard/:item",
+		name: "dashboard-item",
+		beforeEnter: validateVisit,
+		component: () => import("@/pages/PageBuilderDashboard.vue"),
+	},
+	{
 		path: "/page/:pageId",
 		name: "builder",
 		beforeEnter: validateVisit,
