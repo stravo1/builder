@@ -1,6 +1,6 @@
 <template>
 	<div class="flex min-h-full flex-col">
-		<div class="sticky top-0 bg-surface-base px-3 py-3">
+		<div class="sticky top-0 bg-surface-base pb-3">
 			<BuilderInput
 				type="text"
 				placeholder="Search plugins"
@@ -8,7 +8,7 @@
 				@input="(value: string) => (filter = value)" />
 		</div>
 
-		<div class="flex flex-col px-3 pb-3">
+		<div class="flex flex-col pb-3">
 			<CollapsibleSection section-name="Installed">
 				<p v-if="!installed.length" class="text-p-sm italic text-ink-gray-5">
 					{{ filter ? "Nothing here matches that." : "No plugins installed." }}
@@ -123,7 +123,7 @@
 
 		<Button
 			v-if="isDeveloperMode && canManagePlugins"
-			class="mx-3 mb-3 mt-auto"
+			class="mb-3 mt-auto"
 			variant="subtle"
 			icon-left="lucide-plug"
 			label="Load dev plugin"

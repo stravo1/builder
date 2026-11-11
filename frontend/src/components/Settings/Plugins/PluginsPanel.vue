@@ -1,6 +1,9 @@
 <template>
-	<PluginDetails v-if="selectedPlugin" :plugin="selectedPlugin" @back="selectedPlugin = null" />
-	<PluginList v-else @select="(plugin) => (selectedPlugin = plugin)" />
+	<!-- a list row or a README reads badly across the full Settings dialog -->
+	<div class="w-full max-w-xl">
+		<PluginDetails v-if="selectedPlugin" :plugin="selectedPlugin" @back="selectedPlugin = null" />
+		<PluginList v-else @select="(plugin) => (selectedPlugin = plugin)" />
+	</div>
 </template>
 
 <script setup lang="ts">
