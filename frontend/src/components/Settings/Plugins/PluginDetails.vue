@@ -1,9 +1,5 @@
 <template>
 	<div class="flex h-full min-h-0 flex-col">
-		<div class="-ml-2 flex shrink-0 items-center gap-1 bg-surface-base pb-3">
-			<Button variant="ghost" size="sm" icon-left="lucide-arrow-left" label="Back" @click="emit('back')" />
-		</div>
-
 		<div class="no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto">
 			<p v-if="error" class="pb-3 text-p-sm text-ink-red-6">{{ error }}</p>
 			<div v-else-if="!details" class="flex flex-1 items-center justify-center">
@@ -187,7 +183,8 @@ import { Badge, Button, LoadingIndicator, toast, Tooltip } from "frappe-ui";
 import { computed, ref, shallowRef, watch } from "vue";
 
 const props = defineProps<{ plugin: string }>();
-const emit = defineEmits<{ back: [] }>();
+/** Nothing is left to show, as after Uninstall or Stop. */
+const emit = defineEmits<{ close: [] }>();
 
 const activeInstallation = shallowRef<ReturnType<typeof useInstallationDetails> | null>(null);
 const hubDetails = ref<InstallationDetails | null>(null);
@@ -217,7 +214,7 @@ const stop = async () => {
 	await stopDevPlugin();
 	await reloadInstallations();
 	promptReload("Dev plugin stopped");
-	emit("back");
+	emit("close");
 };
 
 const readme = computed(() => (details.value?.readme ? renderMarkdown(details.value.readme) : ""));
@@ -338,7 +335,7 @@ const uninstall = async () => {
 			const isFromHub = details.value?.source === "Hub";
 			await uninstallPlugin(props.plugin);
 			// the watch shows the Hub page. A plugin with no Hub has no page to show
-			if (!isFromHub) emit("back");
+			if (!isFromHub) emit("close");
 		}
 	} catch (thrown) {
 		toast.error((thrown as Error).message);
