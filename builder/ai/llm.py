@@ -8,12 +8,9 @@ import json
 import logging
 
 import frappe
-import litellm
 from frappe import _
 
 from builder.ai.models import ModelRegistry
-
-litellm.drop_params = True
 
 # Sent for a provider with no key of its own (as presets.verify_key does): a
 # keyless gateway (Ollama, vLLM) ignores it, anything else rejects it.
@@ -107,13 +104,16 @@ def loads_tolerant(raw: str) -> tuple[object | None, bool]:
 # Token/temperature budgets per task tier.
 TASK_PARAMS = {
 	"simple": {"max_tokens": 1000, "temperature": 0.5},
-	"complex": {"max_tokens": 40000, "temperature": 0.7},
+	# a ceiling the model may not reach, but without it GPT thought less than at medium
+	"complex": {"max_tokens": 40000, "temperature": 0.7, "reasoning_effort": "high"},
 	"clarify": {"max_tokens": 700, "temperature": 0.1},
 	# 0.7 (not 0.3): the agent tier also composes the creative option cards
 	# (layout directions, font pairings) — at 0.3 every session got the same
 	# three flat options and the same famous fonts. Matches the "complex"
 	# generation tier, which already proves 0.7 is safe for structured output.
-	"agent": {"max_tokens": 16000, "temperature": 0.7},
+	# medium, not high: high added ~10s to every round, mechanical ones included,
+	# with no page-quality gain the eval could see (low broke 2 of 3 builds)
+	"agent": {"max_tokens": 16000, "temperature": 0.7, "reasoning_effort": "medium"},
 }
 
 
@@ -145,9 +145,12 @@ def provider_kwargs(model: str) -> dict:
 
 
 def patch_params_for_provider(model: str, params: dict) -> dict:
-	"""Moonshot's Kimi rejects every temperature but 1, so coerce it instead of
-	failing the whole turn over a tuning knob."""
-	if "kimi" in model and params.get("temperature") not in (None, 1):
+	"""Moonshot's Kimi rejects every temperature but 1, and so does Anthropic's own API
+	once thinking is on, so coerce it instead of failing the whole turn over a tuning knob.
+	OpenRouter takes any temperature with thinking."""
+	direct_claude = "claude-" in model and not model.startswith("openrouter/")
+	needs_one = "kimi" in model or (direct_claude and params.get("reasoning_effort"))
+	if needs_one and params.get("temperature") not in (None, 1):
 		return {**params, "temperature": 1}
 	return params
 
@@ -246,11 +249,14 @@ def complete(model: str, messages: list, params: dict, *, stream: bool, api_key:
 		f"LLM | model={model} stream={stream} params={params}\n"
 		+ "\n".join(f"[{m['role']}] {m['content']!s}" for m in messages)
 	)
+	import litellm
+
 	resp = litellm.completion(
 		model=model,
 		messages=messages,
 		stream=stream,
 		api_key=api_key,
+		drop_params=True,
 		num_retries=1,
 		# Read timeout (max stall between bytes, not total duration): a wedged
 		# provider connection otherwise blocks the worker forever — the loop only
@@ -291,12 +297,15 @@ def complete_with_tools(
 		f"LLM tools | model={model} stream={stream} tools={[t['function']['name'] for t in tools]}\n"
 		+ "\n".join(f"[{m['role']}] {m['content']}" for m in messages)
 	)
+	import litellm
+
 	resp = litellm.completion(
 		model=model,
 		messages=messages,
 		tools=tools,
 		stream=stream,
 		api_key=api_key,
+		drop_params=True,
 		num_retries=1,
 		timeout=120,  # see complete() — a stalled connection must fail, not wedge the turn
 		# Final usage chunk while streaming — see complete().

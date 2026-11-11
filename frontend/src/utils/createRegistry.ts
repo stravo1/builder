@@ -18,6 +18,26 @@ function withRawComponents<T extends object>(item: T): T {
 	return item;
 }
 
+/** The plugin whose install() is running, and the unregisters of what each plugin registered. */
+let installingPlugin: string | null = null;
+const pluginItems = new Map<string, Array<() => void>>();
+
+/** Runs a plugin's install(), noting what it registers so `unregisterPluginItems` can take it back. */
+export function trackPluginItems(plugin: string, install: () => void) {
+	installingPlugin = plugin;
+	try {
+		install();
+	} finally {
+		installingPlugin = null;
+	}
+}
+
+/** Before a new version of a running plugin installs, so a renamed item does not stay behind. */
+export function unregisterPluginItems(plugin: string) {
+	pluginItems.get(plugin)?.forEach((unregister) => unregister());
+	pluginItems.delete(plugin);
+}
+
 /**
  * Every registry item needs a stable identity, and may ask for a position
  * relative to another item's name.
@@ -30,6 +50,8 @@ export type RegistryEntry = {
 	name: string;
 	before?: string;
 	after?: string;
+	/** Set by the registry: the plugin whose install() registered the item. */
+	plugin?: string;
 };
 
 /** The common case: the surface itself decides whether an item shows. */
@@ -79,13 +101,16 @@ export function createRegistry<T extends RegistryEntry>() {
 
 	// returns its own unregister, so a caller never has to track names
 	const register = (item: T) => {
-		const registered = withRawComponents({ ...item });
+		const registered = withRawComponents({ ...item, plugin: installingPlugin ?? undefined });
 		items.set(item.name, registered);
 		place(registered);
 		// a later registration under the same name owns the entry, so this must not delete it
-		return () => {
+		const unregister = () => {
 			if (toRaw(items.get(item.name)) === registered) remove(item.name);
 		};
+		if (installingPlugin)
+			pluginItems.set(installingPlugin, [...(pluginItems.get(installingPlugin) ?? []), unregister]);
+		return unregister;
 	};
 
 	const all = computed(() => order.value.map((name) => items.get(name) as T));

@@ -1,33 +1,16 @@
 import type { RunnablePlugin } from "@/plugins/context";
 import { devPlugin, isDevPlugin } from "@/plugins/devPlugin";
-import { loadPlugin, runningPlugins } from "@/plugins/loader";
+import { loadPlugin, runningPlugins, unloadPlugin } from "@/plugins/loader";
 import { useStorage } from "@vueuse/core";
 import { call, createResource, getCachedResource, toast } from "frappe-ui";
 import { computed, reactive, shallowRef } from "vue";
 
 const METHOD = "builder.plugins.installations";
-const HUB_API = "api/method/builder_hub.plugins.api";
+const HUB_METHOD = "builder.plugins.hub";
 const CATALOG_CACHE = "plugins-catalog";
-/** The Hub lists the releases at or below this protocol. Keep in step with `builder/plugins/constants.py`. */
-const PROTOCOL_VERSION = 1;
 
 /** A choice of this user in this browser. It is not an access control, so the server does not read it. */
 const pluginsDisabled = useStorage("builderPluginsDisabled", false);
-
-/** The server names the Hub, because only a manager can read Builder Settings. */
-const getHubMethodUrl = async (method: string) =>
-	`${await call("builder.plugins.hub.get_hub_url")}/${HUB_API}.${method}`;
-
-/**
- * A GET to the Hub with no cookies and no headers. `frappeRequest` sends the
- * CSRF token of this site, and the Hub must never get it.
- */
-const hubRequest = async (method: string, params: Record<string, string | number>) => {
-	const query = new URLSearchParams(Object.entries(params).map(([key, value]) => [key, String(value)]));
-	const response = await fetch(`${await getHubMethodUrl(method)}?${query}`, { credentials: "omit" });
-	if (!response.ok) throw new Error(`The Builder Hub returned an error (${response.status}).`);
-	return (await response.json()).message;
-};
 
 /** One row of the installation list of the site. */
 type Installation = {
@@ -40,7 +23,7 @@ type Installation = {
 	icon?: string;
 	version: string;
 	/** Where the files came from. */
-	source: "Hub" | "App" | "Development";
+	source: "Hub" | "App" | "Development" | "Bob";
 	/** The Builder Hub that it came from, when `source` is "Hub". */
 	hub_url?: string;
 	/** The Frappe app that ships it, when `source` is "App". */
@@ -84,10 +67,20 @@ const managerResource = createResource<boolean>({
 
 const canManagePlugins = computed(() => Boolean(managerResource.data));
 
-/** Gets the list. Call it after each change. */
-const reloadInstallations = () => {
+/**
+ * Gets the list. Call it after each change.
+ *
+ * Starts each plugin whose install ended since the last list. So an install
+ * still starts when the browser missed its realtime message.
+ */
+const reloadInstallations = async () => {
 	if (managerResource.data === null) void managerResource.fetch();
-	return installationsResource.fetch();
+	const installing = (installationsResource.data ?? [])
+		.filter((row) => row.install_state === "Installing")
+		.map((row) => row.name);
+	const rows = await installationsResource.fetch();
+	for (const plugin of installing) await loadInstalled(plugin);
+	return rows;
 };
 
 const isRunnable = (row: Installation) =>
@@ -198,17 +191,33 @@ const setPluginEnabled = async (plugin: string, enabled: boolean) => {
 	else promptReload(enabled ? "Plugin enabled" : "Plugin disabled");
 };
 
+/** Left bar tabs a plugin added while the editor ran, which the user has not opened yet. */
+const unseenTabs = reactive(new Set<string>());
+
+/** Plugins whose left bar tabs this user keeps out of the bar, in this browser. Open still shows them. */
+const hiddenPluginTabs = useStorage("builderHiddenPluginTabs", new Set<string>());
+
+const setPluginTabHidden = (plugin: string, hidden: boolean) => {
+	const next = new Set(hiddenPluginTabs.value);
+	if (hidden) next.add(plugin);
+	else next.delete(plugin);
+	hiddenPluginTabs.value = next;
+};
+
+/** A plugin Bob wrote registers its items in install(), so they come off in place. Others may hold more, so they ask for a reload. */
 const uninstallPlugin = async (plugin: string) => {
 	const wasRunning = runningPlugins.has(plugin);
+	const fromBob = findInstallation(plugin)?.source === "Bob";
 	await call(`${METHOD}.uninstall_plugin`, { plugin });
 	await reloadInstallations();
-	if (wasRunning) promptReload("Plugin uninstalled");
+	if (wasRunning && fromBob) unloadPlugin(plugin);
+	else if (wasRunning) promptReload("Plugin uninstalled");
 };
 
 /** Loads one installed plugin while the editor runs. */
 const loadInstalled = async (plugin: string) => {
 	const row = (installationsResource.data ?? []).find((installation) => installation.name === plugin);
-	if (!row || !isRunnable(row) || pluginsDisabled.value) return;
+	if (!row || !isRunnable(row) || pluginsDisabled.value || runningPlugins.has(plugin)) return;
 	try {
 		await loadPlugin(toRunnable(row));
 	} catch (error) {
@@ -220,10 +229,8 @@ type CatalogPlugin = Pick<Installation, "name" | "label" | "description" | "icon
 
 const getPluginsCatalog = (page: number = 1) =>
 	createResource({
-		url: "get_catalog",
-		resourceFetcher: (options: { url: string; params: Record<string, number> }) =>
-			hubRequest(options.url, options.params),
-		params: { page, protocol_version: PROTOCOL_VERSION },
+		url: `${HUB_METHOD}.get_catalog`,
+		params: { page },
 		auto: true,
 		cache: [CATALOG_CACHE, page],
 		initialData: { plugins: [] as CatalogPlugin[] },
@@ -249,12 +256,9 @@ const latestVersion = (releases: HubPluginResponse["releases"]) =>
 		.filter((release) => release.status === "Published")
 		.sort((a, b) => b.published_on.localeCompare(a.published_on))[0]?.version ?? "";
 
-/** One plugin from the Hub. It asks the Hub, not the site, because the site has no record of it yet. */
+/** One plugin from the Hub, because the site has no record of it yet. */
 const getHubPlugin = async (name: string): Promise<HubPlugin> => {
-	const { plugin, releases }: HubPluginResponse = await hubRequest("get_plugin", {
-		name,
-		protocol_version: PROTOCOL_VERSION,
-	});
+	const { plugin, releases }: HubPluginResponse = await call(`${HUB_METHOD}.get_plugin`, { name });
 
 	return {
 		name: plugin.name,
@@ -273,7 +277,7 @@ const getHubPlugin = async (name: string): Promise<HubPlugin> => {
  * the `builder_plugin_install` realtime event.
  */
 const installFromHub = async (name: string, version: string) => {
-	await call("builder.plugins.hub.install_from_hub", { name, version });
+	await call(`${HUB_METHOD}.install_from_hub`, { name, version });
 	await reloadInstallations();
 };
 
@@ -323,6 +327,9 @@ const listenForPluginJobs = (realtime: { on: (event: string, handler: (data: any
 
 export {
 	canManagePlugins,
+	unseenTabs,
+	hiddenPluginTabs,
+	setPluginTabHidden,
 	pluginsDisabled,
 	getPluginsCatalog,
 	getPluginUpdate,

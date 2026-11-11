@@ -2,6 +2,8 @@
 # See license.txt
 
 
+from unittest.mock import patch
+
 import frappe
 from frappe.desk.form.load import getdoc
 from frappe.tests.utils import FrappeTestCase
@@ -9,6 +11,7 @@ from frappe.utils import set_request
 from frappe.website.serve import get_response, get_response_content
 
 from builder.builder.component_versions import ensure_component_version
+from builder.builder.doctype.builder_page.builder_page import resolve_editor_path, resolve_path
 from builder.utils import Block
 
 repeater_page_data_script = """
@@ -152,6 +155,17 @@ class TestBuilderPage(FrappeTestCase):
 		getdoc("Builder Page", self.page.name)
 		self.assertEqual(frappe.response.docs[0].get("__onload").get("builder_path"), "builder")
 
+	def test_editor_route_follows_the_current_site_builder_path(self):
+		set_request(method="GET", path="/")
+		for builder_path in ("builder", "studio"):
+			with patch.dict(frappe.local.conf, builder_path=builder_path):
+				self.assertEqual(resolve_path(builder_path), "_builder")
+				self.assertEqual(resolve_path(f"{builder_path}/page/abc"), "_builder")
+				self.assertEqual(frappe.form_dict.app_path, "page/abc")
+
+		with patch.dict(frappe.local.conf, builder_path="studio"):
+			self.assertIsNone(resolve_editor_path("builder/page/abc"))
+
 	def test_blocks_can_be_saved_as_a_list(self):
 		"""Callers that hand over a block tree (paste, AI writes, the API) pass a list.
 		Only insert used to compact it, so updating a page threw "cannot be a list"."""
@@ -278,6 +292,18 @@ class TestBuilderPage(FrappeTestCase):
 		finally:
 			page.delete()
 
+	def test_a_templated_canonical_url_is_rendered(self):
+		from frappe.utils import get_url
+
+		page = insert_page("test-templated-canonical", "Canonical Content")
+		try:
+			page.publish()
+			page.db_set("canonical_url", "{{ frappe.utils.get_url() }}/canonical-target")
+			content = get_response_content("/test-templated-canonical")
+			self.assertIn(f'<link rel="canonical" href="{get_url()}/canonical-target" />', content)
+		finally:
+			page.delete()
+
 	def test_route_is_trimmed_of_whitespace(self):
 		padded, blank = pages = [
 			insert_page(route, "Whitespace Content") for route in (" test-route-whitespace / ", "   ")
@@ -312,6 +338,18 @@ class TestBuilderPage(FrappeTestCase):
 			self.assertFalse(page.staging)
 			self.assertEqual(get_response("/test-staging-unpublish").status_code, 404)
 		finally:
+			page.delete()
+
+	def test_unpublishing_the_home_page_clears_it_from_settings(self):
+		page = insert_page("test-unpublish-home", "Home Content")
+		home_page = frappe.db.get_single_value("Builder Settings", "home_page")
+		try:
+			page.publish()
+			frappe.db.set_single_value("Builder Settings", "home_page", page.route)
+			page.unpublish()
+			self.assertFalse(frappe.db.get_single_value("Builder Settings", "home_page"))
+		finally:
+			frappe.db.set_single_value("Builder Settings", "home_page", home_page)
 			page.delete()
 
 	def test_live_page_keeps_its_route_when_a_staging_page_shares_it(self):
@@ -395,6 +433,39 @@ class TestBuilderPage(FrappeTestCase):
 			self.assertIn('"at": "2026-01-02 03:04:05"', content)
 			self.assertIn('"on": "2026-01-02"', content)
 			self.assertIn('"price": 9.5', content)
+		finally:
+			page.delete()
+
+	def test_app_hooks_feed_page_data_under_the_app_name(self):
+		page = insert_page("test-page-data-hook", "Hook")
+		page.page_data_script = 'data.builder["title"] = "from script"'
+		page.save()
+		get_hooks = frappe.get_hooks
+
+		def hooks(hook, *args, **kwargs):
+			if hook == "builder_page_data":
+				return [f"{__name__}.get_app_page_data"] if kwargs.get("app_name") == "builder" else []
+			return get_hooks(hook, *args, **kwargs)
+
+		try:
+			with patch("frappe.get_hooks", side_effect=hooks):
+				data = page.get_page_data()
+			self.assertEqual(data.builder["page_id"], page.name)
+			self.assertEqual(data.builder["title"], "from script")
+			self.assertNotIn("page_id", data)
+			# the editor fetches it with run_doc_method
+			page.is_whitelisted("get_page_data")
+		finally:
+			page.delete()
+
+	def test_page_data_script_can_set_the_page_language(self):
+		page = insert_page("test-page-language", "Language")
+		page.page_data_script = 'data.language = "ar"'
+		page.save()
+		try:
+			page.publish()
+			content = get_response_content("/test-page-language")
+			self.assertIn('<html lang="ar"', content)
 		finally:
 			page.delete()
 
@@ -1053,36 +1124,6 @@ class TestBuilderPage(FrappeTestCase):
 			self.assertEqual(page.get_page_data(), {})
 		finally:
 			frappe.local.flags.redirect_location = None
-			page.delete()
-
-	def test_page_data_script_answers_404_outside_the_editor(self):
-		from unittest.mock import patch
-
-		body = Block(element="div", originalElement="body")
-		body.attach_children(Block(element="p", innerHTML="Entry body"))
-		page = frappe.get_doc(
-			{
-				"doctype": "Builder Page",
-				"page_title": "Not Found Test",
-				"published": 1,
-				"route": "/not-found-test",
-				"page_data_script": 'if not in_preview:\n\traise frappe.PageDoesNotExistError("No entry")\ndata.preview = in_preview',
-				"blocks": body.as_json(wrap_in_array=True),
-			}
-		).insert()
-		try:
-			# the safer runner is the one that lacked the exception
-			with patch("builder.utils.is_safe_exec_enabled", return_value=False):
-				set_request(method="GET", path="/not-found-test")
-				frappe.flags.force_website_cache = True
-				self.assertEqual(get_response("/not-found-test").status_code, 404)
-				# the record can appear later, so the URL is not cached as missing
-				self.assertFalse(frappe.cache.hget("website_404", frappe.local.request.url))
-				self.assertEqual(page.get_page_data(), {"preview": True})
-				# the Preview and the thumbnails render too, and they show the page, not the 404
-				self.assertIn("Entry body", page.get_preview_html())
-		finally:
-			frappe.flags.force_website_cache = False
 			page.delete()
 
 	def test_component_client_script(self):
@@ -2396,3 +2437,7 @@ def get_html_for(html, type, value, index=None, only_content=False, list_all=Fal
 			results[index] if index is not None and index < len(results) else results[0] if results else None
 		)
 		return result.get(value) if result and result.get(value) else ""
+
+
+def get_app_page_data(page):
+	return {"page_id": page.name, "title": "from app"}

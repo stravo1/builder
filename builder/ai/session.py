@@ -116,6 +116,20 @@ class AISession:
 		return meta if isinstance(meta, dict) else {}
 
 	@classmethod
+	def plugins_written(cls, session_id: str | None) -> list[str]:
+		"""Every plugin this conversation's replies wrote, oldest first."""
+		if not session_id:
+			return []
+		rows = frappe.db.get_all(
+			cls.MESSAGE_DOCTYPE,
+			filters={"session": session_id, "role": "assistant", "metadata_json": ["like", '%"plugins"%']},
+			pluck="metadata_json",
+			order_by="creation asc",
+		)
+		written = [plugin for row in rows for plugin in cls.load_metadata(row).get("plugins") or []]
+		return list(dict.fromkeys(written))
+
+	@classmethod
 	def latest_canvas_theme(cls, session_id: str) -> str | None:
 		"""The editor theme the user's latest message was sent from."""
 		metadata_json = frappe.db.get_value(
@@ -208,6 +222,8 @@ class AISession:
 			# generator see what was proposed and approved.
 			if role == "assistant" and r.get("status") == "plan_summary":
 				content = self.plan_context_content(content, r.get("metadata_json"))
+			if role == "assistant":
+				content = self.sources_context_content(content, r.get("metadata_json"))
 			if i in replay_images and (image := self.replay_image_part(r)):
 				out.append({"role": role, "content": [{"type": "text", "text": content}, image]})
 				continue
@@ -256,6 +272,18 @@ class AISession:
 		if palette:
 			lines.append(f"Palette: {palette}")
 		return "\n".join(lines)
+
+	@staticmethod
+	def sources_context_content(reply: str, metadata_json: str | None) -> str:
+		"""The reply plus the addresses its turn read. Only the reply is stored as content,
+		so without them a follow-up ("now add the rest") guesses at URLs again."""
+		sources = AISession.load_metadata(metadata_json).get("sources") or []
+		reads = [
+			s["url"] + (f" fields={','.join(s['fields'])}" if s.get("fields") else "")
+			for s in sources
+			if s.get("url")
+		]
+		return f"{reply}\n\n[read_url answered: {'; '.join(reads)}]" if reads else reply
 
 	# --- message write ----------------------------------------------------
 

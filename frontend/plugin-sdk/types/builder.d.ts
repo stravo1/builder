@@ -44,8 +44,6 @@ declare module "builder" {
 		preload?: () => boolean;
 		action?: () => void;
 		isActive?: () => boolean;
-		/** `"drawer"` puts the button at the bottom of the rail and opens the tab in a wide drawer over the editor. */
-		placement?: "panel" | "drawer";
 	};
 
 	export type ToolbarItem = RegistryItem & {
@@ -114,8 +112,15 @@ declare module "builder" {
 
 	/** A lucide icon by name, as a component, for any surface that takes an icon. */
 	export function lucideIcon(name: string): Component;
-	/** In a drawer tab, moves its slot into the drawer's header, in place of the tab's label. Elsewhere it renders the slot in place. */
-	export const DrawerHeader: Component;
+
+	/**
+	 * Adds a block inside the selected container, after any other selected block,
+	 * or at the end of the page, and selects it. Cmd+Z takes it out.
+	 */
+	export function insertBlock(options: Record<string, unknown>): Block | undefined;
+
+	/** Call from a draggable element's dragstart; the canvas inserts the block where it is dropped. */
+	export function startBlockDrag(event: DragEvent, options: Record<string, unknown>): void;
 
 	/**
 	 * The controls of the property panel. Give one as a `BlockProperty.component`.

@@ -35,11 +35,8 @@ const useBuilderStore = defineStore("builderStore", {
 			leftPanelWidth: 300,
 			scriptEditorHeight: 300,
 			optionsPanelWidth: 57,
-			drawerHeight: 360,
 		},
 		leftPanelActiveTab: <LeftSidebarTabOption>"Layers",
-		activeDrawerTab: <string | null>null,
-		isDrawerExpanded: false,
 		showRightPanel: <boolean>true,
 		showLeftPanel: <boolean>true,
 		showVersionHistory: <boolean>false,
@@ -73,12 +70,10 @@ const useBuilderStore = defineStore("builderStore", {
 		// Builder Settings is the only thing the client can see for itself.
 		// null until the server answers; false means "asked, not configured"
 		aiConfigured: <boolean | null>null,
+		// text for Bob's composer, set by another panel; the chat takes it and clears it
+		aiPromptDraft: <string | null>null,
 	}),
 	getters: {
-		/** the open drawer covers the canvas and both panels */
-		isDrawerFullScreen(): boolean {
-			return Boolean(this.activeDrawerTab) && this.isDrawerExpanded;
-		},
 		isSmallScreen(): boolean {
 			return belowLgBreakpoint.value;
 		},

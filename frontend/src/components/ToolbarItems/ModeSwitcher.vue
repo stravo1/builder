@@ -6,7 +6,6 @@
 			:variant="builderStore.mode === mode.mode ? 'subtle' : 'ghost'"
 			:tooltip="mode.description"
 			:icon="mode.icon"
-			:disabled="builderStore.isDrawerFullScreen"
 			@click="() => (builderStore.mode = mode.mode as BuilderMode)"
 			:active="builderStore.mode === mode.mode"></Button>
 	</div>

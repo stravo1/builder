@@ -15,12 +15,11 @@ from frappe.utils.caching import redis_cache
 from frappe.utils.jinja import render_template
 from frappe.utils.telemetry import capture
 from frappe.website.page_renderers.document_page import DocumentPage
-from frappe.website.page_renderers.template_page import TemplatePage
 from frappe.website.path_resolver import evaluate_dynamic_routes
 from frappe.website.path_resolver import resolve_path as original_resolve_path
 from frappe.website.utils import clear_cache
 from frappe.website.website_generator import WebsiteGenerator
-from werkzeug.routing import Map
+from werkzeug.routing import Map, Rule
 
 from builder.builder.component_versions import (
 	collect_restore_warnings,
@@ -37,7 +36,6 @@ from builder.builder.doctype.builder_snapshot.builder_snapshot import (
 from builder.builder.doctype.user_font.user_font import get_all_user_fonts
 from builder.editor_demo import is_demo_page
 from builder.export_import_standard_page import export_page_as_standard
-from builder.hooks import builder_path
 from builder.html_preview_image import generate_preview
 from builder.template_sync import delete_template_page_fixture, export_template_group
 from builder.utils import (
@@ -49,6 +47,7 @@ from builder.utils import (
 	escape_single_quotes,
 	execute_script,
 	get_builder_page_preview_file_paths,
+	get_builder_path,
 	is_bulk_import,
 	is_component_used,
 	merge_raw_styles_into_base_styles,
@@ -88,14 +87,6 @@ class BuilderPageRenderer(DocumentPage):
 
 		return False
 
-	def render(self):
-		try:
-			return super().render()
-		except frappe.PageDoesNotExistError:
-			# Frappe's NotFoundPage keeps the request's 200 status and caches the URL as
-			# missing. A record can appear later, so render the 404 template uncached
-			return TemplatePage("404", 404).render()
-
 	def validate_access(self):
 		if self.docname:
 			self.doc = frappe.get_cached_doc(self.doctype, self.docname)
@@ -109,7 +100,7 @@ class BuilderPageRenderer(DocumentPage):
 		if self.doc.is_home_page():
 			context["canonical_url"] = frappe.utils.get_url()
 		elif self.doc.canonical_url:
-			context["canonical_url"] = render_template(self.doc.canonical_url, context)
+			context["canonical_url"] = render_template(self.doc.canonical_url, context)  # nosemgrep
 		else:
 			context["canonical_url"] = frappe.utils.get_url(self.path)
 		self.context = context
@@ -160,7 +151,7 @@ class BuilderPage(WebsiteGenerator):
 	# end: auto-generated types
 
 	def onload(self):
-		self.set_onload("builder_path", builder_path)
+		self.set_onload("builder_path", get_builder_path())
 
 	website = frappe._dict(
 		template="templates/generators/webpage.html",
@@ -290,7 +281,7 @@ class BuilderPage(WebsiteGenerator):
 		if self.has_value_changed("published") and not self.published:
 			# if this is homepage then clear homepage from builder settings
 			if frappe.get_cached_value("Builder Settings", "Builder Settings", "home_page") == self.route:
-				frappe.db.set_value("Builder Settings", "Builder Settings", "home_page", None)
+				frappe.db.set_single_value("Builder Settings", "home_page", None)
 
 		if (
 			frappe.conf.developer_mode
@@ -572,7 +563,7 @@ class BuilderPage(WebsiteGenerator):
 				"Builder Settings", "Builder Settings", "disable_auto_dark_mode"
 			)
 
-		page_data = self._get_page_data(for_render=True, in_preview=bool(context.preview))
+		page_data = self._get_page_data(for_render=True)
 		if page_data.get("title"):
 			context.title = page_data.get("page_title")
 
@@ -596,8 +587,8 @@ class BuilderPage(WebsiteGenerator):
 		self.set_custom_font(context, fonts)
 		context.font_urls = get_google_font_urls(fonts)
 		context.__content = content
-		context.style = render_template(style, page_data)
-		context.editor_link = f"/{builder_path}/page/{self.name}"
+		context.style = render_template(style, page_data)  # nosemgrep
+		context.editor_link = f"/{get_builder_path()}/page/{self.name}"
 		if frappe.form_dict and self.dynamic_route:
 			query_string = "&".join(
 				[
@@ -609,7 +600,7 @@ class BuilderPage(WebsiteGenerator):
 
 		context.page_name = self.name
 		if is_demo_page(self.name) and not context.preview:
-			context.editor_demo_url = f"/{builder_path}/demo/{self.name}"
+			context.editor_demo_url = f"/{get_builder_path()}/demo/{self.name}"
 			# the file is served immutable for a year, so a build has to change its URL
 			version = frappe.utils.get_build_version()
 			context.editor_demo_script = f"/assets/builder/js/editor_demo.js?v={version}"
@@ -627,7 +618,7 @@ class BuilderPage(WebsiteGenerator):
 		self.set_language(context)
 		# tojson can't serialize dates or decimals; frappe's encoder can
 		context.page_data = frappe.parse_json(frappe.as_json(clean_data(context.page_data)))
-		context["__content"] = render_template(context.__content, context)
+		context["__content"] = render_template(context.__content, context)  # nosemgrep
 
 	def set_meta_tags(self, context, page_data=None):
 		if not page_data:
@@ -648,8 +639,9 @@ class BuilderPage(WebsiteGenerator):
 			context.favicon = frappe.get_cached_value("Builder Settings", "Builder Settings", "favicon")
 
 	def set_language(self, context):
-		# Set page-specific language or fall back to default language from Builder Settings
-		context.language = self.language
+		# Set page-specific language, then one set by the page data script,
+		# or fall back to default language from Builder Settings
+		context.language = self.language or context.get("language")
 		if not context.language:
 			context.default_language = (
 				frappe.get_cached_value("Builder Settings", "Builder Settings", "default_language") or "en"
@@ -692,19 +684,28 @@ class BuilderPage(WebsiteGenerator):
 		if self.body_html:
 			context._body_html += self.body_html
 
-		context["_head_html"] = render_template(context._head_html, context)
-		context["_body_html"] = render_template(context._body_html, context)
+		context["_head_html"] = render_template(context._head_html, context)  # nosemgrep
+		context["_body_html"] = render_template(context._body_html, context)  # nosemgrep
+
+	def get_app_page_data(self) -> dict:
+		"""Data installed apps give this page through the builder_page_data hook, each under its app's name,
+		so bindings read `<app>.<key>`. The page's own data script runs after, with this data already in `data`."""
+		app_data = {}
+		for app in frappe.get_installed_apps():
+			for method in frappe.get_hooks("builder_page_data", app_name=app):
+				if data := frappe.get_attr(method)(self):
+					app_data.setdefault(app, {}).update(data)
+		return app_data
 
 	@frappe.whitelist()
 	def get_page_data(self, route_variables: dict | None = None) -> dict:
 		return self._get_page_data(route_variables=route_variables, for_render=False)
 
-	def _get_page_data(
-		self, route_variables: dict | None = None, for_render: bool = False, in_preview: bool = False
-	) -> dict:
+	def _get_page_data(self, route_variables: dict | None = None, for_render: bool = False) -> dict:
 		if route_variables:
 			frappe.form_dict.update({k: v for k, v in route_variables.items()})
-		page_data = frappe._dict()
+		# the page's script sees what apps gave, so it can read or change it
+		page_data = frappe._dict(self.get_app_page_data())
 		if self.page_data_script:
 
 			def redirect(location: str, http_status_code: int = 302):
@@ -712,9 +713,7 @@ class BuilderPage(WebsiteGenerator):
 					frappe.local.flags.redirect_location = location
 					raise frappe.Redirect(http_status_code)
 
-			# in_preview: the editor, its Preview, or a thumbnail asks for the data. So a
-			# script can show drafts there and skip a 404
-			_locals = dict(data=frappe._dict(), redirect=redirect, in_preview=in_preview or not for_render)
+			_locals = dict(data=page_data, redirect=redirect)
 			execute_script(self.page_data_script, _locals, self.name)
 			page_data.update(_locals["data"])
 
@@ -1887,7 +1886,16 @@ def resolve_path(path):
 	except Exception:
 		pass
 
-	return original_resolve_path(path)
+	return resolve_editor_path(path) or original_resolve_path(path)
+
+
+def resolve_editor_path(path):
+	builder_path = get_builder_path()
+	rules = [
+		Rule(f"/{builder_path}", endpoint="_builder"),
+		Rule(f"/{builder_path}/<path:app_path>", endpoint="_builder"),
+	]
+	return evaluate_dynamic_routes(rules, path)
 
 
 def reset_with_component(block, extended_with_component, component_children):

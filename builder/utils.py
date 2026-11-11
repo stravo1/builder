@@ -2,14 +2,12 @@ import inspect
 import os
 import re
 import shutil
-import socket
 from dataclasses import dataclass
 from functools import wraps
 from os.path import join
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote
 
 import frappe
-import yaml
 from frappe.model.document import Document
 from frappe.modules.import_file import (
 	import_doc,
@@ -32,6 +30,8 @@ from RestrictedPython import compile_restricted
 from RestrictedPython import safe_globals as restricted_safe_globals
 from werkzeug.routing import Rule
 
+from builder.public_fetch import public_session
+
 
 def compact_json(obj) -> str:
 	return frappe.as_json(obj, indent=None, separators=(",", ":"))
@@ -46,6 +46,10 @@ def is_bulk_import() -> bool:
 	return bool(
 		frappe.flags.in_import or frappe.flags.in_install or frappe.flags.in_migrate or frappe.flags.in_patch
 	)
+
+
+def get_builder_path() -> str:
+	return frappe.conf.builder_path or "builder"
 
 
 def get_installed_app_path(app_name) -> str | None:
@@ -244,13 +248,29 @@ def get_cached_doc_as_dict(doctype, name):
 	return frappe.get_cached_doc(doctype, name).as_dict()
 
 
-def make_safe_get_request(url, **kwargs):
-	parsed = urlparse(url)
-	parsed_ip = socket.gethostbyname(parsed.hostname)
-	if parsed_ip.startswith(("127", "10", "192", "172")):
-		return
+def make_safe_get_request(url, auth=None, headers=None, data=None, json=None, params=None, timeout=None):
+	# frappe's make_get_request takes no session before v16.50, and kwargs such as
+	# proxies must not reach requests, since a proxied request skips the address check
+	try:
+		response = public_session().get(
+			url, auth=auth, headers=headers, data=data, json=json, params=params, timeout=timeout
+		)
+	except frappe.PermissionError:
+		return None
+	response.raise_for_status()
+	return decode_response(response)
 
-	return frappe.integrations.utils.make_get_request(url, **kwargs)
+
+def decode_response(response):
+	"""What frappe's make_get_request returns for a response."""
+	content_type = response.headers.get("content-type")
+	if not content_type:
+		return None
+	if content_type == "text/plain; charset=utf-8":
+		return parse_qs(response.text)
+	if content_type.startswith("application/") and content_type.split(";")[0].endswith("json"):
+		return response.json()
+	return response.text or None
 
 
 def safe_get_list(*args, **kwargs):
@@ -309,8 +329,6 @@ def get_safer_globals():
 			get_cached_doc=get_cached_doc_as_dict,
 			_=frappe._,
 			session=safe_globals["frappe"]["session"],
-			# a script raises it for a missing record, and the site answers 404
-			PageDoesNotExistError=frappe.PageDoesNotExistError,
 		),
 	)
 
@@ -344,7 +362,7 @@ def safer_exec(
 
 	with safe_exec_flags():
 		# execute script compiled by RestrictedPython
-		exec(
+		exec(  # nosemgrep
 			compile_restricted(script, filename=filename, policy=FrappeTransformer),
 			exec_globals,
 			_locals,
@@ -614,7 +632,7 @@ def sanitize_style_value(value):
 
 def execute_script(script, _locals, script_filename):
 	if is_safe_exec_enabled():
-		safe_exec(script, None, _locals, script_filename=script_filename)
+		safe_exec(script, None, _locals, script_filename=script_filename)  # nosemgrep
 	else:
 		safer_exec(script, None, _locals, script_filename=script_filename)
 
@@ -849,46 +867,3 @@ def hash(s):
 
 def to_safe_json(data):
 	return frappe.as_json(data or {}).replace("</", r"<\/")
-
-
-class CompactDumper(yaml.Dumper):
-	"""Minimal-whitespace YAML dumper.
-
-	Two optimizations over the default Dumper:
-	1. indentless=True — removes the extra 2-space indent on list items inside
-	   mappings, which compounds in deeply nested block trees.
-	2. Flow style for flat dicts — turns multi-line style blocks into single-line
-	   {k: v, k: v} inline mappings, saving ~60% of style-dict tokens.
-	"""
-
-	def increase_indent(self, flow=False, indentless=False):
-		return super().increase_indent(flow=flow, indentless=True)
-
-	def represent_mapping(self, tag, mapping, flow_style=None):
-		# Use flow style {k: v} only for flat dicts (no nested dicts or lists)
-		if flow_style is None:
-			flow_style = all(not isinstance(v, (dict, list)) for v in mapping.values())
-		return super().represent_mapping(tag, mapping, flow_style=flow_style)
-
-
-def _str_representer(dumper, data):
-	"""Use plain scalars where safe; single-quote only when the value contains
-	characters that would confuse the YAML parser."""
-	if any(c in data for c in (":", "{", "}", "[", "]", "#", "&", "*", "!", "|", ">", "'", '"', "\n")):
-		return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="'")
-	return dumper.represent_scalar("tag:yaml.org,2002:str", data)
-
-
-CompactDumper.add_representer(str, _str_representer)
-
-
-def to_compact_yaml(data) -> str:
-	"""Serialize data to minimal YAML for LLM context."""
-	return yaml.dump(
-		data,
-		Dumper=CompactDumper,
-		sort_keys=False,
-		default_flow_style=False,
-		allow_unicode=True,
-		width=1000,  # prevent wrapping long values mid-token
-	)

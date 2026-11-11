@@ -63,18 +63,29 @@
 						</template>
 					</ItemListRow>
 				</div>
+
+				<ItemListRow
+					v-if="canManagePlugins && builderStore.isAIEnabled && !filter"
+					class="cursor-pointer transition-none hover:bg-surface-gray-2"
+					role="button"
+					tabindex="0"
+					size="md"
+					@click="buildWithBob"
+					@keydown.enter.self="buildWithBob">
+					<template #prefix>
+						<span class="lucide-sparkle size-4 shrink-0 text-ink-gray-6" aria-hidden="true" />
+					</template>
+					<span class="truncate text-ink-gray-6">Build one with Bob</span>
+				</ItemListRow>
 			</CollapsibleSection>
 
-			<CollapsibleSection section-name="Marketplace">
+			<!-- an unreachable Hub is nothing the user can fix, so the section goes rather than say so -->
+			<CollapsibleSection v-if="!pluginsCatalog.error" section-name="Marketplace">
 				<div
 					v-if="pluginsCatalog.loading && !catalog.length"
 					class="flex items-center gap-2 text-p-sm text-ink-gray-5">
 					<LoadingIndicator class="size-4" />
 					Loading plugins…
-				</div>
-				<div v-else-if="pluginsCatalog.error" class="flex flex-col items-start gap-2">
-					<p class="text-p-sm italic text-ink-gray-5">Could not reach the Builder Hub.</p>
-					<Button variant="subtle" size="sm" label="Try again" @click="pluginsCatalog.reload()" />
 				</div>
 				<p v-else-if="!notInstalled.length" class="text-p-sm italic text-ink-gray-5">
 					{{ emptyMarketplaceText }}
@@ -133,12 +144,21 @@ import {
 	type CatalogPlugin,
 } from "@/data/plugins";
 import { isDevPlugin, showDevPluginDialog, stopDevPlugin } from "@/plugins/devPlugin";
+import useBuilderStore from "@/stores/builderStore";
 import { Badge, Button, ItemListRow, LoadingIndicator, Tooltip } from "frappe-ui";
 import { computed, ref } from "vue";
 
 const emit = defineEmits<{ select: [plugin: string] }>();
 
 const open = (plugin: string) => emit("select", plugin);
+
+const builderStore = useBuilderStore();
+
+/** Opens Bob with the sentence started, so the user only says what the tool does. */
+const buildWithBob = () => {
+	builderStore.leftPanelActiveTab = "Chat";
+	builderStore.aiPromptDraft = "Build an editor plugin that ";
+};
 
 const stop = async () => {
 	await stopDevPlugin();

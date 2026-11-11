@@ -102,9 +102,20 @@
 					:can-uninstall="details.source !== 'App'"
 					:enabled="details.enabled"
 					:working="working"
+					:tab-hidden="tabHidden"
 					@open="openHandler?.()"
 					@set-enabled="setEnabled"
+					@set-tab-hidden="(hidden: boolean) => setPluginTabHidden(plugin, hidden)"
 					@uninstall="uninstall" />
+
+				<Button
+					v-if="details.source === 'Bob' && builderStore.isAIEnabled"
+					class="self-start"
+					variant="subtle"
+					size="sm"
+					icon-left="lucide-sparkle"
+					label="Change it with Bob"
+					@click="changeWithBob" />
 
 				<PluginUpdate
 					v-if="
@@ -152,20 +163,24 @@ import PluginActions from "@/components/LeftPanelTabs/Plugins/PluginActions.vue"
 import PluginInstallDialog from "@/components/LeftPanelTabs/Plugins/PluginInstallDialog.vue";
 import PluginUpdate from "@/components/LeftPanelTabs/Plugins/PluginUpdate.vue";
 import { renderMarkdown } from "@/components/ai/markdown";
+import { leftPanelTabs } from "@/components/LeftPanelTabs";
 import {
 	canManagePlugins,
 	getHubPlugin,
+	hiddenPluginTabs,
 	installations,
 	installFromHub,
 	promptReload,
 	reloadInstallations,
 	setPluginEnabled,
+	setPluginTabHidden,
 	uninstallPlugin,
 	useInstallationDetails,
 	type InstallationDetails,
 } from "@/data/plugins";
 import { openHandlers } from "@/plugins/context";
 import { stopDevPlugin } from "@/plugins/devPlugin";
+import useBuilderStore from "@/stores/builderStore";
 import { confirm } from "@/utils/helpers";
 import { Badge, Button, LoadingIndicator, toast, Tooltip } from "frappe-ui";
 import { computed, ref, shallowRef, watch } from "vue";
@@ -190,6 +205,13 @@ const isReady = computed(() => !isPending.value && !isFailed.value);
 /** What the running plugin registered for its Open button. A disabled plugin registers nothing. */
 const openHandler = computed(() => openHandlers.get(props.plugin));
 
+/** Unset for a plugin with no left bar tab, so the menu offers nothing to hide. */
+const tabHidden = computed(() =>
+	leftPanelTabs.all.value.some((tab) => tab.plugin === props.plugin)
+		? hiddenPluginTabs.value.has(props.plugin)
+		: undefined,
+);
+
 const stop = async () => {
 	await stopDevPlugin();
 	await reloadInstallations();
@@ -198,6 +220,13 @@ const stop = async () => {
 };
 
 const readme = computed(() => (details.value?.readme ? renderMarkdown(details.value.readme) : ""));
+
+const builderStore = useBuilderStore();
+
+const changeWithBob = () => {
+	builderStore.leftPanelActiveTab = "Chat";
+	builderStore.aiPromptDraft = `Change the ${details.value?.label} plugin: `;
+};
 
 const installedOn = computed(() =>
 	details.value ? new Date(details.value.installed_on).toLocaleDateString() : "",

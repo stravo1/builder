@@ -49,8 +49,9 @@ MANIFEST_REQUIRED_FIELDS = frozenset({"v", "name", "label", "description", "vers
 MANIFEST_OPTIONAL_FIELDS = frozenset({"icon"})
 
 # A url() that is not a local fragment, or a value that opens with an external scheme.
+# The lookahead holds the spaces and the optional quote, so neither can stand in for the "#".
 SVG_EXTERNAL_REFERENCE = re.compile(
-	r"(?:url\s*\(\s*['\"]?\s*(?!#)|^\s*(?:https?:|//|data:|javascript:))", re.I
+	r"(?:url\s*\((?!\s*['\"]?\s*#)|^\s*(?:https?:|//|data:|javascript:))", re.I
 )
 
 
@@ -194,9 +195,9 @@ def validate_manifest(manifest: object) -> dict:
 
 	if type(manifest["v"]) is not int or manifest["v"] != PROTOCOL_VERSION:
 		frappe.throw(_("The manifest needs protocol {0}.").format(PROTOCOL_VERSION))
-	if not PLUGIN_NAME_PATTERN.match(str(manifest["name"])):
+	if not PLUGIN_NAME_PATTERN.fullmatch(str(manifest["name"])):
 		frappe.throw(_("The manifest name must read as publisher/name, in lowercase."))
-	if not VERSION_PATTERN.match(str(manifest["version"])):
+	if not VERSION_PATTERN.fullmatch(str(manifest["version"])):
 		frappe.throw(_("The manifest version holds a character it may not."))
 	if manifest["entry"] != ENTRY_FILE:
 		frappe.throw(_("The manifest entry must be {0}.").format(ENTRY_FILE))
