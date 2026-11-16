@@ -12,6 +12,7 @@ export type { ContextMenuOption } from "@/types/blockContextMenu";
 export { propertySections, type PropertySection } from "@/components/BlockPropertySections";
 export { settingsItems, type SettingsItem } from "@/components/Settings";
 export { dashboardItems, type DashboardItem, type DashboardItemProps } from "@/components/DashboardItems";
+export { blockTemplates, type PluginBlockTemplate } from "@/components/BlockTemplates";
 export { default as usePageStore } from "@/stores/pageStore";
 export { default as useCanvasStore } from "@/stores/canvasStore";
 export { default as useBuilderStore } from "@/stores/builderStore";

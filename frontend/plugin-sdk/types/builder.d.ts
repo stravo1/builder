@@ -96,6 +96,19 @@ declare module "builder" {
 		props?: () => Record<string, unknown>;
 	};
 
+	/** A block template in the Block Templates panel. Click inserts the block, and drag drops it on the canvas. */
+	export type PluginBlockTemplate = RegistryItem & {
+		label: string;
+		/** A category the panel has, or a new one, which shows after Builder's own. */
+		category: string;
+		/** An image URL, shown as the card's preview. */
+		preview?: string;
+		/** Shown when there is no preview. */
+		icon?: string | Component;
+		/** Called on each insert. It must be synchronous, because a drag sets its data in dragstart. */
+		getBlock: () => Record<string, unknown>;
+	};
+
 	export const leftPanelTabs: Registry<LeftPanelTab>;
 	export const toolbarItems: Registry<ToolbarItem>;
 	export const blockContextMenuOptions: Registry<ContextMenuOption>;
@@ -109,6 +122,7 @@ declare module "builder" {
 	};
 
 	export const dashboardItems: Registry<DashboardItem>;
+	export const blockTemplates: Registry<PluginBlockTemplate>;
 
 	/** One block of the page tree. */
 	export class Block {
