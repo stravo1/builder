@@ -1,6 +1,6 @@
 <template>
 	<div class="flex min-h-full flex-col">
-		<div class="sticky top-0 bg-surface-base px-3 py-3">
+		<div class="sticky top-0 bg-surface-base pb-3">
 			<BuilderInput
 				type="text"
 				placeholder="Search plugins"
@@ -8,7 +8,7 @@
 				@input="(value: string) => (filter = value)" />
 		</div>
 
-		<div class="flex flex-col px-3 pb-3">
+		<div class="flex flex-col pb-3">
 			<CollapsibleSection section-name="Installed">
 				<p v-if="!installed.length" class="text-p-sm italic text-ink-gray-5">
 					{{ filter ? "Nothing here matches that." : "No plugins installed." }}
@@ -19,7 +19,7 @@
 						v-for="plugin in installed"
 						:key="plugin.name"
 						class="cursor-pointer transition-none hover:bg-surface-gray-2"
-						:class="!plugin.enabled && 'opacity-60'"
+						:class="[!plugin.enabled && 'opacity-60', plugin.name === selected && 'bg-surface-gray-2']"
 						role="button"
 						tabindex="0"
 						size="md"
@@ -59,7 +59,6 @@
 							<Tooltip v-else-if="isDevPlugin(plugin)" text="Stop this dev plugin">
 								<Button variant="ghost" size="sm" icon="lucide-unplug" class="mr-2" @click.stop="stop" />
 							</Tooltip>
-							<span class="lucide-chevron-right size-4 text-ink-gray-5" aria-hidden="true" />
 						</template>
 					</ItemListRow>
 				</div>
@@ -94,6 +93,7 @@
 					v-for="plugin in notInstalled"
 					:key="plugin.name"
 					class="cursor-pointer transition-none hover:bg-surface-gray-2"
+					:class="plugin.name === selected && 'bg-surface-gray-2'"
 					role="button"
 					tabindex="0"
 					size="md"
@@ -114,16 +114,13 @@
 							{{ plugin.description }}
 						</span>
 					</div>
-					<template #suffix>
-						<span class="lucide-chevron-right size-4 text-ink-gray-5" aria-hidden="true" />
-					</template>
 				</ItemListRow>
 			</CollapsibleSection>
 		</div>
 
 		<Button
 			v-if="isDeveloperMode && canManagePlugins"
-			class="mx-3 mb-3 mt-auto"
+			class="mb-3 mt-auto"
 			variant="subtle"
 			icon-left="lucide-plug"
 			label="Load dev plugin"
@@ -134,7 +131,7 @@
 
 <script setup lang="ts">
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
-import DevPluginDialog from "@/components/LeftPanelTabs/Plugins/DevPluginDialog.vue";
+import DevPluginDialog from "@/components/Settings/Plugins/DevPluginDialog.vue";
 import {
 	canManagePlugins,
 	getPluginsCatalog,
@@ -148,6 +145,7 @@ import useBuilderStore from "@/stores/builderStore";
 import { Badge, Button, ItemListRow, LoadingIndicator, Tooltip } from "frappe-ui";
 import { computed, ref } from "vue";
 
+defineProps<{ selected: string | null }>();
 const emit = defineEmits<{ select: [plugin: string] }>();
 
 const open = (plugin: string) => emit("select", plugin);
