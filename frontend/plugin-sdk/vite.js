@@ -35,6 +35,7 @@ export const SHARED_MODULES = [
 	"@framework/ui/QuickFilter",
 	"@framework/ui/ColumnSettings",
 	"@framework/ui/experimental/List",
+	"vuedraggable",
 ];
 
 /** Every other module of the editor, by its path under `src/`. These carry no promise. */

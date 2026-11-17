@@ -1,6 +1,6 @@
 # Host modules
 
-A trusted plugin imports `builder`, `vue`, `pinia`, `frappe-ui`, `frappe-ui/editor`, `frappe-ui/list` and the `@framework/ui` list view modules by their bare names. The editor page's import map resolves each name to one of these modules, so a plugin shares the editor's own instances.
+A trusted plugin imports `builder`, `vue`, `pinia`, `frappe-ui`, `frappe-ui/editor`, `frappe-ui/list`, the `@framework/ui` list view modules and `vuedraggable` by their bare names. The editor page's import map resolves each name to one of these modules, so a plugin shares the editor's own instances.
 
 | File                                                                       | Bare name                         | What it gives                                                                                                        |
 | -------------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -16,6 +16,7 @@ A trusted plugin imports `builder`, `vue`, `pinia`, `frappe-ui`, `frappe-ui/edit
 | [`framework-ui-quick-filter.ts`](./framework-ui-quick-filter.ts)           | `@framework/ui/QuickFilter`       | Frappe's quick filters                                                                                               |
 | [`framework-ui-column-settings.ts`](./framework-ui-column-settings.ts)     | `@framework/ui/ColumnSettings`    | Frappe's column settings                                                                                             |
 | [`framework-ui-experimental-list.ts`](./framework-ui-experimental-list.ts) | `@framework/ui/experimental/List` | Frappe's list table, footer and bulk bar. Experimental in Frappe, so it can change                                   |
+| [`vuedraggable.ts`](./vuedraggable.ts)                                     | `vuedraggable`                    | The editor's drag-and-drop list                                                                                      |
 
 Every other module under `src/` is reachable as `builder/internal/<path>`, with no promise: a `.ts` module drops its suffix, and a `.vue` module keeps it. `main.ts` is left out, because it would start a second app.
 

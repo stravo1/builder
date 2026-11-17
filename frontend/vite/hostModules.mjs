@@ -22,6 +22,7 @@ export const HOST_MODULES = {
 	"@framework/ui/QuickFilter": "src/host/framework-ui-quick-filter.ts",
 	"@framework/ui/ColumnSettings": "src/host/framework-ui-column-settings.ts",
 	"@framework/ui/experimental/List": "src/host/framework-ui-experimental-list.ts",
+	vuedraggable: "src/host/vuedraggable.ts",
 };
 
 /**
