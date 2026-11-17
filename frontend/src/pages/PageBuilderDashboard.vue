@@ -32,11 +32,10 @@ import { dashboardItems } from "@/components/DashboardItems";
 import DashboardSidebar from "@/components/DashboardSidebar.vue";
 import DashboardToolbar from "@/components/DashboardToolbar.vue";
 import TemplatesDialog from "@/components/Templates/TemplatesDialog.vue";
-import { builderSettings } from "@/data/builderSettings";
-import router, { sessionUser } from "@/router";
+import router from "@/router";
 import { __ } from "@/translation";
 import { prefetchBuilderSettings, prefetchTemplateGallery } from "@/utils/prefetch";
-import { computed, onMounted, watch } from "vue";
+import { computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 
 const route = useRoute();
@@ -54,23 +53,4 @@ onMounted(() => {
 	prefetchBuilderSettings();
 	prefetchTemplateGallery();
 });
-// The survey runs on Frappe Cloud sites only; ?persona_survey=test forces the redirect elsewhere.
-const devForceShow = new URLSearchParams(window.location.search).get("persona_survey") === "test";
-// is_fc_site reads a key only Frappe Cloud V1 sites have, and V2 sites carry Cloud Settings instead
-const isCloudSite = window.is_fc_site === "True" || Boolean(window.cloud_settings?.enabled);
-
-watch(
-	[() => builderSettings.doc, sessionUser],
-	() => {
-		if (!isCloudSite && !devForceShow) return;
-		if (!builderSettings.doc) return;
-		if (builderSettings.doc.persona_survey_done && !devForceShow) return;
-		if (!sessionUser.value || sessionUser.value === "Guest") return;
-		router.replace({
-			name: "persona-survey",
-			query: devForceShow ? { persona_survey: "test" } : {},
-		});
-	},
-	{ immediate: true },
-);
 </script>
