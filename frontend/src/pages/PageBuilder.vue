@@ -124,7 +124,7 @@ import PageListModal from "@/components/Modals/PageListModal.vue";
 import TemplatesDialog from "@/components/Templates/TemplatesDialog.vue";
 import { webPages } from "@/data/webPage";
 import { sessionUser } from "@/router";
-import useBuilderStore from "@/stores/builderStore";
+import useBuilderStore, { isCloudV2Site } from "@/stores/builderStore";
 import useCanvasStore from "@/stores/canvasStore";
 import usePageStore from "@/stores/pageStore";
 import { BuilderPage } from "@/types/doctypes";
@@ -147,6 +147,8 @@ const expandedEditor = ref<null | InstanceType<typeof CodeEditor>>(null);
 const route = useRoute();
 const router = useRouter();
 const builderStore = useBuilderStore();
+// a site that leads with Bob opens it with the editor
+if (isCloudV2Site) builderStore.showAIChat = true;
 const pageStore = usePageStore();
 const canvasStore = useCanvasStore();
 const usageCount = ref(0);

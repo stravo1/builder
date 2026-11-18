@@ -53,7 +53,7 @@ def save_attached_image(data_url: str) -> str | None:
 @has_page_write()
 def run(
 	prompt: str,
-	page_id: str,
+	page_id: str | None = None,
 	model: str | None = None,
 	session_id: str | None = None,
 	selected_block_ids: list | None = None,
@@ -63,7 +63,8 @@ def run(
 	canvas_theme: str | None = None,
 	effort: str | None = None,
 ):
-	"""Single entry point: run the agent for one user turn of the in-editor chat.
+	"""Single entry point: run the agent for one user turn of a chat, in the editor or,
+	with no `page_id`, in the dashboard.
 
 	The server edits the page authoritatively from draft_blocks and mirrors the
 	accepted ops to the canvas.
@@ -85,13 +86,15 @@ def run(
 	image_file_url = save_attached_image(image_url) if image_url else None
 
 	if not session_id:
-		session_id = AISession.create({"page": page_id}, model).name
+		session_id = AISession.create({"page": page_id or None}, model).name
 
 	if session_id:
-		session = AISession.get(session_id, page_id=page_id)
+		session = AISession.get(session_id)
 		session.move_to(page_id)
 		# each message keeps the page it was sent from, since a chat goes on across pages
-		msg_meta: dict = {"selectedBlockContext": selected_block_context or [], "page": page_row(page_id)}
+		msg_meta: dict = {"selectedBlockContext": selected_block_context or []}
+		if page_id:
+			msg_meta["page"] = page_row(page_id)
 		if canvas_theme:
 			msg_meta["canvasTheme"] = canvas_theme
 		if thinking.level:
@@ -155,7 +158,7 @@ def confirm_pending_settings(message_id: str, decision: str = "apply", skip: lis
 	HERE, on this user-triggered call — never inside the model's turn. Reads the stored
 	payload off the pending-action message and dispatches to apply_pending_action.
 	`skip` names the rows of a page card the user unticked."""
-	from builder.ai.agent.pending import apply_pending_action
+	from builder.ai.agent.pending import app_actions, apply_pending_action
 
 	if not message_id or not frappe.db.exists(AISession.MESSAGE_DOCTYPE, message_id):
 		frappe.throw(_("Pending action not found"))
@@ -167,9 +170,10 @@ def confirm_pending_settings(message_id: str, decision: str = "apply", skip: lis
 	if msg.status != "pending_action":
 		frappe.throw(_("No pending action on this message"))
 	meta = AISession.load_metadata(msg.metadata_json)
-	# Page changes check each page's own permission as they apply.
+	# Page changes check each page's own permission as they apply, and an app's action its own.
 	on_pages = meta.get("kind") == "page_changes"
-	if not on_pages and not frappe.has_permission("Builder Settings", "write"):
+	by_app = meta.get("kind") in app_actions()
+	if not on_pages and not by_app and not frappe.has_permission("Builder Settings", "write"):
 		frappe.throw(_("You are not permitted to apply this change"), frappe.PermissionError)
 
 	if decision != "apply":
@@ -576,19 +580,20 @@ def finish_codex_login(redirect_url: str):
 
 @frappe.whitelist()
 @has_page_write()
-def get_ai_session(page_id: str, model: str | None = None, session_id: str | None = None):
+def get_ai_session(page_id: str | None = None, model: str | None = None, session_id: str | None = None):
 	"""One page can hold several parallel chat sessions. With `session_id` this loads
 	that specific session; without it, the page's most recently used one. Reading
 	never creates a session: a page nobody has chatted on gets a blank one, and
-	`run` creates the session with the chat's first message."""
-	if not page_id or page_id == "new" or not frappe.db.exists("Builder Page", page_id):
+	`run` creates the session with the chat's first message. With no `page_id` it is
+	the user's chat in the dashboard."""
+	if page_id == "new" or (page_id and not frappe.db.exists("Builder Page", page_id)):
 		return blank_session(page_id, model)
 
-	if not (session_id and AISession.can_open(session_id, page_id)):
-		session_id = AISession.last_used(AISession.on_page(page_id))
+	if not (session_id and AISession.can_open(session_id)):
+		session_id = AISession.last_used(AISession.of_user())
 	if not session_id:
 		return blank_session(page_id, model)
-	session = AISession.get(session_id, page_id=page_id)
+	session = AISession.get(session_id)
 	return {
 		"session_id": session.name,
 		"page_id": session.page,
@@ -612,13 +617,12 @@ def blank_session(page_id: str, model: str | None) -> dict:
 
 @frappe.whitelist()
 @has_page_write()
-def list_page_ai_sessions(page_id: str, limit: int = 20):
-	"""This page's chat sessions for the current user — powers the session switcher."""
-	if not page_id or page_id == "new":
-		return []
+def list_page_ai_sessions(limit: int = 20):
+	"""The current user's recent chats, the same on every page and in the dashboard.
+	Powers the session switcher."""
 	rows = frappe.get_all(
 		AISession.DOCTYPE,
-		filters={**AISession.on_page(page_id), "status": "Active"},
+		filters={**AISession.of_user(), "status": "Active"},
 		fields=["name", "title", "last_interaction_on"],
 		order_by="last_interaction_on desc",
 		limit=min(int(limit), 50),

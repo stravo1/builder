@@ -1,29 +1,36 @@
 <template>
 	<div class="flex h-full min-h-full flex-col bg-surface-base">
 		<!-- fixed height, so a title arriving later doesn't push the chat down -->
-		<div class="flex h-14 shrink-0 items-center justify-between border-b border-outline-gray-1 px-3">
+		<!-- the floating window moves by this header -->
+		<div
+			data-bob-drag
+			class="flex h-14 shrink-0 items-center justify-between border-b border-outline-gray-1 px-3">
 			<div class="flex min-w-0 flex-col gap-1">
 				<div class="text-sm font-semibold text-ink-gray-9">Bob AI</div>
 				<div v-if="isSubmitting || currentSessionTitle" class="truncate text-p-xs leading-4 text-ink-gray-5">
 					{{ isSubmitting ? currentActivity : currentSessionTitle }}
 				</div>
 			</div>
-			<div v-if="builderStore.isAIEnabled" class="flex shrink-0 items-center gap-1">
-				<Button
-					variant="ghost"
-					size="sm"
-					icon="lucide-plus"
-					tooltip="New chat"
-					:disabled="isSubmitting"
-					@click="newSession" />
-				<Dropdown v-if="sessionOptions.length" :options="sessionOptions" :offset="6">
+			<div class="flex shrink-0 items-center gap-1">
+				<template v-if="builderStore.isAIEnabled">
 					<Button
 						variant="ghost"
 						size="sm"
-						icon="lucide-history"
-						tooltip="Chats on this page"
-						:disabled="isSubmitting" />
-				</Dropdown>
+						icon="lucide-plus"
+						tooltip="New chat"
+						:disabled="isSubmitting"
+						@click="newSession" />
+					<Dropdown v-if="sessionOptions.length" :options="sessionOptions" :offset="6">
+						<Button
+							variant="ghost"
+							size="sm"
+							icon="lucide-history"
+							:tooltip="'Earlier chats'"
+							:disabled="isSubmitting" />
+					</Dropdown>
+				</template>
+				<!-- the place that holds the panel adds its own buttons, such as Close -->
+				<slot name="actions" />
 			</div>
 		</div>
 
@@ -42,10 +49,7 @@
 		<div
 			v-else-if="!builderStore.isAIEnabled"
 			class="flex flex-1 flex-col items-center justify-center gap-4 p-6 pb-40">
-			<span class="bob-hero-orb">
-				<BobOrb class="bob-orb-aura" />
-				<SparklesIcon class="bob-orb-spark relative z-10 size-7 text-ink-gray-8" />
-			</span>
+			<BobSpark />
 			<div class="flex flex-col items-center gap-1 text-center">
 				<p class="text-sm font-medium text-ink-gray-8">Build pages by describing them</p>
 				<p class="text-p-xs text-ink-gray-5">Sign in with ChatGPT, or paste an API key.</p>
@@ -57,26 +61,9 @@
 			<div ref="messageContainer" class="no-scrollbar flex-1 space-y-4 overflow-y-auto px-4 py-4">
 				<div v-if="!messages.length" class="flex h-full flex-col items-center justify-center gap-5 px-4 pb-8">
 					<div class="flex flex-col items-center gap-2.5">
-						<span class="bob-hero-orb">
-							<BobOrb class="bob-orb-aura" />
-							<SparklesIcon class="bob-orb-spark relative z-10 size-7 text-ink-gray-8" />
-						</span>
-						<p class="text-sm font-medium text-ink-gray-8">
-							{{ pageHasContent ? "What should we change?" : "Tell me what you're building" }}
-						</p>
-						<p class="text-p-xs text-ink-gray-5">Try one of these, or type your own below</p>
-					</div>
-					<div class="flex w-full flex-col gap-2">
-						<Button
-							v-for="(suggestion, i) in promptSuggestions"
-							:key="suggestion.label"
-							class="bob-pill-in"
-							:style="{ animationDelay: `${i * 70}ms` }"
-							variant="subtle"
-							size="xs"
-							@click="useSuggestion(suggestion)">
-							{{ suggestion.label }}
-						</Button>
+						<BobSpark />
+						<p class="text-sm font-medium text-ink-gray-8">What should we do?</p>
+						<p class="text-p-xs text-ink-gray-5">Ask about a page, your site, or what your apps can do</p>
 					</div>
 				</div>
 				<div
@@ -206,7 +193,7 @@
 							v-else-if="message.metadata?.status === 'pending_action'"
 							class="mt-2 w-full rounded-6 border border-outline-gray-2 bg-surface-gray-1 p-3">
 							<p class="text-p-sm font-medium text-ink-gray-8">
-								{{ pendingPreview(message.metadata) }}
+								{{ pendingPreview(message.metadata, message.content) }}
 							</p>
 							<div v-if="message.id === lastMessageId" class="mt-2.5 flex gap-2">
 								<Button
@@ -279,6 +266,19 @@
 							}}
 						</button>
 					</div>
+				</div>
+				<!-- pinned to the bottom of the view, it takes no room among the messages -->
+				<div class="pointer-events-none sticky bottom-0 !mt-0 flex h-0 justify-center">
+					<Transition name="bob-fade">
+						<Button
+							v-if="isAwayFromBottom"
+							class="pointer-events-auto absolute bottom-0 !rounded-full shadow-md"
+							variant="outline"
+							size="sm"
+							icon="lucide-arrow-down"
+							:aria-label="__('Scroll to the latest')"
+							@click="scrollToLatest" />
+					</Transition>
 				</div>
 			</div>
 		</template>
@@ -486,12 +486,11 @@ import { caretAtEdge, usePromptHistory } from "@/components/ai/promptHistory";
 import { providersLevel } from "@/components/ai/commands/providers";
 import { type BobContext, creditsLabel, creditsTheme, money } from "@/components/ai/commands/shared";
 import AIUISpec from "@/components/ai/AIUISpec.vue";
-import BobOrb from "@/components/ai/BobOrb.vue";
+import BobSpark from "@/components/ai/BobSpark.vue";
 import { AIChatController } from "@/components/AIChatController";
 import { useAIStatePoll } from "@/composables/useAIStatePoll";
 import AIDebugPanel from "@/components/AIDebugPanel.vue";
 import Dialog from "@/components/Controls/Dialog.vue";
-import SparklesIcon from "@/components/Icons/Sparkles.vue";
 import { cardAnswers } from "@/components/ai/cardAnswers";
 import { renderMarkdown } from "@/components/ai/markdown";
 import type { AITurnStep, ChatMessage } from "@/components/ai/types";
@@ -500,8 +499,10 @@ import { __ } from "@/translation";
 import useBuilderStore from "@/stores/builderStore";
 import useCanvasStore from "@/stores/canvasStore";
 import { Badge, Button, Dropdown, KeyboardShortcut, Textarea, Tooltip, useKeyboardShortcut } from "frappe-ui";
+import { useScroll } from "@vueuse/core";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 
+/** In the dashboard there is no page: the chat works on the site, and apps' tools, such as the CMS's. */
 const chat = new AIChatController();
 
 const { prompt, isSubmitting, isCancelling, messages, modelLabel, canSubmit, credits } = chat;
@@ -580,7 +581,8 @@ function fieldNames(fields: any[]): string {
 		.join(", ");
 }
 
-function pendingPreview(m: Record<string, any>): string {
+// an app's own kinds, such as the CMS's, show the summary its tool wrote
+function pendingPreview(m: Record<string, any>, summary: string): string {
 	const p = m.payload || {};
 	const fields = fieldNames(p.fields);
 	switch (m.kind) {
@@ -597,7 +599,7 @@ function pendingPreview(m: Record<string, any>): string {
 		case "home_page":
 			return `Make “/${String(p.route || "").replace(/^\//, "")}” the site's home page.`;
 		default:
-			return "Confirm this change?";
+			return summary || "Confirm this change?";
 	}
 }
 
@@ -644,10 +646,9 @@ function turnRunning(message: ChatMessage): boolean {
 	return isSubmitting.value && message.id === lastMessageId.value && message.metadata?.status === "running";
 }
 
-/** A turn's snapshot restores onto its own page, and a chat goes on across pages. */
+/** A turn's snapshot restores onto its own page, the open one or another it worked on. */
 function canRevert(message: ChatMessage): boolean {
-	const page = message.metadata?.pageId;
-	return !!message.metadata?.revertSnapshot && (!page || page === chat.pageId.value);
+	return !!message.metadata?.revertSnapshot;
 }
 
 /** The page a message was sent from, when that's not the page open now. */
@@ -680,125 +681,7 @@ const visibleMessages = computed(() =>
 );
 
 // --- Empty-state suggestions -------------------------------------------------
-// Fresh page → describe the site to build; page with content → describe a change.
-// Each pill shows a short `label` but prefills a rich `prompt` — a complete brief
-// (name, vibe, sections, emphasis) so the agent can proceed with the fewest
-// follow-up questions. It's an editable starting point, not a command.
-// A wide, characterful pool sampled 3-at-a-time so the panel feels fresh.
-type Suggestion = { label: string; prompt: string };
-const pageHasContent = computed(() => (canvasStore.activeCanvas?.getRootBlock()?.children?.length ?? 0) > 0);
-const BUILD_POOL: Suggestion[] = [
-	{
-		label: "A wood-fired pizzeria in Goa",
-		prompt:
-			"Build a website for Forno, a wood-fired pizzeria in Anjuna, Goa. Warm, rustic-modern feel with big appetizing food photography and a cozy dark-terracotta palette. Sections: a hero with our story, the menu (wood-fired pizzas, small plates, natural wines), a photo gallery, and a visit section with hours and location.",
-	},
-	{
-		label: "Moody portfolio for a photographer",
-		prompt:
-			"Build a portfolio for Aria Sen, a portrait and editorial photographer. Dark, cinematic, image-first design where the photos dominate. Sections: a full-bleed hero image, a gallery of selected work, a short about/bio, a client list, and a contact/booking section.",
-	},
-	{
-		label: "Waitlist page for an AI app",
-		prompt:
-			"Build a launch and waitlist page for Nimbus, an AI note-taking app. Clean and modern with a confident gradient accent. Sections: a punchy hero with the value prop and an email waitlist form, three key features, a short 'how it works', and social proof.",
-	},
-	{
-		label: "Menu & story for a ramen bar",
-		prompt:
-			"Build a website for Slurp, a ramen bar in Bandra, Mumbai. Bold, appetizing, a little playful. Sections: a hero, the ramen menu with descriptions and prices, our origin story, a gallery, and hours and location.",
-	},
-	{
-		label: "A vintage record store",
-		prompt:
-			"Build a website for Groove Vault, a vintage vinyl record store. Retro, textured, warm analog vibe. Sections: a hero, featured new arrivals, the genres we stock, our story, in-store events, and how to find us.",
-	},
-	{
-		label: "Landing page for a yoga studio",
-		prompt:
-			"Build a landing page for Stillpoint, a boutique yoga studio. Calm, airy, minimal with soft natural tones and gentle motion. Sections: a hero, class types and schedule, the teachers, a membership/pricing section, and a book-a-first-class CTA.",
-	},
-	{
-		label: "A bold skincare brand",
-		prompt:
-			"Build a product site for Lumen, a clean skincare brand. Bold, premium, editorial with big product shots. Sections: a hero, the hero product with ingredients and benefits, results, reviews, and a shop/buy CTA.",
-	},
-	{
-		label: "Personal site for a designer",
-		prompt:
-			"Build a personal site for Maya Rao, a product designer. Confident, minimal, type-driven. Sections: a short intro hero, selected case studies, an about section, and contact links (email, LinkedIn, resume).",
-	},
-	{
-		label: "A craft coffee roaster",
-		prompt:
-			"Build a website for Ember & Oak, a craft coffee roaster. Warm, artisanal, rich browns and texture. Sections: a hero, our roasts with tasting notes, the roasting story, wholesale info, and where to buy or visit.",
-	},
-	{
-		label: "Event page for a design meetup",
-		prompt:
-			"Build an event page for Design Jam, a monthly design meetup in Pune. Energetic, modern, poster-like. Sections: a hero with date, venue and RSVP, the speaker lineup, the schedule, past-event highlights, and sponsors.",
-	},
-];
-const EDIT_POOL: Suggestion[] = [
-	{
-		label: "A panel for images missing alt text",
-		prompt:
-			"Build an editor plugin: a left bar panel that lists every image on this page that has no alt text, with a thumbnail of each. Clicking one selects it on the canvas.",
-	},
-	{
-		label: "Add a testimonials section",
-		prompt:
-			"Add a testimonials section with three or four short customer quotes, each with a name and role, styled to match the rest of the page.",
-	},
-	{
-		label: "Make the hero more dramatic",
-		prompt:
-			"Make the hero more dramatic: a larger headline, stronger contrast, a full-bleed background image or bold color, and a clear primary call-to-action.",
-	},
-	{
-		label: "Switch to a dark theme",
-		prompt:
-			"Rework the whole page in a cohesive dark theme, keeping the layout but adjusting backgrounds, text, and accents for good contrast.",
-	},
-	{
-		label: "Add a pricing section",
-		prompt:
-			"Add a pricing section with three tiers (name, price, feature list, and a CTA button each), styled to match the page.",
-	},
-	{
-		label: "Add scroll animations",
-		prompt:
-			"Add tasteful scroll animations: staggered fade-and-rise reveals on each section as it enters the viewport, subtle and smooth.",
-	},
-	{
-		label: "Tighten the spacing everywhere",
-		prompt:
-			"Tighten the spacing across the page: reduce oversized gaps, align section padding to a consistent rhythm, and improve the vertical flow.",
-	},
-	{
-		label: "Add a sticky header with nav",
-		prompt:
-			"Add a sticky header with the name or logo on the left and nav links to each section on the right, gaining a subtle background on scroll.",
-	},
-	{
-		label: "Make it feel more premium",
-		prompt:
-			"Make the page feel more premium: refine the typography and spacing, add depth with subtle shadows and borders, and elevate the color and imagery treatment.",
-	},
-];
-function sample3(pool: Suggestion[]): Suggestion[] {
-	return [...pool].sort(() => Math.random() - 0.5).slice(0, 3);
-}
-// Picked once per mount (a computed would reshuffle on every reactive read).
-const buildPicks = sample3(BUILD_POOL);
-const editPicks = sample3(EDIT_POOL);
-const promptSuggestions = computed(() => (pageHasContent.value ? editPicks : buildPicks));
 const promptInput = ref<InstanceType<typeof Textarea> | null>(null);
-function useSuggestion(suggestion: Suggestion) {
-	prompt.value = suggestion.prompt;
-	promptInput.value?.focus();
-}
-
 // one card per plugin, on the turn that last changed it: the card shows the plugin as it is now
 const lastPluginMessage = computed(() => {
 	const last = new Map<string, string>();
@@ -849,9 +732,9 @@ function debugHasSignal(debug: Record<string, any>): boolean {
 	if (!debug) return false;
 	return Boolean(
 		(debug.argsRepaired ?? 0) > 0 ||
-			(debug.toolFailures?.length ?? 0) > 0 ||
-			(debug.finishReasons || []).includes("length") ||
-			debug.stopReason === "max_rounds",
+		(debug.toolFailures?.length ?? 0) > 0 ||
+		(debug.finishReasons || []).includes("length") ||
+		debug.stopReason === "max_rounds",
 	);
 }
 
@@ -886,7 +769,7 @@ useKeyboardShortcut({
 	combo: "Escape",
 	description: __("Close Bob's Menu"),
 	group: __("General"),
-	enabled: () => menuOpen.value && builderStore.leftPanelActiveTab === "Chat",
+	enabled: () => menuOpen.value && builderStore.showAIChat,
 	handler: (event) => menu.onKeydown(event),
 });
 
@@ -894,7 +777,7 @@ const composerPlaceholder = computed(() => {
 	if (menuLevel.value && !menuLevel.value.input) return "Type to filter";
 	if (isSubmitting.value && queuedNotes.value.length) return "Press ↑ to edit what Bob hasn't read";
 	if (isSubmitting.value) return "Tell Bob something while it works";
-	return "Ask to create or edit this page, or type / for commands";
+	return "Ask Bob anything, or type / for commands";
 });
 
 // a key or URL is typed into a field inside the menu; hand focus back after
@@ -943,6 +826,15 @@ const onArrow = (event: KeyboardEvent) => {
 };
 
 const messageContainer = ref<HTMLElement | null>(null);
+// more than this above the end, the user is reading back, and a button takes them down
+const { y: scrollTop, arrivedState } = useScroll(messageContainer, {
+	behavior: "smooth",
+	offset: { bottom: 64 },
+});
+const isAwayFromBottom = computed(() => messages.value.length > 0 && !arrivedState.bottom);
+const scrollToLatest = () => {
+	if (messageContainer.value) scrollTop.value = messageContainer.value.scrollHeight;
+};
 watch(
 	messageContainer,
 	(el) => {
@@ -957,13 +849,13 @@ onMounted(() => {
 	// is actually usable rather than inferring it from Builder Settings alone.
 	builderStore.refreshAIState();
 });
-useAIStatePoll(() => builderStore.leftPanelActiveTab === "Chat", builderStore);
+useAIStatePoll(() => builderStore.showAIChat, builderStore);
 
-// the chat usually loads behind the closed tab, where the scroll can't land
+// the chat usually loads while its window is closed, where the scroll can't land
 watch(
-	() => builderStore.leftPanelActiveTab,
-	(tab) => {
-		if (tab === "Chat") chat.flushPendingScroll();
+	() => builderStore.showAIChat,
+	(open) => {
+		if (open) chat.flushPendingScroll();
 	},
 );
 
@@ -1084,67 +976,16 @@ function toggleChips(messageId: string) {
 	--shine-peak: var(--ink-gray-9);
 }
 
-/* Empty-state hero: BobOrb's shader aurora behind the sparkle, in a breathing bloom. */
-.bob-hero-orb {
-	position: relative;
-	display: grid;
-	place-items: center;
-	width: 76px;
-	height: 76px;
-	isolation: isolate;
+.bob-fade-enter-active,
+.bob-fade-leave-active {
+	transition: opacity 150ms ease;
 }
-/* Soft outer bloom that gently breathes */
-.bob-hero-orb::after {
-	content: "";
-	position: absolute;
-	inset: 4px;
-	border-radius: 999px;
-	background: radial-gradient(circle, rgb(139 92 246 / 0.28), transparent 70%);
-	filter: blur(7px);
-	z-index: 0;
-	animation: bob-orb-bloom 5s ease-in-out infinite;
-}
-@keyframes bob-orb-bloom {
-	0%,
-	100% {
-		opacity: 0.55;
-		transform: scale(0.9);
-	}
-	50% {
-		opacity: 1;
-		transform: scale(1.08);
-	}
+.bob-fade-enter-from,
+.bob-fade-leave-to {
+	opacity: 0;
 }
 
-/* The shader canvas, clipped to a soft disc. A light blur melts the pixel grid
- * into the surrounding bloom so the edge reads as glow, not a hard circle. */
-.bob-orb-aura {
-	position: absolute;
-	inset: -6%;
-	z-index: 1;
-	border-radius: 999px;
-	overflow: hidden;
-	filter: blur(4px) saturate(1.15);
-}
-
-/* The sparkle sits above the aura with a soft glow and a gentle twinkle */
-.bob-orb-spark {
-	filter: drop-shadow(0 0 6px rgb(196 181 253 / 0.7));
-	animation: bob-twinkle 3.4s ease-in-out infinite;
-}
-@keyframes bob-twinkle {
-	0%,
-	100% {
-		opacity: 0.9;
-		transform: scale(1) rotate(0deg);
-	}
-	50% {
-		opacity: 1;
-		transform: scale(1.08) rotate(4deg);
-	}
-}
-
-/* Suggestion pills fade-and-rise in, staggered */
+/* fades and rises in, with a delay for a stagger */
 .bob-pill-in {
 	animation: bob-pill-in 0.4s ease both;
 }
@@ -1160,8 +1001,6 @@ function toggleChips(messageId: string) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.bob-hero-orb::after,
-	.bob-orb-spark,
 	.bob-pill-in,
 	.animate-shine {
 		animation: none;

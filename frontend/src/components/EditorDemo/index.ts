@@ -12,7 +12,7 @@ import { onMounted } from "vue";
 
 // surfaces that only make sense with a server behind them
 const hiddenToolbarItems = ["menu", "viewers", "actions", "publish"];
-const hiddenLeftPanelTabs = ["Code", "Chat"];
+const hiddenLeftPanelTabs = ["Code"];
 const hiddenCommands = ["go-to-dashboard", "preview", "publish", "duplicate-page"];
 // these change components or templates the whole site shares
 const hiddenBlockMenuOptions = [

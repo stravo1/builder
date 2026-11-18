@@ -506,6 +506,13 @@ def load_page_root(page_id: str) -> dict | None:
 	return data if isinstance(data, dict) else None
 
 
+def notify_page_update(page_id: str) -> None:
+	"""The list_update Document.save sends, which set_value skips: open views of the page, such as an
+	app's preview, reload. Not doc_update, which an editor open on the page would take mid-stream."""
+	data = {"doctype": "Builder Page", "name": page_id, "user": frappe.session.user}
+	frappe.publish_realtime("list_update", data, after_commit=True)
+
+
 def save_draft_blocks(page_id: str, root_block: dict) -> None:
 	"""Persist an edited block tree back to draft_blocks (same shape persist_page
 	writes). Used by the headless loop after each round of applied block ops; the
@@ -513,6 +520,7 @@ def save_draft_blocks(page_id: str, root_block: dict) -> None:
 	frappe.db.set_value(
 		"Builder Page", page_id, "draft_blocks", compact_json([root_block]), update_modified=True
 	)
+	notify_page_update(page_id)
 
 
 def persist_page(page_id: str, text: str, errors: list | None = None) -> tuple[dict | None, str]:
@@ -531,4 +539,5 @@ def persist_page(page_id: str, text: str, errors: list | None = None) -> tuple[d
 	# arbitrarily often (a single retry was observed losing twice within 200ms). The
 	# generated result is authoritative and must land regardless.
 	frappe.db.set_value("Builder Page", page_id, updates, update_modified=True)
+	notify_page_update(page_id)
 	return blocks[0], data_script

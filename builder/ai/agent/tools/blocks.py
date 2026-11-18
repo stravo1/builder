@@ -19,6 +19,7 @@ EDIT_OPS_DOC = (
 edit_page = Tool(
 	name="edit_page",
 	side="client",
+	any_page=True,
 	description=(
 		"Change the open page's blocks with a markup script. Put every edit of the round in "
 		"ONE script: each round costs a model call, so a section, a restyle of twenty "
@@ -34,7 +35,8 @@ edit_page = Tool(
 				"description": (
 					"Another page of this site to change (id, route or title), with refs from a "
 					"read_page of it this turn. Leave out for the page you're working on. These "
-					"edits are held, not applied: the user confirms them on a card when your turn ends."
+					"edits are held, not applied: the user confirms them on a card when your turn ends. "
+					"To change another page at once, with every tool, call work_on_page first."
 				),
 			},
 			"reply": {

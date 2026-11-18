@@ -1,5 +1,5 @@
 <template>
-	<Sidebar class="border-r border-outline-gray-1">
+	<Sidebar v-model:collapsed="isSidebarCollapsed" class="border-r border-outline-gray-1">
 		<SidebarHeader title="Builder" :logo="builderLogo" :menuItems="appMenuItems" class="px-1.5" />
 
 		<ScrollArea class="min-h-0 flex-1" viewport-class="px-2 pt-0.5 pb-2">
@@ -16,7 +16,7 @@
 					:label="item.label"
 					:icon="item.icon"
 					:active="activeItem === item.name"
-					@click="router.push({ name: 'dashboard-item', params: { item: item.name } })" />
+					@click="openItem(item.name)" />
 				<SidebarItem :label="__('Settings')" @click="showSettingsDialog = true">
 					<template #prefix><SettingsIcon class="size-4" /></template>
 				</SidebarItem>
@@ -25,6 +25,7 @@
 			<div class="mt-5 flex h-7 items-center justify-between">
 				<SidebarLabel>{{ __("Folders") }}</SidebarLabel>
 				<Button
+					v-if="!isSidebarCollapsed"
 					variant="ghost"
 					size="sm"
 					icon="lucide-plus text-ink-gray-5"
@@ -33,7 +34,7 @@
 			</div>
 
 			<p
-				v-if="!builderProjectFolder.data?.length"
+				v-if="!builderProjectFolder.data?.length && !isSidebarCollapsed"
 				class="mt-0.5 flex h-7 items-center pl-2 text-sm text-ink-gray-5">
 				{{ __("No folders yet") }}
 			</p>
@@ -41,7 +42,7 @@
 				<SidebarItem
 					v-for="project in builderProjectFolder.data"
 					:key="project.folder_name"
-					icon="lucide-folder"
+					:icon="project.icon ? lucideIcon(project.icon) : 'lucide-folder'"
 					:label="project.folder_name"
 					:active="!activeItem && isFolderActive(project.folder_name)"
 					@click="setFolderActive(project.folder_name)">
@@ -79,6 +80,11 @@
 									icon: 'lucide-edit',
 								},
 								{
+									label: __('Change Icon'),
+									onClick: () => (iconFolder = project),
+									icon: 'lucide-smile',
+								},
+								{
 									label: __('Delete Folder'),
 									onClick: () => deleteFolder(project.folder_name),
 									icon: 'lucide-trash',
@@ -93,13 +99,25 @@
 			</nav>
 		</ScrollArea>
 
-		<div class="mt-auto">
-			<DashboardCloneCard @open-domains="openSettings('global_cloud_domains')" />
-			<DashboardTrialCard @open-billing="openSettings('global_billing')" />
-			<p class="p-2 text-center text-sm text-ink-gray-4">{{ __("Version") }}: {{ builderVersion }}</p>
-			<TrialBanner v-if="builderStore.isFCSite" />
+		<div class="mt-auto px-2 pb-2">
+			<template v-if="!isSidebarCollapsed">
+				<DashboardCloneCard @open-domains="openSettings('global_cloud_domains')" />
+				<DashboardTrialCard @open-billing="openSettings('global_billing')" />
+			</template>
+			<p v-if="!isSidebarCollapsed" class="p-2 text-center text-sm text-ink-gray-4">
+				{{ __("Version") }}: {{ builderVersion }}
+			</p>
+			<SidebarCollapseToggle />
+			<TrialBanner v-if="builderStore.isFCSite && !isSidebarCollapsed" />
 		</div>
 	</Sidebar>
+	<IconPickerDialog
+		v-if="iconFolder"
+		:open="true"
+		:title="__('Icon for {0}', [iconFolder.folder_name])"
+		:modelValue="iconFolder.icon"
+		@update:modelValue="setFolderIcon"
+		@update:open="iconFolder = null" />
 	<Dialog v-model="showSettingsDialog" :dismissable="false" size="5xl" bare>
 		<template #default>
 			<DialogTitle class="sr-only">{{ __("Global Builder Settings") }}</DialogTitle>
@@ -117,15 +135,17 @@ import DashboardCloneCard from "@/components/DashboardCloneCard.vue";
 import DashboardTrialCard from "@/components/DashboardTrialCard.vue";
 import { dashboardItems } from "@/components/DashboardItems";
 import EditableSpan from "@/components/EditableSpan.vue";
+import IconPickerDialog from "@/components/IconPickerDialog.vue";
 import FilesIcon from "@/components/Icons/Files.vue";
 import SettingsIcon from "@/components/Icons/SettingsGear.vue";
 import { useDashboardState } from "@/composables/useDashboardState";
+import { lucideIcon } from "@/plugins/lucideIcon";
 import builderProjectFolder from "@/data/builderProjectFolder";
 import useBuilderStore from "@/stores/builderStore";
 import { BuilderProjectFolder } from "@/types/doctypes";
 import { promptCreateFolder } from "@/utils/dialogs";
 import { confirm } from "@/utils/helpers";
-import { useDark, useToggle } from "@vueuse/core";
+import { useDark, useLocalStorage, useSessionStorage, useToggle } from "@vueuse/core";
 import {
 	createResource,
 	Dialog,
@@ -134,12 +154,13 @@ import {
 	Sidebar,
 	SidebarHeader,
 	SidebarHeaderProps,
+	SidebarCollapseToggle,
 	SidebarItem,
 	SidebarLabel,
 } from "frappe-ui";
 import { TrialBanner } from "@framework/ui/components/TrialBanner";
 import { DialogDescription, DialogTitle } from "reka-ui";
-import { computed, defineAsyncComponent, h, ref } from "vue";
+import { computed, defineAsyncComponent, h, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 const BuilderSettings = defineAsyncComponent(() => import("@/components/BuilderSettings.vue"));
@@ -150,9 +171,31 @@ const toggleDark = useToggle(isDark);
 const builderStore = useBuilderStore();
 const { showTemplatesDialog } = useDashboardState();
 const renamingFolder = ref("");
+const isSidebarCollapsed = useLocalStorage("builderDashboardSidebarCollapsed", false);
+const iconFolder = ref<BuilderProjectFolder | null>(null);
+const setFolderIcon = async (icon: string) => {
+	const folder = iconFolder.value as BuilderProjectFolder;
+	await builderProjectFolder.setValue.submit({ name: folder.folder_name, icon });
+	folder.icon = icon;
+};
 const route = useRoute();
 const router = useRouter();
 const activeItem = computed(() => route.params.item);
+
+// each view reopens where the user left it. Clicking the open view again goes to its start
+const lastItemPaths = useSessionStorage<Record<string, string[]>>("dashboardItemPaths", {});
+watch(
+	() => route.fullPath,
+	() => {
+		if (activeItem.value)
+			lastItemPaths.value[activeItem.value as string] = [route.params.path ?? []].flat().filter(Boolean);
+	},
+	{ immediate: true },
+);
+const openItem = (item: string) => {
+	const path = item === activeItem.value ? [] : (lastItemPaths.value[item] ?? []);
+	router.push({ name: "dashboard-item", params: { item, path } });
+};
 
 const apps = createResource({
 	url: "builder.api.get_apps",

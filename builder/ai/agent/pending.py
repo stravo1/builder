@@ -64,10 +64,20 @@ def request_confirmation(ctx, kind: str, summary: str, payload: dict) -> None:
 	)
 
 
+def app_actions() -> dict[str, str]:
+	"""The confirm-gated actions installed apps add, through the builder_agent_actions hook:
+	kind -> the method that applies it. Each checks its own permissions, as the app's own
+	API does, since an app's roles need not reach Builder Settings."""
+	hooks = frappe.get_hooks("builder_agent_actions", default={})
+	return {kind: methods[-1] for kind, methods in hooks.items()}
+
+
 def apply_pending_action(kind: str, payload: dict) -> str:
 	"""Run the real mutation for a confirmed action. Called ONLY from the confirm
 	endpoint (user-triggered), with the confirming user's own permissions, since the
 	model wrote the payload. Returns a short human summary of what happened."""
+	if method := app_actions().get(kind):
+		return frappe.get_attr(method)(payload or {})
 	if kind not in KINDS:
 		frappe.throw(frappe._("Unknown pending action: {0}").format(kind))
 	payload = payload or {}

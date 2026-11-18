@@ -22,21 +22,7 @@ const MANIFEST = "manifest.json";
  * name to the editor's copy, so a plugin shares its Vue, stores and
  * frappe-ui. The build must never bundle them.
  */
-export const SHARED_MODULES = [
-	"builder",
-	"vue",
-	"pinia",
-	"frappe-ui",
-	"frappe-ui/editor",
-	"frappe-ui/list",
-	"@framework/ui/ListView",
-	"@framework/ui/Filter",
-	"@framework/ui/SortBy",
-	"@framework/ui/QuickFilter",
-	"@framework/ui/ColumnSettings",
-	"@framework/ui/experimental/List",
-	"vuedraggable",
-];
+export const SHARED_MODULES = ["builder", "vue", "pinia", "frappe-ui", "frappe-ui/editor", "frappe-ui/list"];
 
 /** Every other module of the editor, by its path under `src/`. These carry no promise. */
 const INTERNAL_PREFIX = "builder/internal/";
@@ -136,9 +122,14 @@ const readManifest = (root) => {
 	return { manifest: validateManifest(parseJson(MANIFEST, source)), source };
 };
 
+/** As an installed plugin reads them, in Builder Hub's order: DESCRIPTION.md is for users, README.md for developers. */
+const README_FILES = ["DESCRIPTION.md", "README.md"];
+
 const readReadme = (root) => {
-	const file = path.join(root, "README.md");
-	return fs.statSync(file, { throwIfNoEntry: false })?.isFile() ? fs.readFileSync(file, "utf8") : undefined;
+	const file = README_FILES.map((name) => path.join(root, name)).find((candidate) =>
+		fs.statSync(candidate, { throwIfNoEntry: false })?.isFile(),
+	);
+	return file ? fs.readFileSync(file, "utf8") : undefined;
 };
 
 /**

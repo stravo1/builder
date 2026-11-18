@@ -1,5 +1,6 @@
 import type Block from "@/block";
 import builderTokens from "@/data/builderToken";
+import { webPages } from "@/data/webPage";
 import { type AIChatHandlers, attachAIChatListeners, detachAIChatListeners } from "@/components/ai/realtime";
 import { type AffectedItems, type PageCanvas, ToolDispatcher } from "@/components/ai/toolDispatch";
 import { type Credits, creditsFor } from "@/components/ai/commands/shared";
@@ -15,7 +16,7 @@ import { confirm, getErrorMessage } from "@/utils/helpers";
 import { useBuilderToken } from "@/utils/useBuilderToken";
 import { useLocalStorage } from "@vueuse/core";
 import { createResource, toast } from "frappe-ui";
-import { computed, inject, nextTick, ref, shallowRef, watch } from "vue";
+import { computed, inject, nextTick, ref, shallowRef, toRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 /**
@@ -29,8 +30,6 @@ export class AIChatController {
 	private readonly pageStore = usePageStore();
 	private readonly route = useRoute();
 	private readonly router = useRouter();
-	/** The chat to carry on with on the page being opened from it. */
-	private carriedSessionId = "";
 	// Bob edits the page, so everything lands here even while a component is open
 	private readonly pageCanvas: PageCanvas = inject(
 		"pageCanvas",
@@ -49,7 +48,8 @@ export class AIChatController {
 	readonly imageFileName = ref("");
 	readonly isDragging = ref(false);
 
-	readonly sessionId = ref("");
+	// the store owns the open chat, so it follows the user across pages and the dashboard
+	readonly sessionId = toRef(this.builderStore, "aiSessionId");
 	readonly messages = ref<ChatMessage[]>([]);
 	readonly contextUsage = computed(() =>
 		contextUsageOf(this.messages.value.findLast((m) => m.metadata?.debug)?.metadata?.debug),
@@ -149,8 +149,15 @@ export class AIChatController {
 	private streamRenderTimer: ReturnType<typeof setTimeout> | null = null;
 	private lastStreamRenderAt = 0;
 
-	readonly pageId = computed(() => this.route.params.pageId as string);
+	/** A dashboard chat has no page: its turns run on the site, and its events come on the dashboard
+	 * channel. Bob is one window across the app, so the route says which it is now. */
+	get inDashboard() {
+		return this.route.name !== "builder";
+	}
+	readonly pageId = computed(() => (this.inDashboard ? "" : (this.route.params.pageId as string)));
 	readonly isUnsavedPage = computed(() => !this.pageId.value || this.pageId.value === "new");
+	readonly canChat = computed(() => this.inDashboard || !this.isUnsavedPage.value);
+	readonly channel = computed(() => (this.inDashboard ? "dashboard" : this.pageId.value));
 	// Every enabled provider's models, in the order the registry returns them —
 	// which providers exist is site configuration (Builder AI Provider), not a
 	// fixed list, so the picker must not name one.
@@ -209,7 +216,7 @@ export class AIChatController {
 	});
 	/** A turn saves the canvas first, and with a component open on the canvas that
 	 * would write the component over the page draft. */
-	readonly isEditingPage = computed(() => this.canvasStore.editingMode === "page");
+	readonly isEditingPage = computed(() => this.inDashboard || this.canvasStore.editingMode === "page");
 	readonly canSubmit = computed(
 		() =>
 			!!this.prompt.value.trim() &&
@@ -236,25 +243,23 @@ export class AIChatController {
 		// a finished turn has spent some of the balance
 		watch(this.isSubmitting, (submitting) => submitting || this.refreshCredits());
 
-		watch(this.pageId, async (newPageId, oldPageId) => {
-			if (oldPageId) detachAIChatListeners(this.builderStore.realtime, oldPageId, this.handlers);
-			if (!newPageId) return;
-			attachAIChatListeners(this.builderStore.realtime, newPageId, this.handlers);
+		watch(this.channel, (channel, oldChannel) => {
+			if (oldChannel) detachAIChatListeners(this.builderStore.realtime, oldChannel, this.handlers);
+			if (channel) attachAIChatListeners(this.builderStore.realtime, channel, this.handlers);
+		});
+		watch(this.pageId, async (newPageId) => {
 			this.resetTransientState();
-			// A page switch starts from that page's own chats, unless it was opened from
-			// this chat (a page Bob changed), which then goes on there.
-			const carried = this.carriedSessionId;
-			this.carriedSessionId = "";
+			// The open chat goes on here, as Bob is one window, and a message from this page
+			// moves the chat to it. With no chat open, the page's latest one loads.
 			this.sessionIntentEpoch++;
 			this.invalidateSessionLoads();
-			this.sessionId.value = "";
 			this.sessions.value = [];
-			this.messages.value = [];
+			if (!this.sessionId.value) this.messages.value = [];
 			if (newPageId === "new") return;
-			await this.loadSession(carried || undefined);
+			await this.loadSession();
 			// A build may be mid-stream on this page (opened from another chat's link,
 			// or a refresh mid-generation): replay the buffered stream as live preview.
-			this.syncActiveBuild();
+			if (newPageId) this.syncActiveBuild();
 		});
 
 		// loadSession and loadModels stand down until AI is known to be on — but that
@@ -381,7 +386,7 @@ export class AIChatController {
 	 * most recently used, or a blank chat when there is none. A page can hold
 	 * several parallel sessions; see switchSession/newSession. */
 	async loadSession(sessionId?: string) {
-		if (!this.pageId.value || !this.builderStore.isAIEnabled || this.isUnsavedPage.value) return;
+		if (!this.canChat.value || !this.builderStore.isAIEnabled) return;
 		const target = sessionId || this.pendingSessionId || this.sessionId.value || undefined;
 		const epoch = ++this.loadSessionEpoch;
 		const pageId = this.pageId.value;
@@ -391,7 +396,7 @@ export class AIChatController {
 			const result = await createResource({
 				url: "builder.ai.api.get_ai_session",
 				makeParams: () => ({
-					page_id: pageId,
+					page_id: pageId || undefined,
 					model: this.selectedModel.value,
 					session_id: target,
 				}),
@@ -408,7 +413,7 @@ export class AIChatController {
 				(m) => ({ ...m, role: m.role === "user" ? "user" : "assistant" }) as ChatMessage,
 			);
 			// a turn running from another page reports there, so this one can't follow it
-			if (session.is_running && session.page_id === pageId) this.beginResumedTurn();
+			if (session.is_running && (session.page_id || "") === pageId) this.beginResumedTurn();
 			this.scrollToBottom();
 			this.loadSessions();
 		} finally {
@@ -421,13 +426,12 @@ export class AIChatController {
 
 	/** Refresh the session-switcher list (fire-and-forget; the panel renders it). */
 	loadSessions = async () => {
-		if (!this.pageId.value || this.isUnsavedPage.value) return;
-		const pageId = this.pageId.value;
+		if (!this.canChat.value) return;
+		// the same chats on every page and in the dashboard
 		const rows = await createResource({ url: "builder.ai.api.list_page_ai_sessions" })
-			.submit({ page_id: pageId })
+			.submit({})
 			.catch(() => null);
-		if (rows && this.pageId.value === pageId)
-			this.sessions.value = rows as Array<{ name: string; title: string | null }>;
+		if (rows) this.sessions.value = rows as Array<{ name: string; title: string | null }>;
 	};
 
 	switchSession = async (sessionId: string) => {
@@ -441,7 +445,7 @@ export class AIChatController {
 
 	/** A blank chat. The server only creates its session with the first message. */
 	newSession = () => {
-		if (!this.pageId.value || this.isUnsavedPage.value) return;
+		if (!this.canChat.value) return;
 		this.sessionIntentEpoch++;
 		this.invalidateSessionLoads();
 		this.resetTransientState();
@@ -554,10 +558,9 @@ export class AIChatController {
 		if (message && !message.metadata?.buildPage) message.metadata = { ...message.metadata, buildPage: page };
 	}
 
-	/** Open a page from the chat, carrying the chat on there. */
+	/** Open a page from the chat. The open chat goes on there. */
 	openPage = (pageId: string) => {
 		if (!pageId || pageId === this.pageId.value) return;
-		this.carriedSessionId = this.sessionId.value;
 		this.router.push({ name: "builder", params: { pageId } });
 	};
 
@@ -622,7 +625,8 @@ export class AIChatController {
 			builderTokens.reload();
 			useBuilderToken().clearTokenHistory();
 		}
-		if (resources.includes("page_data") || resources.includes("page")) {
+		// a dashboard chat's working page is on no canvas here
+		if (!this.inDashboard && (resources.includes("page_data") || resources.includes("page"))) {
 			const pageId = this.pageId.value;
 			const pageLoadToken = this.pageStore.pageLoadToken;
 			const page = await this.pageStore.fetchActivePage(pageId).catch(() => null);
@@ -981,7 +985,7 @@ export class AIChatController {
 	};
 
 	submitPrompt = async () => {
-		if (!this.canSubmit.value || !this.pageId.value || this.isUnsavedPage.value) return;
+		if (!this.canSubmit.value || !this.canChat.value) return;
 		// submitting pins the current chat over any session choice still in flight
 		this.sessionIntentEpoch++;
 		const pageId = this.pageId.value;
@@ -1028,13 +1032,13 @@ export class AIChatController {
 			// The server edits the page authoritatively from draft_blocks — flush any
 			// unsaved canvas changes first so the turn (and its revert snapshot) starts
 			// from exactly what the user sees.
-			await this.pageStore.savePage();
+			if (!this.inDashboard) await this.pageStore.savePage();
 			if (!stillOwned()) return;
 			const result = await createResource({
 				url: "builder.ai.api.run",
 				makeParams: () => ({
 					prompt: userText,
-					page_id: pageId,
+					page_id: pageId || undefined,
 					model: this.selectedModel.value,
 					session_id: sessionId,
 					...(selectedIds.length ? { selected_block_ids: selectedIds } : {}),
@@ -1090,7 +1094,14 @@ export class AIChatController {
 		// 2. Restore the page draft + scripts from the pre-turn snapshot. restore_snapshot
 		// re-applies blocks, page data and the client-script set/content, then re-fetches
 		// the page (which refreshes activePageScripts), so scripts revert in the same step.
-		await this.pageStore.restoreSnapshot(snapshot);
+		// A turn on another page than the open one, or in the dashboard, has no canvas to
+		// reload here, so that page restores on the server.
+		const page = message.metadata?.pageId;
+		if (page && page !== this.pageId.value) {
+			await webPages.runDocMethod.submit({ name: page, method: "restore_snapshot", snapshot });
+		} else {
+			await this.pageStore.restoreSnapshot(snapshot);
+		}
 		// 3. Reload the (now truncated) chat — restoreSnapshot doesn't touch the session.
 		await this.loadSession();
 		this.scrollToBottom();
@@ -1120,14 +1131,14 @@ export class AIChatController {
 	}
 
 	async mount() {
-		if (this.pageId.value)
-			attachAIChatListeners(this.builderStore.realtime, this.pageId.value, this.handlers);
+		if (this.channel.value)
+			attachAIChatListeners(this.builderStore.realtime, this.channel.value, this.handlers);
 		if (this.builderStore.isAIEnabled) this.loadModels();
 		await this.loadSession();
 	}
 
 	unmount() {
-		if (this.pageId.value)
-			detachAIChatListeners(this.builderStore.realtime, this.pageId.value, this.handlers);
+		if (this.channel.value)
+			detachAIChatListeners(this.builderStore.realtime, this.channel.value, this.handlers);
 	}
 }

@@ -26,6 +26,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
+import frappe
+
 ToolSide = Literal["client", "server", "terminal"]
 
 
@@ -47,6 +49,11 @@ class Tool:
 	# A skill-bound tool is offered only once its skill is in the model's context:
 	# rarely used schemas stay off the rounds that never need them.
 	skill: str | None = None
+	# The step's line in the chat, (while running, once done), as in loop.TOOL_LABELS
+	label: tuple[str, str] | None = None
+	# A client tool that also changes another page, named in its `page` argument, on the server.
+	# A dashboard chat, with no canvas, gets it for that.
+	any_page: bool = False
 
 	def schema(self) -> dict:
 		return {
@@ -78,9 +85,14 @@ class ToolRegistry:
 		tool = self._tools.get(name)
 		return tool.side if tool else "client"
 
-	def schemas(self, skills: set[str] | None = None) -> list[dict]:
+	def schemas(self, skills: set[str] | None = None, has_page: bool = True) -> list[dict]:
+		"""A client tool acts on the turn's page, so a chat with no page gets one only if it can
+		change another page. work_on_page gives a chat a page, and then it gets them all."""
 		return [
-			tool.schema() for tool in self._tools.values() if not tool.skill or tool.skill in (skills or ())
+			tool.schema()
+			for tool in self._tools.values()
+			if (not tool.skill or tool.skill in (skills or ()))
+			and (has_page or tool.side != "client" or tool.any_page)
 		]
 
 	def names(self) -> list[str]:
@@ -128,4 +140,7 @@ def build_default_registry() -> ToolRegistry:
 	registry.extend(components.TOOLS)
 	registry.extend(skills.TOOLS)
 	registry.extend(plugins.TOOLS)
+	# the tools installed apps give Bob, through the builder_agent_tools hook
+	for method in frappe.get_hooks("builder_agent_tools"):
+		registry.extend(frappe.get_attr(method)())
 	return registry

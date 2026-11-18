@@ -47,20 +47,17 @@ class AISession:
 		return next((name for name in recent if name in spoken), recent[0])
 
 	@classmethod
-	def on_page(cls, page_id: str, user: str | None = None) -> dict:
-		"""Filters for a user's chats on a page: one is on every page it was used on
-		or changed, not only the one it started on."""
-		user = user or frappe.session.user
-		listed = frappe.get_all(
-			cls.PAGE_DOCTYPE, {"page": page_id, "parenttype": cls.DOCTYPE}, pluck="parent"
-		)
-		started = frappe.get_all(cls.DOCTYPE, {"page": page_id, "session_user": user}, pluck="name")
-		return {"name": ["in", list({*listed, *started}) or [""]], "session_user": user}
+	def of_user(cls, user: str | None = None) -> dict:
+		"""Filters for a user's chats. Bob is one window across the editor and the dashboard,
+		so the same chats show on every page."""
+		return {"session_user": user or frappe.session.user}
 
 	@classmethod
-	def can_open(cls, session_id: str, page_id: str) -> bool:
-		doc = frappe.db.exists(cls.DOCTYPE, session_id) and frappe.get_doc(cls.DOCTYPE, session_id)
-		return bool(doc) and doc.session_user == frappe.session.user and cls(doc).touches(page_id)
+	def can_open(cls, session_id: str) -> bool:
+		"""A user's chat opens from any page and the dashboard: Bob is one window that the
+		open chat follows. A message from another page moves the chat there (move_to)."""
+		owner = frappe.db.get_value(cls.DOCTYPE, session_id, "session_user")
+		return bool(owner) and owner == frappe.session.user
 
 	@classmethod
 	def create(cls, values: dict, model: str | None = None):
@@ -78,17 +75,14 @@ class AISession:
 		return cls(doc)
 
 	@classmethod
-	def get(cls, session_id: str, page_id: str | None = None, user: str | None = None):
+	def get(cls, session_id: str, user: str | None = None):
 		user = user or frappe.session.user
 		if not frappe.db.exists(cls.DOCTYPE, session_id):
 			frappe.throw(_("AI session not found"))
 		doc = frappe.get_doc(cls.DOCTYPE, session_id)
 		if doc.session_user != user:
 			frappe.throw(_("You do not have access to this AI session"))
-		session = cls(doc)
-		if page_id and not session.touches(page_id):
-			frappe.throw(_("AI session does not belong to this page"))
-		return session
+		return cls(doc)
 
 	@classmethod
 	def try_append_message(cls, session_id: str | None, role: str, content: str, **kwargs) -> str | None:
@@ -113,9 +107,6 @@ class AISession:
 	@property
 	def page(self):
 		return self._doc.page
-
-	def touches(self, page_id: str) -> bool:
-		return self._doc.page == page_id or self.lists(page_id)
 
 	def lists(self, page_id: str) -> bool:
 		return any(row.page == page_id for row in self._doc.pages)
@@ -178,6 +169,19 @@ class AISession:
 			order_by="creation desc",
 		)
 		return cls.load_metadata(metadata_json)
+
+	@classmethod
+	def last_working_page(cls, session_id: str | None) -> dict | None:
+		"""The page the latest reply of a dashboard chat worked on, if any."""
+		if not session_id:
+			return None
+		metadata_json = frappe.db.get_value(
+			cls.MESSAGE_DOCTYPE,
+			{"session": session_id, "role": "assistant"},
+			"metadata_json",
+			order_by="creation desc",
+		)
+		return cls.load_metadata(metadata_json).get("workingPage")
 
 	@staticmethod
 	def row_to_message(row: dict) -> dict:

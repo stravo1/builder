@@ -5,7 +5,7 @@ from unittest.mock import patch
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from builder.ai import llm
+from builder.ai import llm, locks
 from builder.ai.agent.edits import EditScript
 from builder.ai.agent.loop import AgentRunner
 from builder.ai.agent.page_changes import PageChanges, apply_page_changes
@@ -221,6 +221,87 @@ class TestPageChangesInATurn(FrappeTestCase):
 		self.assertEqual(steps[0]["summary"], "Preparing changes to About")
 		self.assertEqual(steps[-1]["summary"], "Prepared for About: Change “About us” to “Our story”")
 		self.assertFalse([e for e, _ in self.events if e.startswith("ai_chat_tool_batch")])
+
+	def test_a_saved_draft_tells_open_views_of_the_page(self):
+		from builder.ai.page_writer import save_draft_blocks
+
+		with patch("frappe.publish_realtime") as publish:
+			save_draft_blocks(self.other, load_page_root(self.other))
+
+		self.assertEqual(publish.call_args.args[0], "list_update")
+		self.assertEqual(publish.call_args.args[1]["name"], self.other)
+
+	def test_a_dashboard_chat_changes_a_page_through_the_card(self):
+		self.session_id = AISession.create({"page": None}).name
+		self.open_page = None
+
+		self.run_turn([("edit_page", {"page": self.other, "ops": '@abouthead2 "Our story"'})], "Ready.")
+
+		self.assertEqual(texts(self.other)["abouthead2"], "About us")
+		card = self.messages()[-1]
+		self.assertEqual(card["metadata"]["kind"], "page_changes")
+		self.assertEqual(card["metadata"]["payload"]["pages"][0]["page_id"], self.other)
+
+	def test_a_dashboard_chat_works_on_the_page_it_names(self):
+		self.session_id = AISession.create({"page": None}).name
+		self.open_page = None
+
+		self.run_turn(
+			[("work_on_page", {"page": self.other})],
+			[("edit_page", {"ops": '@abouthead2 "Our story"'})],
+			"Done.",
+		)
+
+		self.assertEqual(texts(self.other)["abouthead2"], "Our story")
+		reply = self.messages()[-1]
+		self.assertEqual(
+			(reply["metadata"]["workingPage"]["page_id"], reply["metadata"]["pageId"]), (self.other,) * 2
+		)
+		self.assertIn("revertSnapshot", reply["metadata"])
+
+	def test_an_editor_chat_works_on_another_page_at_once(self):
+		self.run_turn(
+			[("work_on_page", {"page": self.other})],
+			[("edit_page", {"ops": '@abouthead2 "Our story"'})],
+			"Done.",
+		)
+
+		self.assertEqual(
+			(texts(self.other)["abouthead2"], texts(self.open_page)["homehead2"]), ("Our story", "Welcome")
+		)
+		self.assertEqual(self.messages()[-1]["metadata"]["workingPage"]["page_id"], self.other)
+		# the user's canvas shows their own page, so the edits go to the other page's editors
+		canvas_events = [event for event, _ in self.events if "tool_batch" in event]
+		self.assertTrue(canvas_events)
+		self.assertTrue(all(event.endswith(self.other) for event in canvas_events))
+
+	def test_a_turn_switches_before_it_changes_its_page(self):
+		runner = AgentRunner("x", "m", "k", page_id=self.open_page, session_id=self.session_id)
+		runner.applied_operations.append({"tool_name": "edit_page"})
+
+		self.assertIn("FAILED", runner.work_on_page(self.other))
+		self.assertEqual(runner.page_id, self.open_page)
+
+	def test_a_dashboard_turn_works_on_one_page(self):
+		runner = AgentRunner("x", "m", "k", session_id=AISession.create({"page": None}).name)
+		self.addCleanup(lambda: [locks.release(key, token) for key, token in runner.held_locks])
+
+		context = runner.work_on_page(self.other)
+		second = runner.work_on_page(self.open_page)
+
+		self.assertIn(f"id {self.other}", context)
+		self.assertIn("dashboard", context)
+		self.assertIn("FAILED", second)
+		self.assertEqual(runner.page_id, self.other)
+
+	def test_the_next_dashboard_turn_hears_of_the_last_working_page(self):
+		self.session_id = AISession.create({"page": None}).name
+		self.open_page = None
+		self.run_turn([("work_on_page", {"page": self.other})], "Read it.")
+
+		context = AgentRunner("x", "m", "k", session_id=self.session_id).build_open_page_context()
+
+		self.assertIn(f"work_on_page('{self.other}')", context)
 
 	def test_the_editors_changed_blocks_land_on_the_reply_not_the_card(self):
 		self.run_turn([("edit_page", {"page": self.other, "ops": '@abouthead2 "Our story"'})], "Ready.")

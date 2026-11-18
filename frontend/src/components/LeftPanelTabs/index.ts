@@ -6,7 +6,7 @@ import LayersTab from "@/components/LeftPanelTabs/LayersTab.vue";
 import useBuilderStore from "@/stores/builderStore";
 import { createRegistry, type RegistryItem } from "@/utils/createRegistry";
 import type { KeyboardShortcutCombo } from "frappe-ui";
-import { defineAsyncComponent, type Component } from "vue";
+import type { Component } from "vue";
 import { __ } from "@/translation";
 
 export type LeftPanelTab = RegistryItem & {
@@ -83,16 +83,4 @@ leftPanelTabs.register({
 	shortcut: "Mod+Shift+V",
 	action: () => (builderStore.showTokenManager = !builderStore.showTokenManager),
 	isActive: () => builderStore.showTokenManager,
-});
-
-leftPanelTabs.register({
-	name: "Chat",
-	keepOpenOnSelection: true,
-	label: __("Bob AI"),
-	icon: "lucide-sparkle",
-	// the panel brings its own markdown, yaml and sanitiser stack, so it waits to be opened
-	component: defineAsyncComponent(() => import("@/components/BuilderAIChatPanel.vue")),
-	shortcut: "Mod+Shift+O",
-	// the composer's controls and the chat bubbles stop fitting below this
-	minWidth: 300,
 });

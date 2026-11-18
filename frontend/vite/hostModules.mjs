@@ -16,13 +16,6 @@ export const HOST_MODULES = {
 	"frappe-ui": "src/host/frappe-ui.ts",
 	"frappe-ui/editor": "src/host/frappe-ui-editor.ts",
 	"frappe-ui/list": "src/host/frappe-ui-list.ts",
-	"@framework/ui/ListView": "src/host/framework-ui-list-view.ts",
-	"@framework/ui/Filter": "src/host/framework-ui-filter.ts",
-	"@framework/ui/SortBy": "src/host/framework-ui-sort-by.ts",
-	"@framework/ui/QuickFilter": "src/host/framework-ui-quick-filter.ts",
-	"@framework/ui/ColumnSettings": "src/host/framework-ui-column-settings.ts",
-	"@framework/ui/experimental/List": "src/host/framework-ui-experimental-list.ts",
-	vuedraggable: "src/host/vuedraggable.ts",
 };
 
 /**

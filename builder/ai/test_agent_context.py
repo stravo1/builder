@@ -25,7 +25,7 @@ class TestAgentContext(FrappeTestCase):
 		with patch("frappe.get_hooks", side_effect=hooks):
 			self.assertEqual(runner.build_agent_context(), "Instructions for page-x")
 
-	def test_no_open_page_means_no_app_instructions(self):
+	def test_a_dashboard_chat_asks_apps_with_no_page(self):
 		runner = AgentRunner("hi", model="m", api_key="k")
 		with patch("frappe.get_hooks", side_effect=hooks):
-			self.assertEqual(runner.build_agent_context(), "")
+			self.assertEqual(runner.build_agent_context(), "Instructions for None")

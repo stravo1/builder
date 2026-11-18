@@ -2,7 +2,7 @@
 
 The build tooling for trusted Frappe Builder plugins.
 
-A trusted plugin is a Vue plugin that the Builder editor loads into its own app. The plugin imports `builder`, `vue`, `pinia`, `frappe-ui`, `frappe-ui/editor`, `frappe-ui/list`, the `@framework/ui` list view modules and `vuedraggable` from the editor, so this package has no runtime code. It gives a plugin project:
+A trusted plugin is a Vue plugin that the Builder editor loads into its own app. The plugin imports `builder`, `vue`, `pinia`, `frappe-ui`, `frappe-ui/editor` and `frappe-ui/list` from the editor, so this package has no runtime code. It gives a plugin project:
 
 - the Vite plugin that builds a package Builder can load, and serves the plugin to the editor in development
 - the types of the `builder` module
@@ -113,6 +113,8 @@ The editor loads the plugin's styles before its own. Where a plugin class and an
 ```
 
 A manifest has no `permissions` field. A plugin runs with the access of the user who opens the editor.
+
+The plugin's details page in **Settings** > **Plugins** shows `DESCRIPTION.md`, written for its users. Without one, it shows `README.md`, which is for developers.
 
 ## Develop
 

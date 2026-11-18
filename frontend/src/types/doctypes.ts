@@ -13,7 +13,7 @@ interface DocType {
     idx?: number;
   }
   
-// Last updated: 2026-10-24 12:00:00.000000
+// Last updated: 2026-11-02 16:00:00.000000
 export interface BuilderSettings extends DocType {
   /** Script: Code */
   script?: string;
@@ -43,6 +43,8 @@ export interface BuilderSettings extends DocType {
   restrict_click_handlers: 0 | 1;
   /** AI API Key: Password */
   ai_api_key?: string;
+  /** Default AI Model: Data */
+  default_ai_model?: string;
   /** Persona Survey Done: Check */
   persona_survey_done: 0 | 1;
 }
@@ -77,6 +79,8 @@ export interface BuilderProjectFolder extends DocType {
   folder_name?: string;
   /** Is Standard: Check */
   is_standard: 0 | 1;
+  /** Icon: Data */
+  icon?: string;
 }
 
 // Last updated: 2024-09-19 13:07:00.935349
@@ -197,7 +201,7 @@ export interface BuilderComponent extends DocType {
   component_data_script?: string;
 }
 
-// Last updated: 2026-10-20 12:00:00.000000
+// Last updated: 2026-11-02 14:00:00.000000
 export interface BuilderAIProvider extends DocType {
   /** Provider Name: Data */
   provider_name: string;
@@ -211,6 +215,8 @@ export interface BuilderAIProvider extends DocType {
   api_base?: string;
   /** API Key: Password */
   api_key?: string;
+  /** From Site Config: Check */
+  from_site_config: 0 | 1;
 }
 
 // Last updated: 2026-10-27 12:00:00.000000

@@ -182,3 +182,25 @@ class TestChatPrivacy(FrappeTestCase):
 			frappe.delete_doc("Builder Page", page)
 
 		self.assertFalse(frappe.db.exists("Builder AI Session", session))
+
+
+def apply_app_action(payload: dict) -> str:
+	return f"applied {payload['what']}"
+
+
+class TestAppActions(FrappeTestCase):
+	"""An app adds its own confirm-gated actions through the builder_agent_actions hook."""
+
+	def hooks(self, hook, *args, **kwargs):
+		if hook == "builder_agent_actions":
+			return {"app_action": [f"{__name__}.apply_app_action"]}
+		return {}
+
+	def test_an_app_action_applies_through_its_method(self):
+		with patch.object(pending.frappe, "get_hooks", side_effect=self.hooks):
+			self.assertEqual(pending.apply_pending_action("app_action", {"what": "it"}), "applied it")
+
+	def test_an_unknown_action_is_still_refused(self):
+		with patch.object(pending.frappe, "get_hooks", side_effect=self.hooks):
+			with self.assertRaises(frappe.ValidationError):
+				pending.apply_pending_action("not_registered", {})

@@ -299,7 +299,9 @@ def readable_doctype(doctype: str | None) -> str:
 	return BUILDER_DOCTYPE_LABELS.get(doctype) or f"{doctype} records"
 
 
-def activity_summary(tool_name: str, args: dict, tree=None, done: bool = True) -> str:
+def activity_summary(
+	tool_name: str, args: dict, tree=None, done: bool = True, label: tuple[str, str] | None = None
+) -> str:
 	"""A short human line for the chat's timeline ("Read block: Hero"). Written for
 	someone who asked for a web page, not someone who knows the tool API. The voice
 	follows the step's status: running or done."""
@@ -312,7 +314,7 @@ def activity_summary(tool_name: str, args: dict, tree=None, done: bool = True) -
 	def voice(running: str, finished: str) -> str:
 		return finished if done else running
 
-	if pair := TOOL_LABELS.get(tool_name):
+	if pair := label or TOOL_LABELS.get(tool_name):
 		return voice(*pair)
 	if tool_name == "create_page" and args.get("title"):
 		return f"{voice('Proposing', 'Proposed')} a new page: {args['title']}"
@@ -357,6 +359,18 @@ def activity_summary(tool_name: str, args: dict, tree=None, done: bool = True) -
 	return tool_name.replace("_", " ").capitalize()
 
 
+# A chat with no page open lives in the dashboard. Its events reach the user on this channel.
+DASHBOARD_CHANNEL = "dashboard"
+DASHBOARD_CONTEXT = (
+	"No page is open: the user chats from the Builder dashboard, so there is no canvas and no "
+	"selected block. read_page reads any page, and create_page proposes a new one. To change an "
+	"existing page, call work_on_page with it: it becomes this turn's working page, and every "
+	"page tool works on it as in the editor, generate_page for an empty page included. Its edits "
+	"apply at once, and the user can revert the turn. One page per turn. Do not ask the user to "
+	"open the page."
+)
+
+
 class AgentRunner:
 	def __init__(
 		self,
@@ -386,8 +400,8 @@ class AgentRunner:
 		self.page_id = page_id
 		self.open_page_id = open_page_id or page_id
 		self.session_id = session_id
-		# The realtime channel: the page the chat is attached to.
-		self.channel = self.open_page_id or session_id
+		# The realtime channel: the page the chat is attached to, or the dashboard's chat.
+		self.channel = self.open_page_id or DASHBOARD_CHANNEL
 		# Edits to other pages and new pages, held for the user's OK at turn end.
 		folder = frappe.db.get_value("Builder Page", self.open_page_id, "project_folder") if page_id else ""
 		self.page_changes = PageChanges(folder)
@@ -669,7 +683,7 @@ class AgentRunner:
 		pulled on demand (run_python, read_page, query_records) — nothing is pre-baked
 		into the context."""
 		if not self.page_id:
-			return ""
+			return DASHBOARD_CONTEXT + self.last_working_page_note()
 		row = frappe.db.get_value(
 			"Builder Page", self.page_id, ["page_title", "route", "published", "staging"], as_dict=True
 		)
@@ -680,9 +694,9 @@ class AgentRunner:
 		if self.off_screen:
 			return (
 				f"Working page: '{row.page_title or self.page_id}', id {self.page_id}, route {route}, "
-				f"{state}. A new page the user approved. They have '{page_row(self.open_page_id)['title']}' "
-				"open in the editor, where this chat is, so they follow your progress here, not on a "
-				"canvas. Everything this turn applies to the working page unless edit_page names another."
+				f"{state}. {self.working_page_place()} so they follow your progress here, not on a "
+				"canvas, and have no block selected on it. Everything this turn applies to the working "
+				"page unless edit_page names another."
 			)
 		context = (
 			f"Open page: '{row.page_title or self.page_id}' — id {self.page_id}, route {route}, {state}."
@@ -692,12 +706,30 @@ class AgentRunner:
 				f" The user is viewing it in {self.canvas_theme} mode in the editor, so what they "
 				f"describe seeing is the {self.canvas_theme}-mode rendering."
 			)
-		return context
+		return context + self.last_working_page_note()
+
+	def working_page_place(self) -> str:
+		"""Where the user is while the turn works on a page that is not on their canvas."""
+		if not self.open_page_id:
+			return "The user is in the dashboard, where this chat is,"
+		open_title = page_row(self.open_page_id)["title"]
+		if self.build_page:
+			return f"A new page the user approved. They have '{open_title}' open in the editor, where this chat is,"
+		return f"You switched to it from '{open_title}', which the user has open in the editor, where this chat is,"
+
+	def last_working_page_note(self) -> str:
+		"""A dashboard turn starts with no page, and a follow-up most often means the last one."""
+		page = AISession.last_working_page(self.session_id)
+		if not page:
+			return ""
+		return (
+			f" Last turn you worked on '{page['title']}' ({page['route']}). To go on with it, "
+			f"call work_on_page('{page['page_id']}')."
+		)
 
 	def build_agent_context(self) -> str:
-		"""Instructions installed apps give for the open page, through the builder_agent_context hook."""
-		if not self.page_id:
-			return ""
+		"""Instructions installed apps give through the builder_agent_context hook: for the
+		open page, or with None for a chat in the dashboard."""
 		texts = (
 			frappe.get_attr(method)(self.page_id) for method in frappe.get_hooks("builder_agent_context")
 		)
@@ -870,7 +902,7 @@ class AgentRunner:
 		stream = llm.complete_with_tools(
 			self.loop_model,
 			messages,
-			self.registry.schemas(self.round_skills),
+			self.registry.schemas(self.round_skills, has_page=bool(self.page_id)),
 			self.effort.params("agent"),
 			api_key=self.api_key,
 			stream=True,
@@ -1045,6 +1077,27 @@ class AgentRunner:
 		self.pending_state = capture_page_state(page_id)
 		return ""
 
+	def work_on_page(self, page_id: str) -> str:
+		"""Take another page as the turn's working page, as an off-screen build does: every
+		page tool works on it, and the turn stays revertable. A turn keeps one revert
+		snapshot, so it switches once, before it changes anything. Returns the page's
+		context, which the turn started without."""
+		if self.page_id == page_id:
+			return f"'{page_row(page_id)['title']}' is already this turn's working page."
+		if self.off_screen or self.applied_operations or self.revert_snapshot:
+			return "FAILED: this turn has its working page. Finish there; the next turn can switch."
+		if failure := self.load_page(page_id):
+			return failure
+		self.page_id = page_id
+		# the user's selection is on their canvas, which this page is not
+		self.selected_block_ids = []
+		blocks = (
+			self.build_open_page_context(),
+			self.build_agent_context(),
+			self.build_initial_page_context(),
+		)
+		return "\n\n".join(block for block in blocks if block)
+
 	# --- turn timeline ------------------------------------------------------
 
 	def add_step(self, kind: str, **fields) -> dict:
@@ -1100,15 +1153,16 @@ class AgentRunner:
 	def begin_activity(self, tool_name: str, args: dict) -> dict | None:
 		if tool_name in ACTIVITY_SILENT:
 			return None
+		label = tool.label if (tool := self.registry.get(tool_name)) else None
 		entry = self.add_step(
 			"tool",
 			tool=tool_name,
-			summary=activity_summary(tool_name, args, self.tree, done=False),
+			summary=activity_summary(tool_name, args, self.tree, done=False, label=label),
 			status="running",
 		)
 		self.step_starts[entry["id"]] = time.monotonic()
 		# Resolved now, while args/tree still describe the call; finish_step swaps it in.
-		self.step_done_summaries[entry["id"]] = activity_summary(tool_name, args, self.tree)
+		self.step_done_summaries[entry["id"]] = activity_summary(tool_name, args, self.tree, label=label)
 		return entry
 
 	def end_activity(self, entry: dict | None) -> None:
@@ -1173,6 +1227,9 @@ class AgentRunner:
 		side = tool.side if tool else "client"
 		if side == "client" and tool and tool.handler and op["tool_name"] in SCRIPT_TWIN_TOOLS:
 			return "server"
+		# a client tool works on the open page's tree, and a dashboard chat has none
+		if side == "client" and not self.page_id:
+			return "no_page"
 		return side
 
 	def other_page(self, op: dict) -> tuple[str | None, str] | None:
@@ -1181,7 +1238,8 @@ class AgentRunner:
 		if "target" not in op:
 			from builder.ai.agent.tools.query import resolve_page_reference
 
-			ref = str(op["args"].get("page") or "").strip() if op["tool_name"] == "edit_page" else ""
+			tool = self.registry.get(op["tool_name"])
+			ref = str(op["args"].get("page") or "").strip() if tool and tool.any_page else ""
 			target = resolve_page_reference(ref) if ref else (self.page_id, "")
 			op["target"] = None if target[0] == self.page_id else target
 		return op["target"]
@@ -1276,6 +1334,8 @@ class AgentRunner:
 		kind = self.op_kind(op)
 		if kind == "client":
 			return client_results[id(op)]
+		if kind == "no_page":
+			return f"FAILED: {op['tool_name']} needs a page open in the editor, and this chat has none."
 		if kind == "other_page":
 			return self.edit_other_page(op)
 		tool = self.registry.get(op["tool_name"])
@@ -1631,6 +1691,9 @@ class AgentRunner:
 			final_metadata["revertSnapshot"] = self.revert_snapshot
 			# a chat goes on across pages, and a snapshot only restores onto its own
 			final_metadata["pageId"] = self.page_id
+		if self.off_screen and not self.build_page:
+			# the next turn starts on the chat's own page again, and is told of this one
+			final_metadata["workingPage"] = page_row(self.page_id)
 		if self.plugins_written:
 			final_metadata["plugins"] = self.plugins_written
 		if self.web_sources:
