@@ -46,14 +46,15 @@ class BuilderToken(StandardFileSync, Document):
 				record_list=[["Builder Token", self.name, "builder_token"]], record_module="builder"
 			)
 
-		if self.has_value_changed("is_standard") and not self.is_standard:
+		# every site of a bench serves the app folder, so only developer mode changes it
+		if self.has_value_changed("is_standard") and not self.is_standard and frappe.conf.developer_mode:
 			delete_folder("builder", "builder_token", self.name)
 
 		self.export_standard_files()
 
 	def on_trash(self):
 		clear_builder_token_cache()
-		if self.is_standard:
+		if self.is_standard and frappe.conf.developer_mode:
 			delete_folder("builder", "builder_token", self.name)
 		self.delete_standard_exported_files()
 

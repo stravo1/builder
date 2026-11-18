@@ -4,6 +4,7 @@
 import json
 import os
 import tempfile
+from unittest.mock import patch
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
@@ -12,6 +13,8 @@ from builder.builder.doctype.builder_page.builder_page import get_font_family, r
 from builder.builder.doctype.builder_token.builder_token import get_css_variables, get_variables_css
 from builder.builder.patches.refactor_builder_variables import build_maps, rewrite_doctype_blocks
 from builder.utils import import_fixture_record, normalize_renamed_doc, sync_builder_tokens
+
+DELETE_FOLDER = "builder.builder.doctype.builder_token.builder_token.delete_folder"
 
 
 def make_token(**kwargs):
@@ -39,6 +42,20 @@ class TestBuilderToken(FrappeTestCase):
 	def test_matching_dark_value_renders_once(self):
 		token = make_token(token_name="monotone", value="#ffffff", dark_value="#ffffff")
 		self.assertIn(f"--{token.name}: #ffffff;", get_variables_css())
+
+	# Every site of a bench serves the app folder, so only developer mode may change it.
+	# A site of a frappe-sdmt cell never runs in developer mode.
+	def test_deleting_a_standard_token_leaves_the_app_folder_alone(self):
+		with patch.dict(frappe.conf, {"developer_mode": 0}), patch(DELETE_FOLDER) as delete_folder:
+			make_token(token_name="shipped", is_standard=1).delete()
+		delete_folder.assert_not_called()
+
+	def test_unmarking_a_standard_token_leaves_the_app_folder_alone(self):
+		with patch.dict(frappe.conf, {"developer_mode": 0}), patch(DELETE_FOLDER) as delete_folder:
+			token = make_token(token_name="unmarked", is_standard=1)
+			token.is_standard = 0
+			token.save()
+		delete_folder.assert_not_called()
 
 	def test_deleting_a_token_drops_it_from_the_css(self):
 		token = make_token(token_name="short-lived", value="#333333")
