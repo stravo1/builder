@@ -60,25 +60,25 @@ export default {
 
 `builder` gives:
 
-| Export                                                                                          | What it gives                                                                         |
-| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `leftPanelTabs`, `toolbarItems`, `blockContextMenuOptions`, `propertySections`, `settingsItems` | The registries of the editor surfaces. `register` answers with its own unregister.    |
-| `dashboardItems`                                                                                | Views of the dashboard, beside All Pages. Each opens at `/dashboard/<name>`.          |
+| Export                                                                                          | What it gives                                                                      |
+| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `leftPanelTabs`, `toolbarItems`, `blockContextMenuOptions`, `propertySections`, `settingsItems` | The registries of the editor surfaces. `register` answers with its own unregister. |
 | `blockTemplates`                                                                                | Block templates in the Block Templates panel. `getBlock()` gives the block to insert. |
-| `usePageStore`, `useCanvasStore`, `useBuilderStore`                                             | The editor's stores                                                                   |
-| `blockController`, `Block`                                                                      | The selected blocks, and the block tree                                               |
-| `lucideIcon(name)`                                                                              | Any lucide icon, as a component for an `icon` field                                   |
-| `insertBlock(options)`, `startBlockDrag(event, options)`                                        | Put a new block on the page, on click or by dragging it onto the canvas               |
-| `StylePropertyControl`, `AttributePropertyControl`, `BasePropertyControl`                       | The controls of the property panel, for a plugin's section                            |
-| `OptionToggle`, `ColorInput`, `RangeInput`                                                      | The widgets those controls draw instead of a text input                               |
+| `dashboardItems`                                                                                | Views of the dashboard, beside All Pages. Each opens at `/dashboard/<name>`.      |
+| `usePageStore`, `useCanvasStore`, `useBuilderStore`                                             | The editor's stores                                                                |
+| `blockController`, `Block`                                                                      | The selected blocks, and the block tree                                            |
+| `lucideIcon(name)`                                                                              | Any lucide icon, as a component for an `icon` field                                |
+| `insertBlock(options)`, `startBlockDrag(event, options)`                                        | Put a new block on the page, on click or by dragging it onto the canvas            |
+| `StylePropertyControl`, `AttributePropertyControl`, `BasePropertyControl`                       | The controls of the property panel, for a plugin's section                     |
+| `OptionToggle`, `ColorInput`, `RangeInput`                                                      | The widgets those controls draw instead of a text input                            |
 
 The `context` gives:
 
 | Field                                                  | What it gives                                                                   |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| `name`, `label`, `version`                             | The installed plugin                                                            |
+| `name`, `label`, `version`                             | The installed plugin                                                         |
 | `state.get()`, `state.set(values)`, `state.unset(key)` | Values stored for the user who opens the editor. `set` merges at the top level. |
-| `setOpenHandler(handler)`                              | What the Open button in the plugin's details page runs                          |
+| `setOpenHandler(handler)`                              | What the Open button in the plugin's details page runs                       |
 
 ### Every other module
 
